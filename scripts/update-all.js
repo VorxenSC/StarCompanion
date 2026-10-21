@@ -2,7 +2,7 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const steps = ['collect-craft.js', 'collect-miner.js', 'collect-wiki.js', 'collect-ships.js', 'collect-cstone.js', 'build-db.js'];
+const steps = ['collect-craft.js', 'collect-miner.js', 'collect-wiki.js', 'collect-ships.js', 'collect-market.js', 'collect-cstone.js', 'build-db.js'];
 let failed = 0;
 for (const step of steps) {
   console.log(`\n=== ${step}`);

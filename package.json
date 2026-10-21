@@ -14,6 +14,7 @@
     "collect:cstone": "node scripts/collect-cstone.js",
     "collect:wiki": "node scripts/collect-wiki.js",
     "collect:ships": "node scripts/collect-ships.js",
+    "collect:market": "node scripts/collect-market.js",
     "build:db": "node scripts/build-db.js",
     "update-data": "node scripts/update-all.js",
     "icon": "electron scripts/make-icon.js",

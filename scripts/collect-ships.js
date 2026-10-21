@@ -28,17 +28,21 @@ function flattenPorts(ports, out = []) {
 
 // RSI pledge store listings (USD), as imported daily by the wiki from robertsspaceindustries.com.
 // The standalone-ship SKU is the one the store's "Standalone Ships" page shows; others are upgrades/packs.
+// Warbond = a discounted offer that can only be paid with new money (not store credit); it is the
+// standalone page's "-Warbond" twin. All offers are kept (on sale first) so a live warbond is never cut.
 function rsiStore(v) {
   const skus = (v.skus || []).filter((s) => s.source === 'pledge_store' && s.price != null);
   if (!skus.length) return null;
-  const rank = (s) => (/\/Standalone-Ships\//i.test(s.url) ? 0 : s.is_warbond ? 1 : s.is_package ? 3 : 2);
+  const standalone = (s) => /\/Standalone-Ships\//i.test(s.url);
+  const rank = (s) => (s.available ? 0 : 10) + (standalone(s) ? 0 : s.is_package ? 3 : 2) + (s.is_warbond ? 1 : 0);
   skus.sort((a, z) => rank(a) - rank(z) || a.price - z.price);
-  return skus.slice(0, 4).map((s) => ({
+  return skus.slice(0, 12).map((s) => ({
     title: s.title,
     usd: s.price,
     discountedUsd: s.discounted_price,
     warbond: !!s.is_warbond,
     pack: !!s.is_package,
+    standalone: standalone(s),
     available: !!s.available,
     url: s.url,
     checked: s.imported_at?.slice(0, 10),

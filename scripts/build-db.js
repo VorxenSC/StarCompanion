@@ -28,6 +28,7 @@ const miner = load('miner.json');
 const cstone = load('cstone.json');
 const wiki = load('wiki.json');
 const ships = load('ships.json');
+const market = load('market.json');
 
 const entries = [];
 const add = (e) => { e.id = `${e.t}:${entries.length}`; entries.push(e); return e; };
@@ -83,6 +84,7 @@ for (const w of wiki?.items || []) {
   const it = itemFor(w.name);
   it.d.sources.push('wiki');
   it.d.wikiUrl = w.url;
+  if (w.uuid) it.d.uuid = w.uuid; // game uuid: matches UEX items exactly
   it.d.classification = w.classification;
   it.d.type = [w.type, w.subType].filter(Boolean).join(' / ') || undefined;
   if (w.manufacturer) it.d.manufacturer = w.manufacturer;
@@ -153,8 +155,23 @@ for (const ship of new Set(shipByName.values())) {
   add(ship);
 }
 
+// UEX player marketplace: every item with a UEX id links to its filtered marketplace page; items
+// listed right now also get the approximate asking price. Matched by game uuid, else by name.
+const uexByUuid = new Map();
+const uexByName = new Map();
+for (const u of market?.items || []) {
+  if (u.uuid) uexByUuid.set(u.uuid, u);
+  if (!uexByName.has(norm(u.name))) uexByName.set(norm(u.name), u);
+}
+
 for (const it of items.values()) {
   if (shipByName.has(norm(it.n))) continue; // wiki lists ships as items too; the ship entry wins
+  const uex = (it.d.uuid && uexByUuid.get(it.d.uuid)) || uexByName.get(norm(it.n));
+  if (uex) {
+    it.d.uexId = uex.id;
+    if (market.market[uex.id]) it.d.market = market.market[uex.id];
+  }
+  delete it.d.uuid;
   const bp = bpByName.get(norm(it.n));
   if (bp) it.d.blueprint = bp.id;
   // Same shop reported by several sources: keep the first (cstone > wiki > uex > scminer order of insertion).
@@ -229,6 +246,7 @@ const meta = {
     'finder.cstone.space': cstone && { fetchedAt: cstone.fetchedAt },
     'starcitizen.tools': wiki && { fetchedAt: wiki.fetchedAt },
     'uexcorp.space (prices, as used by spviewer)': ships && { fetchedAt: ships.fetchedAt },
+    'uexcorp.space marketplace': market && { fetchedAt: market.fetchedAt },
   },
   counts: entries.reduce((acc, e) => ((acc[e.t] = (acc[e.t] || 0) + 1), acc), {}),
 };

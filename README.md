@@ -1,6 +1,6 @@
 # Star Companion by Vorxen
 
-An in-game search overlay for Star Citizen. Press **F8**, type, and see where to buy an item, how to
+An in-game search overlay for Star Citizen. Press **Ctrl + ↑**, type, and see where to buy an item, how to
 craft it, which missions reward a blueprint, where to mine an ore and what each ship costs, in aUEC
 and in USD.
 
@@ -14,10 +14,10 @@ In `dist/`:
 - `StarCompanion-<version>-setup.exe`: installer, with desktop and Start menu shortcuts.
 - `StarCompanion-<version>-portable.exe`: runs without installing.
 
-When closed, Star Companion is a small, faint icon that stays on screen. Click it (or press **F8**)
+When closed, Star Companion is a small, faint icon that stays on screen. Click it (or press **Ctrl + ↑**)
 and the search bar unfolds out of it toward the middle of the screen: right-to-left when the icon is
 on the right half, left-to-right when it is on the left. Closing folds the bar back into the icon.
-Drag the icon to place it anywhere; the tray menu can turn it off, in which case F8 alone opens it.
+Drag the icon to place it anywhere; the tray menu can turn it off, in which case the shortcut alone opens it.
 
 Run Star Citizen in **Borderless** mode. No overlay can draw over exclusive fullscreen. The first
 launch shows a short "Before you start" notice with these requirements; tick "Don't show this
@@ -37,7 +37,7 @@ release tagged `v<version>` with `StarCompanion-<version>-setup.exe`, its `.bloc
 
 | Key / action | What it does |
 |---|---|
-| F8 | open/close (configurable) |
+| Ctrl + ↑ | open/close (default; click the key in the bar to change it) |
 | ↑ ↓ | move through results |
 | Enter | open the selected result |
 | Tab / Shift+Tab | filter by type (all, items, ships, blueprints, missions, minerals, locations) |

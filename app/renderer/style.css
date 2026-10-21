@@ -258,6 +258,11 @@ a:hover, .link:hover { text-decoration: underline; }
 .pill { display: inline-block; padding: 2px 8px; margin: 2px 4px 2px 0; border: 1px solid var(--line); border-radius: 2px; font-size: 12px; }
 .links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 22px; padding-top: 10px; border-top: 1px solid var(--line-soft); font: 11px var(--mono); letter-spacing: 0.06em; }
 
+/* Warbond tag: discounted, new money only. */
+.badge-warbond { display: inline-block; padding: 1px 6px; border: 1px solid var(--price); border-radius: 2px; font: 500 10px var(--mono); letter-spacing: 0.12em; color: var(--price); vertical-align: middle; }
+.headline-value .badge-warbond { font-size: 11px; }
+.note + .note, table + .note { margin-top: 6px; }
+
 /* ---------- Startup notice ---------- */
 .notice { padding: 22px; display: flex; flex-direction: column; gap: 6px; }
 .notice .detail-name { font-size: 28px; margin-bottom: 10px; }

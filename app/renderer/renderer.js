@@ -86,6 +86,8 @@ function viewItem(e) {
     .filter(([k]) => k !== 'MANUFACTURER')
     .map(([k, v]) => [k.charAt(0) + k.slice(1).toLowerCase(), v]);
   const cheapest = d.shops?.filter((s) => s.price > 0).sort((a, z) => a.price - z.price)[0];
+  const m = d.market;
+  const uexUrl = d.uexId && `https://uexcorp.space/marketplace/?id_item=${d.uexId}`;
   return {
     facts: [
       ['Manufacturer', d.manufacturer],
@@ -94,6 +96,7 @@ function viewItem(e) {
       ['Grade', d.grade],
       ['Class', d.class],
       ['Lowest price', cheapest && auec(cheapest.price)],
+      ['Player market', m && h('span', null, h('span', { class: 'price' }, `~${fmt(m.approx)} aUEC`))],
       ['Craftable', d.craftable],
       ['Loot', d.lootable ? 'Can be found as loot' : null],
       ...attrs,
@@ -104,8 +107,20 @@ function viewItem(e) {
         'Where to buy',
         d.shops?.length ? shopsTable(d.shops) : note(d.lootable ? 'Not sold in any known shop — found as loot.' : 'No known shop in the sources.'),
       ),
+      (m || uexUrl) &&
+        section(
+          'Player market (UEX)',
+          m
+            ? table(
+                [['Approx. asking price', ''], ['Range', 'num'], ['Offers', 'num'], ['Latest', 'dim']],
+                [[auec(m.approx), h('span', null, auec(m.min), ' – ', auec(m.max)), `${m.sellCount} selling${m.buyCount ? ` · ${m.buyCount} buying` : ''}`, m.newest]],
+              )
+            : note('Not listed by players right now.'),
+          m && note('Median of open player sell offers on the UEX marketplace; quality, pips and bundles vary, so check the listings.'),
+          uexUrl && h('p', { class: 'note' }, link('Open the UEX marketplace filtered for this item ↗', uexUrl)),
+        ),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),
-      links([['cstone', d.cstoneUrl], ['Wiki', d.wikiUrl], ['scminer', d.minerUrl]]),
+      links([['UEX market', uexUrl], ['cstone', d.cstoneUrl], ['Wiki', d.wikiUrl], ['scminer', d.minerUrl]]),
     ],
   };
 }
@@ -113,7 +128,12 @@ function viewItem(e) {
 function viewShip(e) {
   const d = e.d;
   const store = d.store || [];
-  const standalone = store.find((s) => !s.pack) || store[0];
+  // The ship's own price: its standalone listing (never a package), else the RSI MSRP.
+  const standalone = store.find((s) => s.standalone && !s.warbond && s.available) || store.find((s) => s.standalone && !s.warbond);
+  const storePrice = standalone ? standalone.discountedUsd || standalone.usd : d.msrp;
+  // Warbond: a discounted offer payable only with new money, shown only while it is on sale.
+  const warbond = store.find((s) => s.warbond && s.available && !s.pack);
+  const lastWarbond = !warbond && store.filter((s) => s.warbond && !s.pack).sort((a, z) => (z.checked || '').localeCompare(a.checked || ''))[0];
   return {
     facts: [
       ['Size', [d.size, d.sizeClass && `class ${d.sizeClass}`].filter(Boolean).join(' · ')],
@@ -123,23 +143,28 @@ function viewShip(e) {
       ['Hull', d.health && fmt(Math.round(d.health))],
       ['Shield', d.shieldHp && fmt(Math.round(d.shieldHp))],
       ['Pilot DPS', d.pilotDps && fmt(Math.round(d.pilotDps))],
-      ['Store price', standalone ? usd(standalone.discountedUsd || standalone.usd) : d.msrp ? usd(d.msrp) : null],
+      ['Store price', storePrice && usd(storePrice)],
+      ['Warbond', warbond && h('span', null, usd(warbond.discountedUsd || warbond.usd), ' ', h('span', { class: 'badge-warbond' }, 'WARBOND'))],
       ['In-game price', d.buy?.[0]?.price && auec(d.buy[0].price)],
+      ['Last warbond', lastWarbond && `$${lastWarbond.discountedUsd || lastWarbond.usd} · ended`],
       ['Status', d.status],
     ],
     body: [
       section(
         'Price in USD (RSI store)',
         store.length
-          ? table(
-              [['Offer', ''], ['USD', 'num'], ['', 'dim'], ['Checked', 'dim']],
-              store.map((s) => [
-                link(s.title, s.url),
-                s.discountedUsd ? h('span', null, usd(s.discountedUsd), ' ', h('s', { class: 'dim' }, `$${s.usd}`)) : usd(s.usd),
-                [s.warbond && 'warbond', s.pack && 'package', !s.available && 'unavailable'].filter(Boolean).join(', '),
-                s.checked || '',
-              ]),
-            )
+          ? [
+              table(
+                [['Offer', ''], ['USD', 'num'], ['', 'dim'], ['Checked', 'dim']],
+                store.map((s) => [
+                  link(s.title, s.url),
+                  s.discountedUsd ? h('span', null, usd(s.discountedUsd), ' ', h('s', { class: 'dim' }, `$${s.usd}`)) : usd(s.usd),
+                  h('span', null, s.warbond ? h('span', { class: 'badge-warbond' }, 'WARBOND') : null, ' ', [s.pack && 'package', s.available ? 'on sale' : 'off sale'].filter(Boolean).join(', ')),
+                  s.checked || '',
+                ]),
+              ),
+              store.some((s) => s.warbond) && note('Warbond: a discounted offer that must be paid with new money (not store credit).'),
+            ]
           : d.msrp
             ? h('p', { class: 'note' }, usd(d.msrp), ' MSRP — not listed in the store right now.')
             : note('No USD price (not sold in the RSI store).'),
@@ -288,8 +313,8 @@ function imageFor(e) {
 
 // The one or two facts worth reading first; they sit beside the name, the rest go in the grid below.
 const HEADLINE = {
-  item: ['Lowest price'],
-  ship: ['Store price', 'In-game price'],
+  item: ['Lowest price', 'Player market'],
+  ship: ['Store price', 'Warbond', 'In-game price'],
   blueprint: ['Craft time'],
   mission: ['Reward'],
   mineral: ['Sell value', 'Found at'],

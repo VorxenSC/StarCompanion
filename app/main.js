@@ -213,6 +213,24 @@ function fitHeight(wanted, beyondMax) {
   win.setResizable(false);
 }
 
+// Wide content (a table whose rows should stay on one line) asks for more width than the player's
+// chosen width. The window widens toward the screen's middle, up to half the screen, and returns to
+// the chosen width when the content no longer needs it. The chosen width itself is never changed here.
+let widening = false; // our own setBounds must not move the icon (see the 'moved' handler)
+function fitWidth(wanted) {
+  if (!win || state !== 'open' || !Number.isFinite(wanted)) return;
+  const b = win.getBounds();
+  const { workArea: a } = screen.getDisplayMatching(b);
+  const base = Math.max(MIN_WIDTH, Math.min(a.width, config.windowWidth));
+  const width = Math.round(Math.max(base, Math.min(Math.floor(a.width * 0.5), wanted)));
+  if (width === b.width) return;
+  let x = side === 'right' ? b.x + b.width - width : b.x;
+  x = Math.max(a.x, Math.min(a.x + a.width - width, x));
+  widening = true;
+  setBounds({ x, y: b.y, width, height: b.height });
+  setImmediate(() => { widening = false; });
+}
+
 // Driven by the renderer's resize grip: transparent windows can't be resized from their edges on
 // Windows. Width applies now; the new maximum height applies through the next fit.
 function resizeFromGrip(width, maxHeight) {
@@ -646,7 +664,7 @@ function createWindow() {
   win.webContents.on('did-finish-load', () => win.webContents.setZoomFactor(config.zoom));
   win.on('blur', () => { if (state === 'open' && config.hideOnBlur && !win.webContents.isDevToolsOpened()) close(); });
   win.on('moved', () => {
-    if (state === 'open') {
+    if (state === 'open' && !widening) {
       dockFromOpenWindow();
       saveConfig();
     }
@@ -729,6 +747,7 @@ ipcMain.on('overlay:geometry', (_e, g) => {
   if (g && [g.inset, g.barTop, g.barHeight].every(Number.isFinite)) geo = g;
 });
 ipcMain.on('overlay:fit', (_e, height, beyondMax) => fitHeight(Number(height), !!beyondMax));
+ipcMain.on('overlay:fit-width', (_e, width) => fitWidth(Number(width)));
 ipcMain.on('overlay:grip', (_e, phase) => (phase === 'start' ? startGrip() : endGrip()));
 ipcMain.on('overlay:zoom', (_e, direction) => stepZoom(Math.sign(Number(direction))));
 ipcMain.on('dock:pointer', (_e, phase) => dockPointer(phase));

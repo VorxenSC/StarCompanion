@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('companion', {
   hide: () => ipcRenderer.send('overlay:hide'),
   closed: () => ipcRenderer.send('overlay:closed'),
   fit: (height, beyondMax) => ipcRenderer.send('overlay:fit', height, beyondMax),
+  fitWidth: (width) => ipcRenderer.send('overlay:fit-width', width),
   geometry: (g) => ipcRenderer.send('overlay:geometry', g),
   grip: (phase) => ipcRenderer.send('overlay:grip', phase),
   zoom: (direction) => ipcRenderer.send('overlay:zoom', direction),

@@ -10,7 +10,7 @@
   --accent: #5fd4e8;
   --accent-soft: rgba(95, 212, 232, 0.12);
   /* Translucent on purpose: the overlay sits on top of the game and should stay discreet. */
-  --glass: rgba(9, 15, 22, 0.64);
+  --glass: rgba(9, 15, 22, 0.82);
   --line: rgba(190, 215, 235, 0.18);
   --shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
   --line-soft: rgba(190, 215, 235, 0.14);
@@ -251,6 +251,9 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .desc { margin: 0; color: rgba(205, 218, 230, 0.82); white-space: pre-line; }
 .note { margin: 0; color: var(--faint); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* Rows stay on one line; the window widens to fit them (up to half the screen), else they wrap. */
+.panel-content th, .panel-content td { white-space: nowrap; }
+.panel-content.wrap-rows th, .panel-content.wrap-rows td { white-space: normal; }
 th { text-align: left; font: 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: rgba(205, 218, 230, 0.66); border-bottom: 1px solid var(--line); padding: 6px 6px 5px; }
 td { padding: 6px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 .num { text-align: right; font-family: var(--mono); white-space: nowrap; }

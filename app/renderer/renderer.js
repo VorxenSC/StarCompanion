@@ -773,9 +773,41 @@ function render() {
 // transparent) and shrinks only after the panel has finished closing.
 let shrinkTimer;
 let windowH = 0;
+// Width the panel's tables need to keep every row on one line, in window px (0 = no tables).
+// Each table is measured at its natural width, plus its offset from the left and the room to its right.
+function tablesWidth() {
+  let need = 0;
+  for (const t of contentEl.querySelectorAll('table')) {
+    const box = t.getBoundingClientRect();
+    const rightGap = window.innerWidth - box.right;
+    t.style.width = 'max-content';
+    need = Math.max(need, box.left + t.offsetWidth + rightGap);
+    t.style.width = '';
+  }
+  return need;
+}
+
+// Ask for the width that keeps rows on one line; main caps it at half the screen. If the window is
+// still narrower than the rows need (capped, or not resized yet), rows wrap instead of being cut off;
+// the resize that follows runs this again and lifts the wrap once they fit.
+function fitWidth() {
+  contentEl.classList.remove('wrap-rows');
+  // The estimate, corrected by what still overflows the panel at the current width (the measured
+  // overflow is exact; the estimate alone can come up a few px short).
+  const overflow = Math.max(0, scrollEl.scrollWidth - scrollEl.clientWidth);
+  const need = Math.max(tablesWidth(), overflow ? window.innerWidth + overflow : 0) + (overflow ? 4 : 0);
+  companion.fitWidth(Math.ceil(need * zoom));
+  if (need > window.innerWidth + 1) contentEl.classList.add('wrap-rows');
+}
+
+window.addEventListener('resize', () => {
+  if (!document.body.classList.contains('docked')) requestAnimationFrame(fit);
+});
+
 function fit() {
   // Docked, the window is the icon; folding, it is about to become the icon. Neither is laid out.
   if (document.body.classList.contains('docked') || document.body.classList.contains('folding')) return;
+  if (!gripping) fitWidth();
   const open = contentEl.childElementCount > 0;
   // Everything except the panel: body padding, brand line, bar, key hints.
   const pad = parseFloat(getComputedStyle(document.body).paddingTop) + parseFloat(getComputedStyle(document.body).paddingBottom);

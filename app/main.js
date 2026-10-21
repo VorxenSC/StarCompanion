@@ -8,9 +8,9 @@ const REPO = { owner: 'VorxenSC', repo: 'StarCompanion' };
 const RELEASES_URL = `https://github.com/${REPO.owner}/${REPO.repo}/releases/latest`;
 const COFFEE_URL = 'https://buymeacoffee.com/fpessoau';
 // Suggestions go through Web3Forms (no server of our own). The access key is made for public code: it
-// only lets anyone send to the developer's inbox, which stays hidden. Empty until the key is set.
+// only lets anyone send to the developer's inbox, which stays hidden.
 const FEEDBACK_ENDPOINT = 'https://api.web3forms.com/submit';
-const WEB3FORMS_KEY = '';
+const WEB3FORMS_KEY = '17f6eb23-5a40-4835-80d0-4b7284e395b7';
 const FEEDBACK_MIN_INTERVAL_MS = 60 * 1000;
 
 // The bundled database ships with the app; "Update database" writes a newer one to userData.
@@ -434,7 +434,8 @@ async function sendFeedback(f) {
     ...(f.includeInfo ? { app: `Star Companion ${app.getVersion()} · PU ${clip(f.gameVersion, 20) || '?'} · ${process.platform} ${require('os').release()}` } : {}),
   };
   try {
-    const res = await fetch(FEEDBACK_ENDPOINT, {
+    // net.fetch (Chromium's network stack): Web3Forms' free plan only accepts browser requests.
+    const res = await net.fetch(FEEDBACK_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(body),

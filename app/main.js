@@ -759,8 +759,9 @@ ipcMain.on('link:open', (_e, url) => {
   if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
 });
 
-// Snapshot runs skip the single-instance lock so they never poke an overlay the player has open.
-if (!SNAPSHOT && !app.requestSingleInstanceLock()) {
+// Test runs (snapshots, update checks) skip the single-instance lock: otherwise, with the player's
+// copy open, they would quit at once and hand it a "second instance" that opens its overlay.
+if (!SNAPSHOT && !UPDATE_TEST && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', open);

@@ -282,6 +282,36 @@ td.dim:last-child, th.dim:last-child { white-space: nowrap; }
 .notice-support { margin: 14px 0 0; padding: 12px 14px; border: 1px solid rgba(242, 179, 94, 0.3); border-radius: 3px; background: rgba(242, 179, 94, 0.05); color: rgba(225, 235, 244, 0.86); font-size: 13px; }
 .notice-support .coffee { display: inline-flex; margin-left: 4px; color: var(--price); }
 
+/* ---------- Suggestions form ---------- */
+.suggest { flex: none; color: rgba(205, 218, 230, 0.75); text-decoration: none; -webkit-app-region: no-drag; }
+.suggest:hover { color: var(--accent); text-decoration: none; }
+.fb-kinds { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+.fb-kind { min-height: 34px; padding: 0 14px; background: transparent; border: 1px solid var(--line); border-radius: 2px; color: var(--muted); font: 12px var(--mono); letter-spacing: 0.06em; cursor: pointer; }
+.fb-kind:hover { color: var(--text); border-color: rgba(190, 215, 235, 0.4); }
+.fb-kind.on { color: var(--text-strong); border-color: var(--accent); background: var(--accent-soft); }
+.fb-kind:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fb-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.fb-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(5, 10, 15, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--text);
+  font: 14px/1.45 var(--sans);
+  caret-color: var(--accent);
+  outline: none;
+  -webkit-app-region: no-drag;
+}
+.fb-input::placeholder { color: rgba(205, 218, 230, 0.45); }
+.fb-input:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.fb-message { min-height: 110px; resize: vertical; }
+.fb-count { margin-top: 4px; text-align: right; font: 10px var(--mono); color: var(--faint); }
+.fb-row { display: flex; gap: 16px; margin: 8px 0 4px; }
+.fb-status { font: 12px var(--mono); color: var(--muted); }
+.fb-status.err { color: var(--price); }
+.fb-buttons { display: inline-flex; align-items: center; gap: 14px; }
+
 /* Cargo handling at a terminal. */
 .badge-load { display: inline-block; margin-left: 8px; padding: 0 5px; border-radius: 2px; font: 500 9px/16px var(--mono); letter-spacing: 0.1em; vertical-align: 1px; white-space: nowrap; }
 .badge-load.auto { color: #8fe3a4; border: 1px solid rgba(143, 227, 164, 0.55); }

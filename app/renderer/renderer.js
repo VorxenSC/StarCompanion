@@ -546,6 +546,108 @@ function dismissNotice() {
   qEl.focus();
 }
 
+// ---------- Suggestions form ----------
+// The draft survives closing the form; it is cleared only once sent.
+const FEEDBACK_KINDS = ['Idea', 'Bug', 'Wrong or missing data', 'Other'];
+let feedback = null; // { open, kind, message, name, email, includeInfo, status: '' | 'sending' | 'sent', error }
+
+function openFeedback() {
+  feedback = { ...(feedback?.status === 'sent' ? {} : feedback), open: true, status: '', error: '' };
+  feedback.kind ||= 'Idea';
+  feedback.includeInfo ??= true;
+  recorder = null;
+  notice = false;
+  render();
+  setTimeout(() => $('fb-message')?.focus(), 50);
+}
+
+function closeFeedback() {
+  if (!feedback) return;
+  feedback.open = false;
+  render();
+  qEl.focus();
+}
+
+async function submitFeedback() {
+  const f = feedback;
+  if (!f || f.status === 'sending') return;
+  if ((f.message || '').trim().length < 10) {
+    f.error = 'Please write at least a sentence.';
+    return refreshFeedbackStatus();
+  }
+  f.status = 'sending';
+  f.error = '';
+  refreshFeedbackStatus();
+  const res = await companion.sendFeedback({ kind: f.kind, message: f.message, name: f.name, email: f.email, includeInfo: f.includeInfo, gameVersion });
+  if (res.ok) {
+    feedback = { open: true, status: 'sent' };
+    render();
+    setTimeout(() => feedback?.status === 'sent' && closeFeedback(), 5000);
+  } else {
+    f.status = '';
+    f.error = res.error;
+    refreshFeedbackStatus();
+  }
+}
+
+// Updates the status line and button without rebuilding the form (keeps focus and caret).
+function refreshFeedbackStatus() {
+  const el = $('fb-status');
+  if (el) {
+    el.textContent = feedback.status === 'sending' ? 'Sending…' : feedback.error || '';
+    el.classList.toggle('err', !!feedback.error);
+  }
+  const btn = $('fb-send');
+  if (btn) btn.disabled = feedback.status === 'sending';
+}
+
+function renderFeedback() {
+  const f = feedback;
+  if (f.status === 'sent') {
+    return h(
+      'div',
+      { class: 'notice feedback' },
+      h('div', { class: 'detail-type in' }, 'Suggestions'),
+      h('div', { class: 'detail-name in', delay: 40 }, 'Thank you, citizen — o7'),
+      h('p', { class: 'notice-text rise', delay: 120 }, 'Your message is on its way to the developer. Every idea is read.'),
+      h('div', { class: 'notice-actions rise', delay: 200 }, h('span'), h('button', { class: 'notice-ok', onclick: closeFeedback }, 'Back to search ', h('kbd', null, 'ESC'))),
+    );
+  }
+  const field = (id, label, input) => h('label', { class: 'fb-field', for: id }, h('span', { class: 'fact-label' }, label), input);
+  const bind = (key) => (ev) => { f[key] = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value; if (key === 'message') $('fb-count').textContent = `${f.message.length}/4000`; };
+  const message = h('textarea', { id: 'fb-message', class: 'fb-input fb-message', maxlength: '4000', rows: '5', placeholder: 'What would make Star Companion better? What broke, or what did you not find?', oninput: bind('message') });
+  message.value = f.message || '';
+  const name = h('input', { id: 'fb-name', class: 'fb-input', maxlength: '80', placeholder: 'e.g. Vorxen#1234', oninput: bind('name') });
+  name.value = f.name || '';
+  const email = h('input', { id: 'fb-email', class: 'fb-input', type: 'email', maxlength: '120', placeholder: 'you@example.com', oninput: bind('email') });
+  email.value = f.email || '';
+  const info = h('input', { type: 'checkbox', id: 'fb-info', onchange: bind('includeInfo') });
+  info.checked = f.includeInfo;
+  return h(
+    'div',
+    { class: 'notice feedback' },
+    h('div', { class: 'detail-type in' }, 'Suggestions'),
+    h('div', { class: 'detail-name in', delay: 40 }, 'Help shape Star Companion'),
+    h('p', { class: 'notice-text rise', delay: 100 }, 'Ideas, bugs, wrong prices or missing items: it goes straight to the developer.'),
+    h(
+      'div',
+      { class: 'fb-kinds rise', delay: 140, role: 'group', 'aria-label': 'Kind of suggestion' },
+      FEEDBACK_KINDS.map((k) =>
+        h('button', { class: `fb-kind${f.kind === k ? ' on' : ''}`, 'aria-pressed': f.kind === k ? 'true' : 'false', onclick: (ev) => { f.kind = k; ev.currentTarget.parentElement.querySelectorAll('.fb-kind').forEach((b) => { const on = b.textContent === k; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); } }, k),
+      ),
+    ),
+    h('div', { class: 'rise', delay: 180 }, field('fb-message', 'Your message', message), h('div', { class: 'fb-count', id: 'fb-count' }, `${(f.message || '').length}/4000`)),
+    h('div', { class: 'fb-row rise', delay: 220 }, field('fb-name', 'Name or Discord · optional', name), field('fb-email', 'Email for a reply · optional', email)),
+    h('label', { class: 'notice-check rise', delay: 260 }, info, ` Include app version and PU ${gameVersion || ''}`),
+    h(
+      'div',
+      { class: 'notice-actions rise', delay: 300 },
+      h('span', { class: 'fb-status', id: 'fb-status', role: 'status' }, f.error || ''),
+      h('span', { class: 'fb-buttons' }, h('button', { class: 'back', onclick: closeFeedback }, 'Cancel ', h('kbd', null, 'ESC')), h('button', { class: 'notice-ok', id: 'fb-send', onclick: submitFeedback }, 'Send ', h('kbd', null, 'CTRL+ENTER'))),
+    ),
+  );
+}
+
 // ---------- Shortcut recorder ----------
 function keyChips(accelerator) {
   return accelerator.split('+').map((k, i) => [i ? h('span', { class: 'rec-plus' }, '+') : null, h('kbd', { class: 'rec-key' }, k)]);
@@ -638,6 +740,9 @@ function render() {
   if (recorder) {
     listKey = '';
     contentEl.replaceChildren(renderRecorder());
+  } else if (feedback?.open) {
+    listKey = '';
+    contentEl.replaceChildren(renderFeedback());
   } else if (notice) {
     listKey = '';
     contentEl.replaceChildren(renderNotice());
@@ -675,8 +780,9 @@ function fit() {
   // Everything except the panel: body padding, brand line, bar, key hints.
   const pad = parseFloat(getComputedStyle(document.body).paddingTop) + parseFloat(getComputedStyle(document.body).paddingBottom);
   const chrome = pad + document.querySelector('.brand').offsetHeight + document.querySelector('.bar').offsetHeight + document.querySelector('.hints').offsetHeight;
-  // The notice must show whole (its button is at the bottom), so it may exceed the max height.
-  const limit = notice ? screen.availHeight - 40 : maxHeight / zoom;
+  // Content that must show whole (the notice, the suggestions form: their buttons are at the bottom) may exceed the max height.
+  const whole = notice || !!feedback?.open;
+  const limit = whole ? screen.availHeight - 40 : maxHeight / zoom;
   const roomForPanel = limit - chrome - PANEL_GAP;
   const panelH = open ? Math.max(0, Math.min(contentEl.offsetHeight + 2, roomForPanel)) : 0;
   panelEl.classList.toggle('open', open);
@@ -686,9 +792,9 @@ function fit() {
   // While the grip is dragged the panel tracks it live, so the window shrinks at once too.
   if (target >= windowH || gripping) {
     windowH = target;
-    companion.fit(target, notice);
+    companion.fit(target, whole);
   } else {
-    shrinkTimer = setTimeout(() => { windowH = target; companion.fit(target, notice); }, SHRINK_DELAY);
+    shrinkTimer = setTimeout(() => { windowH = target; companion.fit(target, whole); }, SHRINK_DELAY);
   }
 }
 
@@ -756,6 +862,13 @@ document.addEventListener('keydown', (ev) => {
     ev.preventDefault();
     return recorderKey(ev);
   }
+  // The form owns the keyboard: only Esc (cancel) and Ctrl+Enter (send) are taken; the rest types.
+  if (feedback?.open) {
+    if (ev.key === 'Escape') { ev.preventDefault(); closeFeedback(); }
+    else if (ev.key === 'Enter' && ev.ctrlKey && feedback.status !== 'sent') { ev.preventDefault(); submitFeedback(); }
+    else if (ev.key === 'Enter' && feedback.status === 'sent') { ev.preventDefault(); closeFeedback(); }
+    return;
+  }
   if (ev.ctrlKey && (ev.key === '=' || ev.key === '+')) companion.zoom(1);
   else if (ev.ctrlKey && ev.key === '-') companion.zoom(-1);
   else if (ev.ctrlKey && ev.key === '0') companion.zoom(0);
@@ -777,6 +890,11 @@ document.addEventListener('keydown', (ev) => {
     search();
   } else return;
   ev.preventDefault();
+});
+companion.onFeedback(openFeedback);
+$('suggest').addEventListener('click', (ev) => {
+  ev.preventDefault();
+  openFeedback();
 });
 $('coffee').addEventListener('click', (ev) => {
   ev.preventDefault();

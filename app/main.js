@@ -7,6 +7,11 @@ const { spawn } = require('child_process');
 const REPO = { owner: 'VorxenSC', repo: 'StarCompanion' };
 const RELEASES_URL = `https://github.com/${REPO.owner}/${REPO.repo}/releases/latest`;
 const COFFEE_URL = 'https://buymeacoffee.com/fpessoau';
+// Suggestions go through Web3Forms (no server of our own). The access key is made for public code: it
+// only lets anyone send to the developer's inbox, which stays hidden. Empty until the key is set.
+const FEEDBACK_ENDPOINT = 'https://api.web3forms.com/submit';
+const WEB3FORMS_KEY = '';
+const FEEDBACK_MIN_INTERVAL_MS = 60 * 1000;
 
 // The bundled database ships with the app; "Update database" writes a newer one to userData.
 const BUNDLED_DB = path.join(__dirname, 'data', 'db.json');
@@ -410,6 +415,45 @@ async function checkGameVersion() {
   }
 }
 
+// ---------- Suggestions ----------
+let lastFeedbackAt = 0;
+
+async function sendFeedback(f) {
+  if (!f || typeof f.message !== 'string' || f.message.trim().length < 10) return { ok: false, error: 'Please write at least a sentence.' };
+  if (Date.now() - lastFeedbackAt < FEEDBACK_MIN_INTERVAL_MS) return { ok: false, error: 'Thanks! Please wait a minute before sending another one.' };
+  if (!WEB3FORMS_KEY) return { ok: false, error: 'Suggestions are not set up in this build yet.' };
+  const clip = (s, n) => String(s || '').trim().slice(0, n);
+  const body = {
+    access_key: WEB3FORMS_KEY,
+    subject: `Star Companion · ${clip(f.kind, 40) || 'Suggestion'}`,
+    from_name: clip(f.name, 80) || 'Star Companion user',
+    type: clip(f.kind, 40),
+    message: clip(f.message, 4000),
+    name: clip(f.name, 80) || 'Anonymous',
+    ...(clip(f.email, 120) ? { email: clip(f.email, 120), replyto: clip(f.email, 120) } : {}),
+    ...(f.includeInfo ? { app: `Star Companion ${app.getVersion()} · PU ${clip(f.gameVersion, 20) || '?'} · ${process.platform} ${require('os').release()}` } : {}),
+  };
+  try {
+    const res = await fetch(FEEDBACK_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || out.success === false) return { ok: false, error: out.message || `The server answered ${res.status}.` };
+    lastFeedbackAt = Date.now();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `Could not send (${err?.name === 'TimeoutError' ? 'timed out' : 'no connection'}). Your text is kept; try again.` };
+  }
+}
+
+function openFeedback() {
+  open();
+  win.webContents.send('overlay:feedback');
+}
+
 // ---------- Startup notice ----------
 // Shown in the overlay itself at launch; the update check waits until it is dismissed.
 function startup() {
@@ -564,6 +608,7 @@ function buildTray() {
         },
       },
       { type: 'separator' },
+      { label: 'Send a suggestion…', click: openFeedback },
       { label: 'Buy me a coffee…', click: () => shell.openExternal(COFFEE_URL) },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
@@ -633,6 +678,11 @@ function snapshotMode(spec) {
       if (step === '@notice') win.webContents.send('overlay:notice');
       else if (step === '@version') await checkGameVersion();
       else if (step === '@stale') win.webContents.send('game:version', { live: '9.99.0' }); // pretend a newer patch is live
+      else if (step === '@feedback') openFeedback();
+      else if (step === '@feedback-send') {
+        // Fill the form and press send (a snapshot copy never mails: the send handler answers ok).
+        await win.webContents.executeJavaScript(`$('fb-message').value = 'The commodity demand bars are great, could they show the SCU demand too?'; $('fb-message').dispatchEvent(new Event('input')); submitFeedback()`);
+      }
       else if (step === '@hotkey') openHotkeyRecorder();
       else if (step.startsWith('@press:')) {
         // "@press:ctrl+shift+KeyK" sends that keydown to the recorder (modifiers, then a KeyboardEvent code).
@@ -684,6 +734,7 @@ ipcMain.on('dock:pointer', (_e, phase) => dockPointer(phase));
 ipcMain.on('notice:done', (_e, dontShowAgain) => noticeDone(!!dontShowAgain));
 ipcMain.on('hotkey:recording', (_e, active) => (active ? globalShortcut.unregisterAll() : registerHotkey()));
 ipcMain.handle('hotkey:set', (_e, accelerator) => setHotkey(accelerator));
+ipcMain.handle('feedback:send', (_e, f) => (SNAPSHOT ? { ok: true } : sendFeedback(f))); // a test copy never mails
 ipcMain.on('link:open', (_e, url) => {
   if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
 });

@@ -276,6 +276,12 @@ a:hover, .link:hover { text-decoration: underline; }
 
 td.dim:last-child, th.dim:last-child { white-space: nowrap; }
 
+/* Donation link: present but quiet; warms up on hover. */
+.coffee { display: inline-flex; align-items: center; gap: 6px; flex: none; color: rgba(242, 179, 94, 0.75); text-decoration: none; -webkit-app-region: no-drag; }
+.coffee:hover { color: var(--price); text-decoration: none; }
+.notice-support { margin: 14px 0 0; padding: 12px 14px; border: 1px solid rgba(242, 179, 94, 0.3); border-radius: 3px; background: rgba(242, 179, 94, 0.05); color: rgba(225, 235, 244, 0.86); font-size: 13px; }
+.notice-support .coffee { display: inline-flex; margin-left: 4px; color: var(--price); }
+
 /* Cargo handling at a terminal. */
 .badge-load { display: inline-block; margin-left: 8px; padding: 0 5px; border-radius: 2px; font: 500 9px/16px var(--mono); letter-spacing: 0.1em; vertical-align: 1px; white-space: nowrap; }
 .badge-load.auto { color: #8fe3a4; border: 1px solid rgba(143, 227, 164, 0.55); }

@@ -91,6 +91,13 @@ In the executable, "Update database" (tray) writes the new database to
 `%APPDATA%\Star Companion\data` and uses it instead of the bundled one. The first update downloads
 everything from scratch and takes about 15 minutes (about 3,000 cstone pages).
 
+## Support
+
+Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million
+aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7
+
+☕ [buymeacoffee.com/fpessoau](https://buymeacoffee.com/fpessoau)
+
 ## Development
 
 ```bash

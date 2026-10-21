@@ -8,6 +8,8 @@ const scrollEl = $('scroll');
 const contentEl = $('content');
 const filterEl = $('filter');
 
+const COFFEE_URL = 'https://buymeacoffee.com/fpessoau';
+
 const TYPES = [
   ['all', 'All'],
   ['item', 'Items'],
@@ -516,6 +518,12 @@ function renderNotice() {
       }),
     ),
     h(
+      'p',
+      { class: 'notice-support rise', delay: 480 },
+      'Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7',
+      h('a', { class: 'coffee', onclick: () => companion.openLink(COFFEE_URL) }, 'Buy me a coffee ↗'),
+    ),
+    h(
       'div',
       { class: 'notice-actions rise', delay: 520 },
       h('label', { class: 'notice-check' }, dont, ' Don’t show this again'),
@@ -769,6 +777,10 @@ document.addEventListener('keydown', (ev) => {
     search();
   } else return;
   ev.preventDefault();
+});
+$('coffee').addEventListener('click', (ev) => {
+  ev.preventDefault();
+  companion.openLink(COFFEE_URL);
 });
 $('clear').addEventListener('click', () => {
   if (qEl.value) { qEl.value = ''; type = 'all'; search(); qEl.focus(); } else companion.hide();

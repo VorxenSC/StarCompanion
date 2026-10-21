@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 
 const REPO = { owner: 'VorxenSC', repo: 'StarCompanion' };
 const RELEASES_URL = `https://github.com/${REPO.owner}/${REPO.repo}/releases/latest`;
+const COFFEE_URL = 'https://buymeacoffee.com/fpessoau';
 
 // The bundled database ships with the app; "Update database" writes a newer one to userData.
 const BUNDLED_DB = path.join(__dirname, 'data', 'db.json');
@@ -562,6 +563,8 @@ function buildTray() {
           buildTray();
         },
       },
+      { type: 'separator' },
+      { label: 'Buy me a coffee…', click: () => shell.openExternal(COFFEE_URL) },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
     ]),

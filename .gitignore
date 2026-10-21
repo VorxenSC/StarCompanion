@@ -1,0 +1,9 @@
+node_modules/
+dist/
+
+# Data collected from the source sites: rebuilt with `npm run update-data`, shipped inside the release executables.
+/data/
+/app/data/
+
+*.log
+.claude-flow/

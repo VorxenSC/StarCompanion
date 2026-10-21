@@ -1,0 +1,68 @@
+{
+  "name": "star-companion",
+  "productName": "Star Companion",
+  "version": "0.4.0",
+  "description": "In-game search overlay for Star Citizen: items, ships, blueprints, missions and minerals.",
+  "author": "Vorxen",
+  "repository": "github:VorxenSC/StarCompanion",
+  "main": "app/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "collect:craft": "node scripts/collect-craft.js",
+    "collect:miner": "node scripts/collect-miner.js",
+    "collect:cstone": "node scripts/collect-cstone.js",
+    "collect:wiki": "node scripts/collect-wiki.js",
+    "collect:ships": "node scripts/collect-ships.js",
+    "build:db": "node scripts/build-db.js",
+    "update-data": "node scripts/update-all.js",
+    "icon": "electron scripts/make-icon.js",
+    "dist": "electron-builder --win portable nsis",
+    "test": "node --test test/*.test.js"
+  },
+  "build": {
+    "appId": "space.starcompanion.overlay",
+    "productName": "Star Companion",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "app/**",
+      "scripts/**",
+      "package.json",
+      "!scripts/probe-blobs.js"
+    ],
+    "asar": false,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "VorxenSC",
+        "repo": "StarCompanion"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "StarCompanion-${version}-portable.exe"
+    },
+    "nsis": {
+      "artifactName": "StarCompanion-${version}-setup.exe",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Star Companion"
+    }
+  },
+  "devDependencies": {
+    "@fontsource/chakra-petch": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

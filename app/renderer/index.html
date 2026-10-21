@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self'; font-src 'self'; script-src 'self'" />
+  <title>Star Companion</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="docked">
+  <!-- Closed: a discreet icon. Click opens, drag moves it. -->
+  <button class="dock" id="dock" aria-label="Open Star Companion"><img src="icon.png" alt="" draggable="false" /></button>
+  <!-- The icon's stand-in while the bar unfolds from (or folds back into) it. -->
+  <img class="ghost" id="ghost" src="icon.png" alt="" draggable="false" />
+
+  <!-- Layout from the "Star Companion by Vorxen" Claude Design canvas: brand line, search bar, expanding panel, key hints. -->
+  <div class="wrap" id="wrap">
+    <div class="brand">
+      <span class="brand-name">Star Companion</span>
+      <span class="brand-by">by Vorxen</span>
+      <span class="brand-filter" id="filter"></span>
+    </div>
+
+    <div class="bar">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <svg class="bar-icon" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="scTail" gradientUnits="userSpaceOnUse" x1="18" y1="18" x2="26" y2="26">
+            <stop offset="0" stop-color="#5FD4E8" />
+            <stop offset="1" stop-color="#5FD4E8" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        <circle cx="12" cy="12" r="8" stroke="#5FD4E8" stroke-width="2" />
+        <path d="M12 7 C12.3 10 14 11.7 17 12 C14 12.3 12.3 14 12 17 C11.7 14 10 12.3 7 12 C10 11.7 11.7 10 12 7 Z" fill="#EAFBFF" />
+        <path d="M18 18 L26 26" stroke="url(#scTail)" stroke-width="2.4" stroke-linecap="round" />
+      </svg>
+      <label for="q" class="sr-only">Search Star Companion</label>
+      <input id="q" type="text" autocomplete="off" spellcheck="false" autofocus placeholder="Search items, ships, blueprints, missions, minerals…" />
+      <div class="bar-key"><kbd id="hotkey">F8</kbd><span>hide</span></div>
+      <button class="icon-btn" id="clear" aria-label="Clear search">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" /></svg>
+      </button>
+    </div>
+
+    <div class="panel" id="panel">
+      <div class="panel-scroll" id="scroll"><div class="panel-content" id="content"></div></div>
+    </div>
+
+    <div class="hints">
+      <span><b>ENTER</b> open</span>
+      <span><b>↑ ↓</b> navigate</span>
+      <span><b>TAB</b> filter</span>
+      <span><b id="hotkey2">F8</b> hide</span>
+      <span class="hints-data" id="dbinfo">Loading database…</span>
+    </div>
+    <div class="grip" id="grip" title="Drag to resize">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M11 3 L3 11 M11 7 L7 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="square" /></svg>
+    </div>
+  </div>
+  <script src="search.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

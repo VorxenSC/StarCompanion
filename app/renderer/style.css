@@ -198,11 +198,13 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .empty-text { font-size: 15px; color: rgba(235, 242, 248, 0.9); }
 
 /* ---------- Detail ---------- */
-.detail { padding: 22px; display: flex; gap: 24px; }
+.detail { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+/* Header: picture beside type, name, class and the headline facts. */
+.detail-head { display: flex; align-items: flex-start; gap: 20px; }
 .detail-img {
   flex: none;
-  width: 200px;
-  height: 200px;
+  width: 132px;
+  height: 132px;
   border: 1px solid rgba(190, 215, 235, 0.2);
   border-radius: 2px;
   background: repeating-linear-gradient(135deg, rgba(190, 215, 235, 0.05) 0 8px, transparent 8px 16px), rgba(5, 10, 15, 0.6);
@@ -228,9 +230,13 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 }
 .back kbd { height: 22px; padding: 0 7px; }
 .detail-name { font: 600 34px/1.1 var(--display); color: var(--text-strong); --ls: 0.02em; letter-spacing: var(--ls); }
-.detail-meta { font-size: 15px; color: rgba(205, 218, 230, 0.75); margin-bottom: 14px; --ls: 0.01em; letter-spacing: var(--ls); }
+.detail-meta { font-size: 15px; color: rgba(205, 218, 230, 0.75); --ls: 0.01em; letter-spacing: var(--ls); }
+.headline { display: flex; flex-wrap: wrap; gap: 6px 32px; margin-top: 10px; }
+.headline-fact { display: flex; flex-direction: column; gap: 2px; }
+.headline-value { font: 500 22px var(--display); color: var(--text-strong); --ls: 0.02em; letter-spacing: var(--ls); }
 
-.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; }
+/* The remaining facts fill the window's width: as many columns as fit, never narrower than 150px. */
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 24px; }
 .fact { position: relative; padding-top: 10px; border-top: 1px solid rgba(190, 215, 235, 0.18); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .fact-label { font: 10px var(--mono); text-transform: uppercase; color: rgba(205, 218, 230, 0.66); --ls: 0.14em; letter-spacing: var(--ls); }
 .fact-value { font: 500 18px var(--display); color: var(--text); overflow-wrap: anywhere; --ls: 0.02em; letter-spacing: var(--ls); }

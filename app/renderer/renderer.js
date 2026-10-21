@@ -116,8 +116,6 @@ function viewShip(e) {
   const standalone = store.find((s) => !s.pack) || store[0];
   return {
     facts: [
-      ['Manufacturer', d.manufacturer],
-      ['Role', [d.career, d.role].filter(Boolean).join(' / ')],
       ['Size', [d.size, d.sizeClass && `class ${d.sizeClass}`].filter(Boolean).join(' · ')],
       ['Crew', d.crew && (d.crew.min === d.crew.max ? d.crew.min : `${d.crew.min}–${d.crew.max}`)],
       ['Cargo', d.cargo != null && `${fmt(d.cargo)} SCU`],
@@ -178,7 +176,6 @@ function viewBlueprint(e) {
   const best = d.missions[0];
   return {
     facts: [
-      ['Category', e.s],
       ['Craft time', d.craftTime ? (mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}min` : `${mins} min`) : null],
       ['Materials', d.ingredients.length],
       ['Missions', d.missions.length || (d.defaultOwned ? 'Default blueprint' : 'None known')],
@@ -244,8 +241,6 @@ function viewMineral(e) {
   const top = systems.flatMap(([, list]) => list).sort((a, z) => z.abundance - a.abundance)[0];
   return {
     facts: [
-      ['Category', d.tier],
-      ['Mined with', e.s.split(' · ')[1]],
       ['Found at', top && `${top.name} · ${top.abundance}%`],
       ['Sell value', d.bestSell && h('span', null, auec(d.bestSell.price), ' / SCU')],
       ['Best sale at', d.bestSell?.where],
@@ -291,41 +286,67 @@ function imageFor(e) {
   return img;
 }
 
+// The one or two facts worth reading first; they sit beside the name, the rest go in the grid below.
+const HEADLINE = {
+  item: ['Lowest price'],
+  ship: ['Store price', 'In-game price'],
+  blueprint: ['Craft time'],
+  mission: ['Reward'],
+  mineral: ['Sell value', 'Found at'],
+  location: ['System'],
+};
+
 function renderDetail(e) {
   const { facts, body } = VIEWS[e.t](e);
   const shown = facts.filter(([, v]) => v != null && v !== '' && v !== false);
+  const headline = shown.filter(([label]) => HEADLINE[e.t].includes(label));
+  const rest = shown.filter(([label]) => !HEADLINE[e.t].includes(label));
   return h(
     'div',
     { class: 'detail' },
-    imageFor(e),
+    // Header: picture, then type, name, class and the headline facts.
     h(
       'div',
-      { class: 'detail-main' },
+      { class: 'detail-head' },
+      imageFor(e),
       h(
         'div',
-        { class: 'detail-top' },
-        h('span', { class: 'detail-type in' }, TYPE_LABEL[e.t]),
-        h('button', { class: 'back', onclick: back }, 'Back ', h('kbd', null, 'ESC')),
-      ),
-      h('div', { class: 'detail-name in', delay: 40 }, e.n),
-      h('div', { class: 'detail-meta in', delay: 110 }, e.s || ''),
-      shown.length &&
+        { class: 'detail-main' },
         h(
           'div',
-          { class: 'facts' },
-          shown.map(([label, value], i) => {
-            const d = 160 + Math.min(i, 9) * 55;
-            return h(
-              'div',
-              { class: 'fact' },
-              h('div', { class: 'scan', delay: d }),
-              h('span', { class: 'fact-label in', delay: d }, label),
-              h('span', { class: 'fact-value in', delay: d }, value === true ? 'Yes' : value),
-            );
-          }),
+          { class: 'detail-top' },
+          h('span', { class: 'detail-type in' }, TYPE_LABEL[e.t]),
+          h('button', { class: 'back', onclick: back }, 'Back ', h('kbd', null, 'ESC')),
         ),
-      h('div', { class: 'rise', delay: 420 }, body),
+        h('div', { class: 'detail-name in', delay: 40 }, e.n),
+        h('div', { class: 'detail-meta in', delay: 110 }, e.s || ''),
+        headline.length > 0 &&
+          h(
+            'div',
+            { class: 'headline' },
+            headline.map(([label, value], i) =>
+              h('div', { class: 'headline-fact' }, h('span', { class: 'fact-label in', delay: 150 + i * 60 }, label), h('span', { class: 'headline-value in', delay: 150 + i * 60 }, value)),
+            ),
+          ),
+      ),
     ),
+    // Everything else spread across the full width.
+    rest.length > 0 &&
+      h(
+        'div',
+        { class: 'facts' },
+        rest.map(([label, value], i) => {
+          const d = 200 + Math.min(i, 12) * 40;
+          return h(
+            'div',
+            { class: 'fact' },
+            h('div', { class: 'scan', delay: d }),
+            h('span', { class: 'fact-label in', delay: d }, label),
+            h('span', { class: 'fact-value in', delay: d }, value === true ? 'Yes' : value),
+          );
+        }),
+      ),
+    h('div', { class: 'rise', delay: 420 }, body),
   );
 }
 

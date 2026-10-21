@@ -47,8 +47,13 @@ release tagged `v<version>` with `StarCompanion-<version>-setup.exe`, its `.bloc
 | drag "Star Companion" or the bar | move the overlay (the icon follows) |
 | drag the corner grip | resize: width, and the panel's maximum height |
 
-The tray menu has: show icon when closed, icon opacity, window opacity, text size, reset position
-and size, update database, edit settings, reload settings and quit. Everything set there or by
+To change the shortcut, click the key shown in the search bar (or tray menu → Change hotkey) and
+press the new combination: F-keys and numpad keys work alone, letters and numbers need Ctrl, Alt or
+Shift. Enter saves it, Esc cancels; a shortcut another program already holds is refused.
+
+The tray menu has: start with Windows (installed app, or the portable exe where it sits), show
+icon when closed, icon opacity, window opacity, text size, reset position and size, change hotkey,
+update database, edit settings, reload settings and quit. Everything set there or by
 dragging is saved in `config.json` (`hotkey`, `hideOnBlur`, `opacity`, `zoom`, `dock`,
 `dockOpacity`, `dockX`/`dockY`, `windowWidth`, `height` = maximum window height).
 

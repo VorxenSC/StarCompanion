@@ -32,6 +32,7 @@ let maxHeight = 760; // window pixels
 let zoom = 1; // text size; layout is measured in CSS px, the window in zoom × CSS px
 let gripping = false;
 let notice = false; // the "Before you start" notice is in the panel
+let recorder = null; // { current, pending, partial, error } while the shortcut recorder is in the panel
 let dataDate = '';
 
 // ---------- DOM helpers (all data goes through textContent, never innerHTML) ----------
@@ -368,7 +369,7 @@ function renderNotice() {
   const key = $('hotkey').textContent;
   const items = [
     ['Borderless window', 'Run Star Citizen in Borderless mode (Graphics → Window Mode). No overlay can appear over exclusive Fullscreen.'],
-    [`${key} to open`, `Press ${key} or click the small icon to open and close the search. If another program uses ${key}, change "hotkey" in the tray menu → Edit settings.`],
+    [`${key} to open`, `Press ${key} or click the small icon to open and close the search. To use another key, click ${key} in the search bar or use the tray menu → Change hotkey.`],
     ['Internet', 'Search works offline. Item pictures, links, "Update database" and app updates need a connection.'],
     ['Community data', `Prices, shops, locations and drop chances come from community sites (cstone, sc-craft.tools, scminer.rocks, starcitizen.tools, UEX) and can lag behind a new patch. Data from ${dataDate || 'the bundled database'}; check in game before a long trip.`],
     ['Unofficial', 'A fan-made tool, not affiliated with Cloud Imperium Games or Roberts Space Industries.'],
@@ -410,11 +411,99 @@ function dismissNotice() {
   qEl.focus();
 }
 
+// ---------- Shortcut recorder ----------
+function keyChips(accelerator) {
+  return accelerator.split('+').map((k, i) => [i ? h('span', { class: 'rec-plus' }, '+') : null, h('kbd', { class: 'rec-key' }, k)]);
+}
+
+function renderRecorderKeys() {
+  const r = recorder;
+  const shown = r.pending || (r.partial?.length ? `${r.partial.join('+')}+…` : null);
+  return h('div', { class: `rec-box${r.pending ? ' set' : ''}`, id: 'rec-box' }, shown ? keyChips(shown) : h('span', { class: 'rec-wait' }, 'Waiting for keys…'));
+}
+
+function renderRecorder() {
+  const r = recorder;
+  return h(
+    'div',
+    { class: 'notice recorder' },
+    h('div', { class: 'detail-type in' }, 'Keyboard shortcut'),
+    h('div', { class: 'detail-name in', delay: 40 }, 'Press the new shortcut'),
+    h('p', { class: 'notice-text rise', delay: 120 }, 'An F-key or numpad key works alone; letters and numbers need Ctrl, Alt or Shift. It opens and closes Star Companion from anywhere, including in game.'),
+    h('div', { class: 'rise', delay: 180 }, renderRecorderKeys()),
+    h('div', { class: 'rec-meta rise', delay: 220 }, h('span', null, 'Current: ', h('kbd', null, r.current)), h('span', { class: 'rec-error', id: 'rec-error' }, r.error || '')),
+    h(
+      'div',
+      { class: 'notice-actions rise', delay: 260 },
+      h('button', { class: 'back', onclick: cancelRecorder }, 'Cancel ', h('kbd', null, 'ESC')),
+      h('button', { class: 'notice-ok', id: 'rec-save', onclick: saveRecorder, disabled: r.pending ? null : 'disabled' }, 'Save ', h('kbd', null, 'ENTER')),
+    ),
+  );
+}
+
+// Updates only the keys, error and button, so the entrance animation doesn't replay on every key.
+function refreshRecorder() {
+  $('rec-box')?.replaceWith(renderRecorderKeys());
+  const err = $('rec-error');
+  if (err) err.textContent = recorder.error || '';
+  const save = $('rec-save');
+  if (save) save.disabled = !recorder.pending;
+}
+
+function startRecorder(current) {
+  recorder = { current: current || $('hotkey').textContent, pending: null, partial: null, error: '' };
+  notice = false;
+  companion.hotkeyRecording(true);
+  render();
+}
+
+function cancelRecorder() {
+  if (!recorder) return;
+  recorder = null;
+  companion.hotkeyRecording(false);
+  render();
+  qEl.focus();
+}
+
+async function saveRecorder() {
+  if (!recorder?.pending) return;
+  const res = await companion.setHotkey(recorder.pending);
+  if (!res.ok) {
+    recorder.error = res.error;
+    recorder.pending = null;
+    companion.hotkeyRecording(true); // the failed attempt put the old shortcut back; keep it off while recording
+    refreshRecorder();
+    return;
+  }
+  $('hotkey').textContent = $('hotkey2').textContent = res.hotkey;
+  recorder = null;
+  render();
+  qEl.focus();
+}
+
+function recorderKey(ev) {
+  if (ev.key === 'Escape' && !ev.ctrlKey && !ev.altKey && !ev.shiftKey) return cancelRecorder();
+  if (ev.key === 'Enter' && recorder.pending && !ev.ctrlKey && !ev.altKey && !ev.shiftKey) return saveRecorder();
+  const res = CompanionHotkey.fromEvent(ev);
+  recorder.partial = res.partial || null;
+  if (res.accelerator) {
+    recorder.pending = res.accelerator;
+    recorder.error = '';
+  } else if (res.error) {
+    recorder.pending = null;
+    recorder.error = res.error;
+  }
+  refreshRecorder();
+}
+
 // ---------- State → screen ----------
 function render() {
   const q = qEl.value.trim();
   filterEl.textContent = type === 'all' ? '' : `Filter · ${TYPES.find(([t]) => t === type)[1]}`;
-  if (notice) {
+  if (recorder) {
+    listKey = '';
+    contentEl.replaceChildren(renderRecorder());
+  } else if (notice) {
     listKey = '';
     contentEl.replaceChildren(renderNotice());
   } else if (!q) {
@@ -520,7 +609,18 @@ qEl.addEventListener('input', () => {
   clearTimeout(timer);
   timer = setTimeout(search, 60);
 });
+document.addEventListener('keyup', (ev) => {
+  // Letting go of modifiers without a key clears the "Ctrl+…" preview.
+  if (recorder && !recorder.pending && !ev.ctrlKey && !ev.altKey && !ev.shiftKey && !ev.metaKey) {
+    recorder.partial = null;
+    refreshRecorder();
+  }
+});
 document.addEventListener('keydown', (ev) => {
+  if (recorder) {
+    ev.preventDefault();
+    return recorderKey(ev);
+  }
   if (ev.ctrlKey && (ev.key === '=' || ev.key === '+')) companion.zoom(1);
   else if (ev.ctrlKey && ev.key === '-') companion.zoom(-1);
   else if (ev.ctrlKey && ev.key === '0') companion.zoom(0);
@@ -601,6 +701,7 @@ wrapEl.addEventListener('animationend', (ev) => {
 });
 
 companion.onClose(() => {
+  if (recorder) cancelRecorder(); // never leave the global shortcut switched off
   if (matchMedia('(prefers-reduced-motion: reduce)').matches || !lastIcon) return companion.closed();
   clearTimeout(shrinkTimer);
   setIconClip(lastIcon);
@@ -609,6 +710,9 @@ companion.onClose(() => {
 });
 
 companion.onNotice(showNotice);
+companion.onHotkeyRecorder(startRecorder);
+// The hotkey shown in the bar opens the recorder too.
+$('hotkey').addEventListener('click', () => startRecorder());
 
 companion.onDocked(({ opacity }) => {
   body.classList.remove('unfolding', 'folding');

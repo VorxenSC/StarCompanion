@@ -415,9 +415,55 @@ function noticeDone(dontShowAgain) {
 
 function registerHotkey() {
   globalShortcut.unregisterAll();
+  if (SNAPSHOT) return true; // a test copy must not grab the key from the player's running copy
   const ok = globalShortcut.register(config.hotkey, toggle);
   if (!ok) console.warn(`Could not register ${config.hotkey} (already used by another program?)`);
   return ok;
+}
+
+// ---------- Start with Windows ----------
+// Registers the exe the player launched: the installed app, or the portable exe where it sits
+// (moving the portable exe afterwards breaks the entry until the option is toggled again).
+function loginItemOptions() {
+  return { path: PORTABLE ? process.env.PORTABLE_EXECUTABLE_FILE : process.execPath, args: [] };
+}
+
+function startsWithWindows() {
+  return app.isPackaged && app.getLoginItemSettings(loginItemOptions()).openAtLogin;
+}
+
+function setStartWithWindows(enabled) {
+  if (!app.isPackaged) return;
+  app.setLoginItemSettings({ openAtLogin: enabled, ...loginItemOptions() });
+  buildTray();
+}
+
+// ---------- Changing the hotkey ----------
+// While the recorder is open the global shortcut is released, so pressing the current key records
+// it instead of closing the overlay.
+function openHotkeyRecorder() {
+  open();
+  win.webContents.send('overlay:hotkey', config.hotkey);
+}
+
+function setHotkey(accelerator) {
+  if (typeof accelerator !== 'string' || !accelerator) return { ok: false, error: 'No shortcut recorded.' };
+  if (SNAPSHOT) return { ok: true, hotkey: accelerator }; // never register real keys from a test copy
+  globalShortcut.unregisterAll();
+  let ok = false;
+  try {
+    ok = globalShortcut.register(accelerator, toggle);
+  } catch {
+    ok = false; // not a valid accelerator
+  }
+  if (!ok) {
+    registerHotkey(); // put the old one back
+    return { ok: false, error: `${accelerator} is not available — another program may already use it. Try another.` };
+  }
+  config.hotkey = accelerator;
+  saveConfig();
+  buildTray();
+  return { ok: true, hotkey: accelerator };
 }
 
 function updateData() {
@@ -448,6 +494,13 @@ function buildTray() {
     Menu.buildFromTemplate([
       { label: `Show / hide (${config.hotkey})`, click: toggle },
       { type: 'separator' },
+      {
+        label: app.isPackaged ? 'Start with Windows' : 'Start with Windows (installed app only)',
+        type: 'checkbox',
+        checked: startsWithWindows(),
+        enabled: app.isPackaged,
+        click: (item) => setStartWithWindows(item.checked),
+      },
       { label: 'Show icon when closed', type: 'checkbox', checked: config.dock, click: (item) => setDock(item.checked) },
       { label: 'Icon opacity', enabled: config.dock, submenu: radio(DOCK_OPACITY_STEPS, config.dockOpacity, setDockOpacity) },
       { label: 'Opacity', submenu: radio(OPACITY_STEPS, config.opacity, setOpacity) },
@@ -461,6 +514,10 @@ function buildTray() {
         ],
       },
       { label: 'Reset position and size', click: resetLayout },
+      {
+        label: `Change hotkey… (${config.hotkey})`,
+        click: openHotkeyRecorder,
+      },
       {
         label: 'Show startup notice',
         click: () => {
@@ -552,6 +609,14 @@ function snapshotMode(spec) {
       if (step === '@mid') { midNext = true; continue; }
       const [query, type = 'all', view = 'detail'] = step.split(';');
       if (step === '@notice') win.webContents.send('overlay:notice');
+      else if (step === '@hotkey') openHotkeyRecorder();
+      else if (step.startsWith('@press:')) {
+        // "@press:ctrl+shift+KeyK" sends that keydown to the recorder (modifiers, then a KeyboardEvent code).
+        const parts = step.slice(7).split('+');
+        const code = parts.pop();
+        const mods = Object.fromEntries(parts.map((m) => [`${m}Key`, true]));
+        await win.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({ code, key: code, ...mods })}))`);
+      }
       else if (step === '@dock') close();
       else if (step === '@open') open();
       else if (step === '@left' || step === '@right') {
@@ -593,6 +658,8 @@ ipcMain.on('overlay:grip', (_e, phase) => (phase === 'start' ? startGrip() : end
 ipcMain.on('overlay:zoom', (_e, direction) => stepZoom(Math.sign(Number(direction))));
 ipcMain.on('dock:pointer', (_e, phase) => dockPointer(phase));
 ipcMain.on('notice:done', (_e, dontShowAgain) => noticeDone(!!dontShowAgain));
+ipcMain.on('hotkey:recording', (_e, active) => (active ? globalShortcut.unregisterAll() : registerHotkey()));
+ipcMain.handle('hotkey:set', (_e, accelerator) => setHotkey(accelerator));
 ipcMain.on('link:open', (_e, url) => {
   if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
 });

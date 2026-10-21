@@ -317,7 +317,9 @@ function setupUpdater() {
   if (UPDATE_TEST) {
     autoUpdater.forceDevUpdateConfig = true;
     autoUpdater.setFeedURL({ provider: 'github', ...REPO });
-    autoUpdater.currentVersion = require('semver').parse(UPDATE_TEST);
+    // Must be a SemVer from electron-updater's own copy of semver, or its comparisons reject it.
+    const semver = require(require.resolve('semver', { paths: [path.dirname(require.resolve('electron-updater'))] }));
+    autoUpdater.currentVersion = semver.parse(UPDATE_TEST);
   }
   autoUpdater.on('update-available', (info) => {
     updateLog('available', info.version);

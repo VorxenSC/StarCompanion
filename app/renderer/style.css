@@ -106,6 +106,11 @@ body.unfolding .bar > .corner { animation: none; }
 .brand { display: flex; align-items: baseline; gap: 10px; padding: 0 2px 10px; cursor: move; }
 .brand-name { font: 600 13px var(--display); letter-spacing: 0.24em; text-transform: uppercase; color: rgba(235, 242, 248, 0.92); }
 .brand-by { font: 11px var(--mono); letter-spacing: 0.08em; color: rgba(205, 218, 230, 0.66); }
+/* Which PU version the data is for; amber once UEX reports a newer live version. */
+.pu { padding: 1px 7px; border: 1px solid rgba(143, 227, 164, 0.45); border-radius: 2px; font: 500 10px var(--mono); letter-spacing: 0.1em; color: #8fe3a4; white-space: nowrap; }
+.pu.stale { border-color: rgba(242, 179, 94, 0.6); color: var(--price); }
+.brand-filter + .pu { margin-left: 12px; }
+.brand-filter:empty + .pu { margin-left: auto; }
 .brand-filter { margin-left: auto; font: 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
 
 /* ---------- Search bar ---------- */
@@ -257,6 +262,24 @@ a, .link { color: var(--accent); cursor: pointer; text-decoration: none; }
 a:hover, .link:hover { text-decoration: underline; }
 .pill { display: inline-block; padding: 2px 8px; margin: 2px 4px 2px 0; border: 1px solid var(--line); border-radius: 2px; font-size: 12px; }
 .links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 22px; padding-top: 10px; border-top: 1px solid var(--line-soft); font: 11px var(--mono); letter-spacing: 0.06em; }
+
+/* Demand / stock meter: 7 segments, like UEX's inventory levels. */
+.meter { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; --tone: var(--accent); }
+.meter.tone-good { --tone: #8fe3a4; }
+.meter.tone-mid { --tone: #5fd4e8; }
+.meter.tone-low { --tone: #f2865e; }
+.meter-bar { display: inline-flex; gap: 2px; }
+.meter-bar i { width: 7px; height: 11px; border-radius: 1px; background: rgba(190, 215, 235, 0.14); }
+.meter-bar i.on { background: var(--tone); box-shadow: 0 0 6px -1px var(--tone); }
+.meter-label { font: 11px var(--mono); color: var(--tone); }
+.headline-where { display: block; margin-top: 2px; font: 12px var(--sans); color: var(--muted); letter-spacing: 0; }
+
+td.dim:last-child, th.dim:last-child { white-space: nowrap; }
+
+/* Cargo handling at a terminal. */
+.badge-load { display: inline-block; margin-left: 8px; padding: 0 5px; border-radius: 2px; font: 500 9px/16px var(--mono); letter-spacing: 0.1em; vertical-align: 1px; white-space: nowrap; }
+.badge-load.auto { color: #8fe3a4; border: 1px solid rgba(143, 227, 164, 0.55); }
+.badge-load.manual { color: var(--faint); border: 1px solid var(--line); }
 
 /* Warbond tag: discounted, new money only. */
 .badge-warbond { display: inline-block; padding: 1px 6px; border: 1px solid var(--price); border-radius: 2px; font: 500 10px var(--mono); letter-spacing: 0.12em; color: var(--price); vertical-align: middle; }

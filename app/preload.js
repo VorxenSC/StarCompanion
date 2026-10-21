@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('companion', {
   setHotkey: (accelerator) => ipcRenderer.invoke('hotkey:set', accelerator),
   onHotkeyRecorder: (fn) => ipcRenderer.on('overlay:hotkey', (_e, current) => fn(current)),
   onNotice: (fn) => ipcRenderer.on('overlay:notice', () => fn()),
+  onGameVersion: (fn) => ipcRenderer.on('game:version', (_e, v) => fn(v)),
   onOpen: (fn) => ipcRenderer.on('overlay:open', (_e, info) => fn(info)),
   onClose: (fn) => ipcRenderer.on('overlay:close', () => fn()),
   onDocked: (fn) => ipcRenderer.on('overlay:docked', (_e, info) => fn(info)),

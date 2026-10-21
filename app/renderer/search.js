@@ -10,7 +10,7 @@
       .trim();
 
   // Small ranking nudges so the most useful kind of entry wins a tie.
-  const TYPE_BONUS = { mineral: 6, ship: 5, blueprint: 3, item: 2, mission: 1, location: 0 };
+  const TYPE_BONUS = { mineral: 6, commodity: 5, ship: 5, blueprint: 3, item: 2, mission: 1, location: 0 };
 
   // One row per searchable name; ships also get a row for their short name ("Cutlass Black" for "Drake Cutlass Black").
   function buildIndex(entries) {

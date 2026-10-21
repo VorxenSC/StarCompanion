@@ -67,6 +67,12 @@ dragging is saved in `config.json` (`hotkey`, `hideOnBlur`, `opacity`, `zoom`, `
 | starcitizen.tools | items (size, grade, class, manufacturer), missions, locations, ships with default components | `api.star-citizen.wiki` |
 | RSI Pledge Store | ship prices in USD (standalone, warbond, packages) | imported daily from robertsspaceindustries.com by the wiki |
 | UEX Corp (what spviewer.eu uses) | buy/sell/rent prices per terminal | public API `api.uexcorp.uk/2.0` |
+| UEX commodities | 124 commodities at ~2,600 terminal prices: what each terminal pays and charges, demand and stock levels, auto load/unload, and the live PU version | `commodities_prices_all`, `terminals`, `game_versions` |
+| UEX marketplace | approximate player asking price of items listed now; a link to the marketplace filtered for each item | `marketplace_listings` |
+
+The search bar shows which PU version the data is for (for example **PU 4.10.2**). The app asks UEX
+for the live version at launch and every 6 hours; after a patch the tag turns amber
+("Data PU 4.10.2 · PU 4.11 live") until the database is updated.
 
 erkul.games and spviewer.eu's own API are not used: both require a token or an anti-bot challenge.
 Their equivalent data (component specs, prices) comes from the wiki and UEX.

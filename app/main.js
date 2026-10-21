@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut, ipcMain, shell, Tray, Menu, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, ipcMain, net, shell, Tray, Menu, nativeImage, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
@@ -392,9 +392,28 @@ function setCheckUpdates(enabled) {
   buildTray();
 }
 
+// ---------- Live game version ----------
+// The database records the PU version its data is for; UEX says which version is live now. The renderer
+// compares them and flags the data as outdated after a patch, until the database is updated.
+const GAME_VERSION_URL = 'https://api.uexcorp.uk/2.0/game_versions';
+let liveGameVersion = null;
+
+async function checkGameVersion() {
+  try {
+    const res = await net.fetch(GAME_VERSION_URL, { signal: AbortSignal.timeout(8000) });
+    const body = await res.json();
+    liveGameVersion = body?.data?.live || null;
+    if (liveGameVersion) win?.webContents.send('game:version', { live: liveGameVersion, ptu: body.data.ptu || null });
+  } catch {
+    // offline: keep showing the version the data was built for
+  }
+}
+
 // ---------- Startup notice ----------
 // Shown in the overlay itself at launch; the update check waits until it is dismissed.
 function startup() {
+  checkGameVersion();
+  setInterval(checkGameVersion, 6 * 60 * 60 * 1000);
   if (config.showNotice) {
     open();
     win.webContents.send('overlay:notice');
@@ -609,6 +628,8 @@ function snapshotMode(spec) {
       if (step === '@mid') { midNext = true; continue; }
       const [query, type = 'all', view = 'detail'] = step.split(';');
       if (step === '@notice') win.webContents.send('overlay:notice');
+      else if (step === '@version') await checkGameVersion();
+      else if (step === '@stale') win.webContents.send('game:version', { live: '9.99.0' }); // pretend a newer patch is live
       else if (step === '@hotkey') openHotkeyRecorder();
       else if (step.startsWith('@press:')) {
         // "@press:ctrl+shift+KeyK" sends that keydown to the recorder (modifiers, then a KeyboardEvent code).
@@ -647,7 +668,7 @@ function snapshotMode(spec) {
 }
 
 ipcMain.handle('db:load', () => fs.promises.readFile(dbFile(), 'utf8'));
-ipcMain.handle('app:config', () => ({ hotkey: config.hotkey, maxHeight: config.height, zoom: config.zoom, dockOpacity: config.dockOpacity }));
+ipcMain.handle('app:config', () => ({ hotkey: config.hotkey, maxHeight: config.height, zoom: config.zoom, dockOpacity: config.dockOpacity, liveGameVersion }));
 ipcMain.on('overlay:hide', () => close());
 ipcMain.on('overlay:closed', () => finishClose());
 ipcMain.on('overlay:geometry', (_e, g) => {

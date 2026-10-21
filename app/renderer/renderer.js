@@ -15,9 +15,10 @@ const TYPES = [
   ['blueprint', 'Blueprints'],
   ['mission', 'Missions'],
   ['mineral', 'Minerals'],
+  ['commodity', 'Commodities'],
   ['location', 'Locations'],
 ];
-const TYPE_LABEL = { item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', location: 'Location' };
+const TYPE_LABEL = { item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', commodity: 'Commodity', location: 'Location' };
 const SRC = { cstone: 'cstone', wiki: 'wiki', uex: 'UEX', scminer: 'scminer' };
 const PANEL_GAP = 6; // .panel.open margin-top
 const SHRINK_DELAY = 440; // let the panel's height transition finish before the window shrinks
@@ -34,6 +35,20 @@ let gripping = false;
 let notice = false; // the "Before you start" notice is in the panel
 let recorder = null; // { current, pending, partial, error } while the shortcut recorder is in the panel
 let dataDate = '';
+let gameVersion = null; // the PU version the database was built for
+
+// "PU 4.10.2" beside the brand; turns amber with a hint when UEX reports a newer live version.
+function renderPu(live) {
+  const el = $('pu');
+  if (!gameVersion) return;
+  el.hidden = false;
+  const stale = live && live !== gameVersion;
+  el.classList.toggle('stale', !!stale);
+  el.textContent = stale ? `Data PU ${gameVersion} · PU ${live} live` : `PU ${gameVersion}`;
+  el.title = stale
+    ? `The game is now on PU ${live}; this data is for PU ${gameVersion}. Tray menu → Update database.`
+    : live ? `Data matches the live Star Citizen version (PU ${live}, per UEX).` : `Data for Star Citizen PU ${gameVersion}.`;
+}
 
 // ---------- DOM helpers (all data goes through textContent, never innerHTML) ----------
 function h(tag, attrs, ...kids) {
@@ -275,6 +290,7 @@ function viewMineral(e) {
       ['Found with', [d.props?.secondary, d.props?.tertiary].filter((x) => x && x !== '-').join(', ')],
     ],
     body: [
+      d.commodity && section('Trading', jump(`Prices and demand per location for ${e.n} →`, e.n, 'commodity')),
       section(
         'Where to mine',
         systems.length
@@ -291,6 +307,70 @@ function viewMineral(e) {
   };
 }
 
+// UEX inventory levels run 1 (empty) … 7 (full). For selling to a terminal, an empty inventory means
+// the terminal wants it: demand is the inverse of its inventory. For buying, the level is the stock.
+const DEMAND = ['', 'Very high', 'High', 'Good', 'Medium', 'Low', 'Very low', 'None'];
+const STOCK = ['', 'Out of stock', 'Very low', 'Low', 'Medium', 'High', 'Very high', 'Full'];
+function meter(filled, label, tone) {
+  return h(
+    'span',
+    { class: `meter tone-${tone}`, title: label },
+    h('span', { class: 'meter-bar' }, Array.from({ length: 7 }, (_, i) => h('i', { class: i < filled ? 'on' : null }))),
+    h('span', { class: 'meter-label' }, label),
+  );
+}
+const demandMeter = (inventory) => (inventory ? meter(8 - inventory, DEMAND[inventory], inventory <= 2 ? 'good' : inventory <= 4 ? 'mid' : 'low') : h('span', { class: 'dim' }, '—'));
+const stockMeter = (stock) => (stock ? meter(stock, STOCK[stock], stock >= 5 ? 'good' : stock >= 3 ? 'mid' : 'low') : h('span', { class: 'dim' }, '—'));
+// How cargo moves at the terminal: auto load/unload, else a freight elevator or a loading dock.
+function placeCell(l) {
+  const tag = l.autoLoad ? ['AUTO LOAD', 'auto'] : l.freightElevator ? ['ELEVATOR', 'manual'] : l.loadingDock ? ['DOCK', 'manual'] : null;
+  return h('span', null, l.where, tag && h('span', { class: `badge-load ${tag[1]}`, title: l.autoLoad ? 'Cargo is loaded and unloaded automatically' : 'Cargo is moved by hand' }, tag[0]));
+}
+
+// "Stanton - microTech - New Babbage - TDD New Babbage" → "New Babbage - TDD New Babbage" for the header.
+const shortWhere = (where) => where.split(' - ').slice(-2).join(' - ');
+
+function viewCommodity(e) {
+  const d = e.d;
+  const sells = d.locations.filter((l) => l.sell).sort((a, z) => z.sell - a.sell);
+  const buys = d.locations.filter((l) => l.buy).sort((a, z) => a.buy - z.buy);
+  const at = (price, where) => h('span', null, auec(price), h('span', { class: 'headline-where' }, shortWhere(where)));
+  return {
+    facts: [
+      ['Best sale', sells[0] && at(sells[0].sell, sells[0].where)],
+      ['Cheapest buy', buys[0] && at(buys[0].buy, buys[0].where)],
+      ['Code', d.code],
+      ['Sell at', sells.length ? `${sells.length} terminals` : 'Nowhere listed'],
+      ['Buy at', buys.length ? `${buys.length} terminals` : 'Nowhere listed'],
+      ['Auto load/unload', d.locations.length ? `${d.locations.filter((l) => l.autoLoad).length} of ${d.locations.length} locations` : null],
+      ['Legality', d.illegal ? 'Illegal — scanned cargo is contraband' : null],
+    ],
+    body: [
+      d.mineral && section('Mining', jump(`Where to mine ${e.n} →`, e.n, 'mineral')),
+      section(
+        'Sell here · demand per location',
+        sells.length
+          ? table(
+              [['Location', ''], ['Pays / SCU', 'num'], ['Demand', ''], ['Updated', 'dim']],
+              sells.map((l) => [placeCell(l), auec(l.sell), demandMeter(l.inventory), l.updated || '']),
+            )
+          : note('No terminal buys it.'),
+      ),
+      section(
+        'Buy here · stock per location',
+        buys.length
+          ? table(
+              [['Location', ''], ['Costs / SCU', 'num'], ['Stock', ''], ['Updated', 'dim']],
+              buys.map((l) => [placeCell(l), auec(l.buy), stockMeter(l.stock), l.updated || '']),
+            )
+          : note('No terminal sells it.'),
+      ),
+      note('Demand and stock are UEX inventory levels reported by players; they move as people trade. AUTO LOAD: cargo is loaded and unloaded for you; ELEVATOR / DOCK: you move it by hand.'),
+      links([['UEX', d.url], ['Wiki', d.wikiUrl]]),
+    ],
+  };
+}
+
 function viewLocation(e) {
   const d = e.d;
   return {
@@ -299,7 +379,7 @@ function viewLocation(e) {
   };
 }
 
-const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, location: viewLocation };
+const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, commodity: viewCommodity, location: viewLocation };
 
 // cstone hosts a picture for most items and ships it lists.
 function imageFor(e) {
@@ -318,6 +398,7 @@ const HEADLINE = {
   blueprint: ['Craft time'],
   mission: ['Reward'],
   mineral: ['Sell value', 'Found at'],
+  commodity: ['Best sale', 'Cheapest buy'],
   location: ['System'],
 };
 
@@ -417,7 +498,7 @@ function renderNotice() {
     ['Borderless window', 'Run Star Citizen in Borderless mode (Graphics → Window Mode). No overlay can appear over exclusive Fullscreen.'],
     [`${key} to open`, `Press ${key} or click the small icon to open and close the search. To use another key, click ${key} in the search bar or use the tray menu → Change hotkey.`],
     ['Internet', 'Search works offline. Item pictures, links, "Update database" and app updates need a connection.'],
-    ['Community data', `Prices, shops, locations and drop chances come from community sites (cstone, sc-craft.tools, scminer.rocks, starcitizen.tools, UEX) and can lag behind a new patch. Data from ${dataDate || 'the bundled database'}; check in game before a long trip.`],
+    ['Community data', `Prices, shops, locations and drop chances come from community sites (cstone, sc-craft.tools, scminer.rocks, starcitizen.tools, UEX) and can lag behind a new patch. Data for PU ${gameVersion || '?'}, collected ${dataDate || 'with the bundled database'}; the PU tag turns amber when a new patch is live. Check in game before a long trip.`],
     ['Unofficial', 'A fan-made tool, not affiliated with Cloud Imperium Games or Roberts Space Industries.'],
   ];
   const dont = h('input', { type: 'checkbox', id: 'notice-dont' });
@@ -756,6 +837,7 @@ companion.onClose(() => {
 });
 
 companion.onNotice(showNotice);
+companion.onGameVersion(({ live }) => renderPu(live));
 companion.onHotkeyRecorder(startRecorder);
 // The hotkey shown in the bar opens the recorder too.
 $('hotkey').addEventListener('click', () => startRecorder());
@@ -821,6 +903,8 @@ async function load() {
   const oldest = sources.map(([, s]) => s.fetchedAt.slice(0, 10)).sort()[0];
   $('dbinfo').textContent = `${fmt(total)} records · data ${oldest}`;
   dataDate = oldest;
+  gameVersion = db.meta.gameVersion || null;
+  renderPu(cfg.liveGameVersion);
   $('dbinfo').title = sources.map(([k, s]) => `${k}: ${s.fetchedAt.slice(0, 10)}`).join('\n');
   search();
   qEl.focus();

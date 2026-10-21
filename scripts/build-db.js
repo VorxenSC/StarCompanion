@@ -29,6 +29,8 @@ const cstone = load('cstone.json');
 const wiki = load('wiki.json');
 const ships = load('ships.json');
 const market = load('market.json');
+const commodities = load('commodities.json');
+const commodityNames = new Set((commodities?.commodities || []).map((c) => norm(c.name)));
 
 const entries = [];
 const add = (e) => { e.id = `${e.t}:${entries.length}`; entries.push(e); return e; };
@@ -166,6 +168,8 @@ for (const u of market?.items || []) {
 
 for (const it of items.values()) {
   if (shipByName.has(norm(it.n))) continue; // wiki lists ships as items too; the ship entry wins
+  // The wiki's cargo item for a commodity ("Laranite", Cargo / Cargo) is replaced by the commodity entry.
+  if (commodityNames.has(norm(it.n)) && /cargo/i.test(it.d.type || '') && !it.d.shops?.length) continue;
   const uex = (it.d.uuid && uexByUuid.get(it.d.uuid)) || uexByName.get(norm(it.n));
   if (uex) {
     it.d.uexId = uex.id;
@@ -224,9 +228,29 @@ for (const m of miner?.minerals || []) {
       props: m.props,
       locations: m.locations,
       bestSell: market ? { price: market.bestSellPricePerScu, where: market.bestTerminal } : undefined,
+      commodity: commodityNames.has(norm(m.name)) || undefined, // trade prices and demand per terminal
       usedIn: bpByResource.has(norm(m.name)) ? [...bpByResource.get(norm(m.name))].slice(0, 60) : undefined,
       usedInCount: bpByResource.get(norm(m.name))?.size,
       url: `https://scminer.rocks/data/mineral-directory?search=${encodeURIComponent(m.name)}`,
+    },
+  });
+}
+
+// ---------- Commodities (UEX): price, stock and demand per trade terminal ----------
+const mineralNames = new Set((miner?.minerals || []).map((m) => norm(m.name)));
+for (const c of commodities?.commodities || []) {
+  const tags = [c.kind, c.illegal && 'illegal', c.volatile && 'volatile', c.explosive && 'explosive'].filter(Boolean);
+  add({
+    t: 'commodity',
+    n: c.name,
+    s: tags.join(' · '),
+    d: {
+      code: c.code,
+      illegal: c.illegal,
+      mineral: mineralNames.has(norm(c.name)), // links to the mining entry
+      locations: c.locations.map((l) => ({ ...l, updated: isoDay(l.updated) })),
+      wikiUrl: c.wiki,
+      url: `https://uexcorp.space/commodities/info/name/${encodeURIComponent(c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}/`,
     },
   });
 }
@@ -240,6 +264,8 @@ for (const l of wiki?.locations || []) {
 // ---------- Write ----------
 const meta = {
   builtAt: new Date().toISOString(),
+  // The Star Citizen PU version the data is for, as UEX reports it (sc-craft/scminer agree on it).
+  gameVersion: commodities?.gameVersion || craft?.version?.match(/\d+\.\d+(\.\d+)?/)?.[0] || null,
   sources: {
     'sc-craft.tools': craft && { version: craft.version, fetchedAt: craft.fetchedAt },
     'scminer.rocks': miner && { version: miner.version, fetchedAt: miner.fetchedAt },

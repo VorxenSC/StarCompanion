@@ -285,6 +285,29 @@ td.dim:last-child, th.dim:last-child { white-space: nowrap; }
 .notice-support { margin: 14px 0 0; padding: 12px 14px; border: 1px solid rgba(242, 179, 94, 0.3); border-radius: 3px; background: rgba(242, 179, 94, 0.05); color: rgba(225, 235, 244, 0.86); font-size: 13px; }
 .notice-support .coffee { display: inline-flex; margin-left: 4px; color: var(--price); }
 
+/* ---------- Settings panel ---------- */
+.settings .detail-name { margin-bottom: 4px; }
+.set-group { margin: 18px 0 4px; font: 500 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 52px; padding: 6px 0; border-top: 1px solid var(--line-soft); }
+.set-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.set-label { font: 500 15px var(--display); color: var(--text); letter-spacing: 0.02em; }
+.set-hint { font-size: 12px; color: var(--faint); }
+.set-control { flex: none; }
+.set-inline { display: inline-flex; align-items: center; gap: 12px; }
+.set-btn { min-height: 34px; padding: 0 14px; background: transparent; border: 1px solid var(--line); border-radius: 2px; color: var(--text); font: 12px var(--mono); letter-spacing: 0.06em; cursor: pointer; }
+.set-btn:hover { border-color: var(--accent); color: #fff; }
+.switch { position: relative; width: 44px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: rgba(5, 10, 15, 0.6); cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: rgba(205, 218, 230, 0.6); transition: transform 0.2s var(--ease), background 0.2s ease; }
+.switch.on { background: var(--accent-soft); border-color: var(--accent); }
+.switch.on i { transform: translateX(20px); background: var(--accent); }
+.switch:disabled, .seg-btn:disabled { opacity: 0.4; cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+.seg-btn { min-height: 32px; padding: 0 10px; background: transparent; border: 0; border-left: 1px solid var(--line); color: var(--muted); font: 11px var(--mono); cursor: pointer; }
+.seg-btn:first-child { border-left: 0; }
+.seg-btn:hover { color: var(--text); }
+.seg-btn.on { background: var(--accent-soft); color: var(--text-strong); }
+.switch:focus-visible, .seg-btn:focus-visible, .set-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 /* ---------- Suggestions form ---------- */
 .suggest { flex: none; color: rgba(205, 218, 230, 0.75); text-decoration: none; -webkit-app-region: no-drag; }
 .suggest:hover { color: var(--accent); text-decoration: none; }

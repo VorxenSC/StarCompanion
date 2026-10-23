@@ -1,4 +1,4 @@
-/* global CompanionSearch, companion */
+/* global CompanionSearch, CompanionI18n, companion */
 // Overlay UI following the "Star Companion by Vorxen" Claude Design canvas:
 // idle = search bar only; typing opens a panel of one-line results; Enter opens the item detail.
 const $ = (id) => document.getElementById(id);
@@ -9,6 +9,9 @@ const contentEl = $('content');
 const filterEl = $('filter');
 
 const COFFEE_URL = 'https://buymeacoffee.com/fpessoau';
+// Translate: the English text is the key (see i18n.js). Section titles, notes, table headers, fact
+// labels and link labels are translated by the helpers below; call sites wrap only other text.
+const tr = (key, vars) => CompanionI18n.t(key, vars);
 
 const TYPES = [
   ['all', 'All'],
@@ -46,10 +49,10 @@ function renderPu(live) {
   el.hidden = false;
   const stale = live && live !== gameVersion;
   el.classList.toggle('stale', !!stale);
-  el.textContent = stale ? `Data PU ${gameVersion} · PU ${live} live` : `PU ${gameVersion}`;
+  el.textContent = stale ? tr('Data PU {data} · PU {live} live', { data: gameVersion, live }) : `PU ${gameVersion}`;
   el.title = stale
-    ? `The game is now on PU ${live}; this data is for PU ${gameVersion}. Tray menu → Update database.`
-    : live ? `Data matches the live Star Citizen version (PU ${live}, per UEX).` : `Data for Star Citizen PU ${gameVersion}.`;
+    ? tr('The game is now on PU {live}; this data is for PU {data}. Tray menu → Update database.', { live, data: gameVersion })
+    : live ? tr('Data matches the live Star Citizen version (PU {live}, per UEX).', { live }) : tr('Data for Star Citizen PU {data}.', { data: gameVersion });
 }
 
 // ---------- DOM helpers (all data goes through textContent, never innerHTML) ----------
@@ -70,22 +73,22 @@ const auec = (n) => (typeof n === 'number' && n > 0 ? h('span', { class: 'price'
 const usd = (n) => h('span', { class: 'usd' }, `$${Number(n).toLocaleString('en-US')}`);
 const link = (label, url) => h('a', { onclick: () => companion.openLink(url) }, label);
 const jump = (label, query, t) => h('span', { class: 'link', onclick: () => goTo(query, t) }, label);
-const section = (title, ...kids) => [h('div', { class: 'sec-title' }, title), ...kids];
-const note = (text) => h('p', { class: 'note' }, text);
+const section = (title, ...kids) => [h('div', { class: 'sec-title' }, tr(title)), ...kids];
+const note = (text) => h('p', { class: 'note' }, tr(text));
 const pct = (m) => `${m >= 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`;
 
 function table(headers, rows) {
   return h(
     'table',
     null,
-    h('thead', null, h('tr', null, headers.map(([label, cls]) => h('th', { class: cls }, label)))),
+    h('thead', null, h('tr', null, headers.map(([label, cls]) => h('th', { class: cls }, label && tr(label))))),
     h('tbody', null, rows.map((cells) => h('tr', null, cells.map((c, i) => h('td', { class: headers[i][1] }, c))))),
   );
 }
 
 function links(pairs) {
   const present = pairs.filter(([, url]) => url);
-  return present.length ? h('div', { class: 'links' }, present.map(([label, url]) => link(`${label} ↗`, url))) : null;
+  return present.length ? h('div', { class: 'links' }, present.map(([label, url]) => link(`${tr(label)} ↗`, url))) : null;
 }
 
 function shopsTable(shops) {
@@ -546,6 +549,74 @@ function dismissNotice() {
   qEl.focus();
 }
 
+// ---------- Settings panel ----------
+let settingsOpen = false;
+let settings = null; // snapshot from the main process
+let settingsDrawn = false; // animate the panel's entrance once, not on every change
+
+async function openSettings() {
+  recorder = null;
+  notice = false;
+  if (feedback) feedback.open = false;
+  settings = await companion.getSettings();
+  settingsOpen = true;
+  settingsDrawn = false;
+  render();
+}
+
+function closeSettings() {
+  settingsOpen = false;
+  render();
+  qEl.focus();
+}
+
+async function changeSetting(key, value) {
+  settings = await companion.setSetting(key, value);
+  render();
+}
+
+async function settingsAction(action) {
+  settings = await companion.settingsAction(action);
+  if (action === 'notice') settingsOpen = false; // the notice takes the panel
+  render();
+}
+
+function renderSettings() {
+  const s = settings;
+  const anim = !settingsDrawn;
+  settingsDrawn = true;
+  const cls = (c) => (anim ? c : c.replace(/\b(in|rise)\b/g, '').trim());
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  const toggle = (key, on, disabled) =>
+    h('button', { class: `switch${on ? ' on' : ''}`, role: 'switch', 'aria-checked': on ? 'true' : 'false', disabled: disabled ? 'disabled' : null, onclick: () => changeSetting(key, !on) }, h('i'));
+  const steps = (key, list, current, disabled) =>
+    h('span', { class: 'seg', role: 'group' }, list.map((v) => h('button', { class: `seg-btn${Math.abs(current - v) < 0.001 ? ' on' : ''}`, disabled: disabled ? 'disabled' : null, onclick: () => changeSetting(key, v) }, pct(v))));
+  const row = (label, hint, control, i) =>
+    h('div', { class: cls('set-row rise'), delay: 120 + i * 35 }, h('div', { class: 'set-text' }, h('span', { class: 'set-label' }, label), hint && h('span', { class: 'set-hint' }, hint)), h('div', { class: 'set-control' }, control));
+  const group = (title) => h('div', { class: cls('set-group rise'), delay: 100 }, title);
+  let i = 0;
+  return h(
+    'div',
+    { class: 'notice settings' },
+    h('div', { class: 'detail-top' }, h('span', { class: cls('detail-type in') }, 'Settings'), h('button', { class: 'back', onclick: closeSettings }, 'Done ', h('kbd', null, 'ESC'))),
+    h('div', { class: cls('detail-name in'), delay: 40 }, 'Star Companion'),
+    group('Opening'),
+    row('Shortcut', 'Opens and closes the search, even in game', h('span', { class: 'set-inline' }, h('kbd', null, s.hotkey), h('button', { class: 'set-btn', onclick: () => startRecorder(s.hotkey) }, 'Change')), i++),
+    row('Start with Windows', s.canStartWithWindows ? 'Launch quietly when you sign in' : 'Available in the installed app', toggle('startWithWindows', s.startWithWindows, !s.canStartWithWindows), i++),
+    row('Close when clicking the game', 'Fold back into the icon when the game gets focus', toggle('hideOnBlur', s.hideOnBlur), i++),
+    group('Look'),
+    row('Show icon when closed', 'A faint icon stays on screen; click it to open', toggle('dock', s.dock), i++),
+    row('Icon opacity', 'How visible the icon is while you play', steps('dockOpacity', s.steps.dockOpacity, s.dockOpacity, !s.dock), i++),
+    row('Window opacity', null, steps('opacity', s.steps.opacity, s.opacity), i++),
+    row('Text size', 'Also Ctrl + = and Ctrl + -', steps('zoom', s.steps.zoom, s.zoom), i++),
+    row('Position and size', 'Back to the default place and size', h('button', { class: 'set-btn', onclick: () => settingsAction('resetLayout') }, 'Reset'), i++),
+    group('Updates and help'),
+    row('Check for updates at launch', `You have v${s.version}`, h('span', { class: 'set-inline' }, toggle('checkUpdates', s.checkUpdates), h('button', { class: 'set-btn', onclick: () => settingsAction('checkUpdates') }, 'Check now')), i++),
+    row('Startup notice', 'What the overlay needs to work', h('button', { class: 'set-btn', onclick: () => settingsAction('notice') }, 'Show'), i++),
+    row('Settings file', 'For advanced edits; opens its folder', h('button', { class: 'set-btn', onclick: () => settingsAction('showFile') }, 'Show in folder'), i++),
+  );
+}
+
 // ---------- Suggestions form ----------
 // The draft survives closing the form; it is cleared only once sent.
 const FEEDBACK_KINDS = ['Idea', 'Bug', 'Wrong or missing data', 'Other'];
@@ -706,7 +777,7 @@ async function saveRecorder() {
   if (!recorder?.pending) return;
   const res = await companion.setHotkey(recorder.pending);
   if (!res.ok) {
-    recorder.error = res.error;
+    recorder.error = tr(res.error, res.vars);
     recorder.pending = null;
     companion.hotkeyRecording(true); // the failed attempt put the old shortcut back; keep it off while recording
     refreshRecorder();
@@ -714,6 +785,7 @@ async function saveRecorder() {
   }
   $('hotkey').textContent = $('hotkey2').textContent = res.hotkey;
   recorder = null;
+  if (settingsOpen) settings = await companion.getSettings(); // back to the settings, showing the new key
   render();
   qEl.focus();
 }
@@ -728,7 +800,7 @@ function recorderKey(ev) {
     recorder.error = '';
   } else if (res.error) {
     recorder.pending = null;
-    recorder.error = res.error;
+    recorder.error = tr(res.error, res.vars);
   }
   refreshRecorder();
 }
@@ -740,6 +812,9 @@ function render() {
   if (recorder) {
     listKey = '';
     contentEl.replaceChildren(renderRecorder());
+  } else if (settingsOpen) {
+    listKey = '';
+    contentEl.replaceChildren(renderSettings());
   } else if (feedback?.open) {
     listKey = '';
     contentEl.replaceChildren(renderFeedback());
@@ -813,7 +888,7 @@ function fit() {
   const pad = parseFloat(getComputedStyle(document.body).paddingTop) + parseFloat(getComputedStyle(document.body).paddingBottom);
   const chrome = pad + document.querySelector('.brand').offsetHeight + document.querySelector('.bar').offsetHeight + document.querySelector('.hints').offsetHeight;
   // Content that must show whole (the notice, the suggestions form: their buttons are at the bottom) may exceed the max height.
-  const whole = notice || !!feedback?.open;
+  const whole = notice || settingsOpen || !!feedback?.open;
   const limit = whole ? screen.availHeight - 40 : maxHeight / zoom;
   const roomForPanel = limit - chrome - PANEL_GAP;
   const panelH = open ? Math.max(0, Math.min(contentEl.offsetHeight + 2, roomForPanel)) : 0;
@@ -861,6 +936,7 @@ function back() {
 
 // Cross-links inside a detail jump straight to the named entry.
 function goTo(query, t) {
+  settingsOpen = false;
   qEl.value = query;
   type = t;
   results = CompanionSearch.search(index, query, { type });
@@ -879,6 +955,7 @@ qEl.addEventListener('input', () => {
     notice = false;
     companion.noticeDone(false);
   }
+  settingsOpen = false; // typing a search leaves the settings
   clearTimeout(timer);
   timer = setTimeout(search, 60);
 });
@@ -893,6 +970,16 @@ document.addEventListener('keydown', (ev) => {
   if (recorder) {
     ev.preventDefault();
     return recorderKey(ev);
+  }
+  // The shortcut key is not typed into the overlay: it closes it (the key listener does the toggling).
+  const pressed = CompanionHotkey.fromEvent(ev).accelerator;
+  if (pressed && pressed.toLowerCase() === $('hotkey').textContent.trim().toLowerCase()) {
+    ev.preventDefault();
+    return;
+  }
+  if (settingsOpen) {
+    if (ev.key === 'Escape') { ev.preventDefault(); closeSettings(); }
+    return;
   }
   // The form owns the keyboard: only Esc (cancel) and Ctrl+Enter (send) are taken; the rest types.
   if (feedback?.open) {
@@ -924,6 +1011,8 @@ document.addEventListener('keydown', (ev) => {
   ev.preventDefault();
 });
 companion.onFeedback(openFeedback);
+companion.onSettings(openSettings);
+$('settings-btn').addEventListener('click', () => (settingsOpen ? closeSettings() : openSettings()));
 $('suggest').addEventListener('click', (ev) => {
   ev.preventDefault();
   openFeedback();

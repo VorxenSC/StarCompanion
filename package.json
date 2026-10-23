@@ -8,7 +8,7 @@
   "main": "app/main.js",
   "private": true,
   "scripts": {
-    "start": "electron .",
+    "start": "node scripts/build-keys.js && electron .",
     "collect:craft": "node scripts/collect-craft.js",
     "collect:miner": "node scripts/collect-miner.js",
     "collect:cstone": "node scripts/collect-cstone.js",
@@ -19,7 +19,7 @@
     "build:db": "node scripts/build-db.js",
     "update-data": "node scripts/update-all.js",
     "icon": "electron scripts/make-icon.js",
-    "dist": "electron-builder --win portable nsis",
+    "dist": "node scripts/build-keys.js && electron-builder --win portable nsis",
     "test": "node --test test/*.test.js"
   },
   "build": {

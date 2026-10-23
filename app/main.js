@@ -20,7 +20,7 @@ const USER_DB = path.join(DATA_DIR, 'db.json');
 const dbFile = () => (fs.existsSync(USER_DB) ? USER_DB : BUNDLED_DB);
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 const DEFAULT_CONFIG = {
-  hotkey: 'Ctrl+Up', // key that shows/hides the overlay (Electron Accelerator format)
+  hotkey: '/', // the single key that shows/hides the overlay (Electron Accelerator format)
   hideOnBlur: true, // close when you click back into the game
   opacity: 1, // whole-window opacity, also set from the tray menu
   height: 760, // maximum height; the window shrinks to fit shorter results
@@ -64,6 +64,8 @@ function loadConfig() {
     delete saved.x; // 0.2.0 saved the bar's position; the icon's position replaces it
     delete saved.y;
     delete saved.width;
+    // Shortcuts are single keys since 0.4.6; a saved combination (e.g. Ctrl+Up) becomes the default.
+    if (typeof saved.hotkey === 'string' && /.\+./.test(saved.hotkey)) delete saved.hotkey;
     return { ...DEFAULT_CONFIG, ...saved };
   } catch {
     fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
@@ -496,12 +498,96 @@ function noticeDone(dontShowAgain) {
   if (config.checkUpdates) setTimeout(() => checkForUpdates(false), 1500);
 }
 
+// ---------- The shortcut key ----------
+// Star Citizen registers its keyboard with Raw Input's "no hotkeys" flag, which switches off
+// RegisterHotKey-style shortcuts (Electron's globalShortcut) while the game has focus. So on Windows a
+// small helper (native/keys) listens with Raw Input in sink mode, the documented passive way for a
+// background window to receive keys, and reports "HIT" when the shortcut key goes down. Keys are not
+// consumed: the game still gets them. globalShortcut is only the fallback if the helper can't run.
+const KEYS_EXE = path.join(__dirname, 'bin', 'StarCompanionKeys.exe');
+const VK = {
+  Space: 32, Tab: 9, Backspace: 8, Delete: 46, Insert: 45, Home: 36, End: 35, PageUp: 33, PageDown: 34,
+  Up: 38, Down: 40, Left: 37, Right: 39, PrintScreen: 44, Scrolllock: 145, Numlock: 144,
+  numdiv: 111, nummult: 106, numadd: 107, numsub: 109, numdec: 110,
+};
+let keyHelper = null;
+let keyHelperReady = false;
+let keyHelperStarts = 0;
+let recordingHotkey = false;
+let quitting = false;
+
+// "F8" → "vk:119", "num5" → "vk:101", "K" → "vk:75", "/" → "char:/" (resolved on the active keyboard
+// layout by the helper, so the key that types "/" is used on ABNT2 and US alike). null = not a single key.
+function keyToken(accelerator) {
+  const a = String(accelerator || '');
+  let m;
+  if (VK[a]) return `vk:${VK[a]}`;
+  if ((m = /^F([1-9]|1[0-9]|2[0-4])$/.exec(a))) return `vk:${111 + Number(m[1])}`;
+  if ((m = /^num([0-9])$/.exec(a))) return `vk:${96 + Number(m[1])}`;
+  if (/^[A-Z]$/i.test(a)) return `vk:${a.toUpperCase().charCodeAt(0)}`;
+  if (/^[0-9]$/.test(a)) return `vk:${a.charCodeAt(0)}`;
+  if (a.length === 1) return `char:${a}`;
+  return null;
+}
+
+function startKeyHelper() {
+  if (process.platform !== 'win32' || SNAPSHOT || UPDATE_TEST || !fs.existsSync(KEYS_EXE) || keyHelperStarts >= 3) return;
+  keyHelperStarts++;
+  const child = spawn(KEYS_EXE, [keyToken(config.hotkey) || ''], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+  keyHelper = child;
+  let buffered = '';
+  child.stdout.on('data', (chunk) => {
+    buffered += chunk;
+    let nl;
+    while ((nl = buffered.indexOf('\n')) >= 0) {
+      const line = buffered.slice(0, nl).trim();
+      buffered = buffered.slice(nl + 1);
+      if (line === 'READY') {
+        if (process.env.SC_DEBUG_KEYS) console.log('[keys] READY');
+        keyHelperReady = true;
+        globalShortcut.unregisterAll(); // the helper now owns the key; both would toggle twice
+      } else if (line === 'HIT' && !recordingHotkey) {
+        // SC_DEBUG_KEYS: log instead of opening, so a test copy never takes over the screen.
+        if (process.env.SC_DEBUG_KEYS) console.log(`[keys] HIT ${config.hotkey}`);
+        else toggle();
+      }
+    }
+  });
+  child.on('error', () => {});
+  child.on('exit', () => {
+    if (keyHelper === child) {
+      keyHelper = null;
+      keyHelperReady = false;
+    }
+    if (quitting) return;
+    registerHotkey(); // fall back to globalShortcut meanwhile
+    setTimeout(startKeyHelper, 2000);
+  });
+}
+
+function stopKeyHelper() {
+  quitting = true;
+  try { keyHelper?.stdin.end(); keyHelper?.kill(); } catch { /* already gone */ }
+}
+
 function registerHotkey() {
   globalShortcut.unregisterAll();
-  if (SNAPSHOT) return true; // a test copy must not grab the key from the player's running copy
-  const ok = globalShortcut.register(config.hotkey, toggle);
+  if (SNAPSHOT || UPDATE_TEST) return true; // a test copy must not grab the key from the player's running copy
+  if (keyHelper && keyHelperReady) {
+    keyHelper.stdin.write(`keys ${keyToken(config.hotkey) || ''}\n`);
+    return true;
+  }
+  let ok = false;
+  try { ok = globalShortcut.register(config.hotkey, toggle); } catch { ok = false; }
   if (!ok) console.warn(`Could not register ${config.hotkey} (already used by another program?)`);
   return ok;
+}
+
+function setHotkeyRecording(active) {
+  recordingHotkey = !!active;
+  if (keyHelper && keyHelperReady) keyHelper.stdin.write(active ? 'pause\n' : 'resume\n');
+  if (active) globalShortcut.unregisterAll();
+  else registerHotkey();
 }
 
 // ---------- Start with Windows ----------
@@ -521,6 +607,52 @@ function setStartWithWindows(enabled) {
   buildTray();
 }
 
+// ---------- Settings panel ----------
+// Everything the player can change, shown in the overlay itself (not by opening config.json, which
+// Windows hands to whatever program owns .json files). Changes apply and save at once.
+function settingsSnapshot() {
+  return {
+    hotkey: config.hotkey,
+    startWithWindows: startsWithWindows(),
+    canStartWithWindows: app.isPackaged,
+    dock: config.dock,
+    dockOpacity: config.dockOpacity,
+    opacity: config.opacity,
+    zoom: config.zoom,
+    hideOnBlur: config.hideOnBlur,
+    checkUpdates: config.checkUpdates,
+    version: app.getVersion(),
+    steps: { dockOpacity: DOCK_OPACITY_STEPS, opacity: OPACITY_STEPS, zoom: ZOOM_STEPS },
+  };
+}
+
+function applySetting(key, value) {
+  switch (key) {
+    case 'startWithWindows': setStartWithWindows(!!value); break;
+    case 'dock': setDock(!!value); break;
+    case 'dockOpacity': if (DOCK_OPACITY_STEPS.includes(value)) setDockOpacity(value); break;
+    case 'opacity': if (OPACITY_STEPS.includes(value)) setOpacity(value); break;
+    case 'zoom': if (ZOOM_STEPS.includes(value)) setZoom(value); break;
+    case 'hideOnBlur': config.hideOnBlur = !!value; saveConfig(); break;
+    case 'checkUpdates': setCheckUpdates(!!value); break;
+    default: break;
+  }
+  return settingsSnapshot();
+}
+
+function settingsAction(action) {
+  if (action === 'resetLayout') resetLayout();
+  else if (action === 'checkUpdates') checkForUpdates(true);
+  else if (action === 'notice') win.webContents.send('overlay:notice');
+  else if (action === 'showFile') shell.showItemInFolder(CONFIG_FILE); // Explorer, never "open with"
+  return settingsSnapshot();
+}
+
+function openSettings() {
+  open();
+  win.webContents.send('overlay:settings');
+}
+
 // ---------- Changing the hotkey ----------
 // While the recorder is open the global shortcut is released, so pressing the current key records
 // it instead of closing the overlay.
@@ -531,20 +663,25 @@ function openHotkeyRecorder() {
 
 function setHotkey(accelerator) {
   if (typeof accelerator !== 'string' || !accelerator) return { ok: false, error: 'No shortcut recorded.' };
+  if (/.\+./.test(accelerator)) return { ok: false, error: 'Use a single key on its own, without Ctrl, Alt or Shift.' };
+  if (!keyToken(accelerator)) return { ok: false, error: "{key} can't be used as a shortcut.", vars: { key: accelerator } };
   if (SNAPSHOT) return { ok: true, hotkey: accelerator }; // never register real keys from a test copy
-  globalShortcut.unregisterAll();
-  let ok = false;
-  try {
-    ok = globalShortcut.register(accelerator, toggle);
-  } catch {
-    ok = false; // not a valid accelerator
-  }
-  if (!ok) {
-    registerHotkey(); // put the old one back
-    return { ok: false, error: `${accelerator} is not available — another program may already use it. Try another.` };
+  if (!(keyHelper && keyHelperReady)) {
+    // Fallback path: globalShortcut can tell when another program holds the key.
+    globalShortcut.unregisterAll();
+    let ok = false;
+    try { ok = globalShortcut.register(accelerator, toggle); } catch { ok = false; }
+    globalShortcut.unregisterAll();
+    if (!ok) {
+      registerHotkey(); // put the old one back
+      return { ok: false, error: '{key} is not available — another program may already use it. Try another.', vars: { key: accelerator } };
+    }
   }
   config.hotkey = accelerator;
   saveConfig();
+  recordingHotkey = false;
+  if (keyHelper && keyHelperReady) keyHelper.stdin.write('resume\n');
+  registerHotkey();
   buildTray();
   return { ok: true, hotkey: accelerator };
 }
@@ -571,61 +708,16 @@ function buildTray() {
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'renderer', 'tray.png')));
     tray.on('click', toggle);
   }
-  const radio = (steps, current, set) => steps.map((v) => ({ label: `${Math.round(v * 100)}%`, type: 'radio', checked: Math.abs(current - v) < 0.01, click: () => set(v) }));
   tray.setToolTip(`Star Companion — press ${config.hotkey} to open`);
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: `Show / hide (${config.hotkey})`, click: toggle },
-      { type: 'separator' },
-      {
-        label: app.isPackaged ? 'Start with Windows' : 'Start with Windows (installed app only)',
-        type: 'checkbox',
-        checked: startsWithWindows(),
-        enabled: app.isPackaged,
-        click: (item) => setStartWithWindows(item.checked),
-      },
-      { label: 'Show icon when closed', type: 'checkbox', checked: config.dock, click: (item) => setDock(item.checked) },
-      { label: 'Icon opacity', enabled: config.dock, submenu: radio(DOCK_OPACITY_STEPS, config.dockOpacity, setDockOpacity) },
-      { label: 'Opacity', submenu: radio(OPACITY_STEPS, config.opacity, setOpacity) },
-      {
-        label: 'Text size',
-        submenu: [
-          ...radio(ZOOM_STEPS, config.zoom, setZoom),
-          { type: 'separator' },
-          { label: 'Larger (Ctrl+=)', click: () => stepZoom(1) },
-          { label: 'Smaller (Ctrl+-)', click: () => stepZoom(-1) },
-        ],
-      },
-      { label: 'Reset position and size', click: resetLayout },
-      {
-        label: `Change hotkey… (${config.hotkey})`,
-        click: openHotkeyRecorder,
-      },
-      {
-        label: 'Show startup notice',
-        click: () => {
-          open();
-          win.webContents.send('overlay:notice');
-        },
-      },
+      { label: 'Settings…', click: openSettings },
       { type: 'separator' },
       updateStatus
         ? { label: updateStatus, enabled: false }
         : { label: `Check for updates (v${app.getVersion()})`, click: () => checkForUpdates(true) },
-      { label: 'Check for updates at launch', type: 'checkbox', checked: config.checkUpdates, click: (item) => setCheckUpdates(item.checked) },
       { label: updating ? 'Updating database…' : 'Update database', enabled: !updating, click: updateData },
-      { label: 'Edit settings', click: () => shell.openPath(CONFIG_FILE) },
-      {
-        label: 'Reload settings',
-        click: () => {
-          config = loadConfig();
-          win.setOpacity(config.opacity);
-          win.webContents.setZoomFactor(config.zoom);
-          sendLayout();
-          registerHotkey();
-          buildTray();
-        },
-      },
       { type: 'separator' },
       { label: 'Send a suggestion…', click: openFeedback },
       { label: 'Buy me a coffee…', click: () => shell.openExternal(COFFEE_URL) },
@@ -698,6 +790,7 @@ function snapshotMode(spec) {
       else if (step === '@version') await checkGameVersion();
       else if (step === '@stale') win.webContents.send('game:version', { live: '9.99.0' }); // pretend a newer patch is live
       else if (step === '@feedback') openFeedback();
+      else if (step === '@settings') openSettings();
       else if (step === '@feedback-send') {
         // Fill the form and press send (a snapshot copy never mails: the send handler answers ok).
         await win.webContents.executeJavaScript(`$('fb-message').value = 'The commodity demand bars are great, could they show the SCU demand too?'; $('fb-message').dispatchEvent(new Event('input')); submitFeedback()`);
@@ -748,11 +841,14 @@ ipcMain.on('overlay:geometry', (_e, g) => {
 });
 ipcMain.on('overlay:fit', (_e, height, beyondMax) => fitHeight(Number(height), !!beyondMax));
 ipcMain.on('overlay:fit-width', (_e, width) => fitWidth(Number(width)));
+ipcMain.handle('settings:get', () => settingsSnapshot());
+ipcMain.handle('settings:set', (_e, key, value) => applySetting(String(key), value));
+ipcMain.handle('settings:action', (_e, action) => settingsAction(String(action)));
 ipcMain.on('overlay:grip', (_e, phase) => (phase === 'start' ? startGrip() : endGrip()));
 ipcMain.on('overlay:zoom', (_e, direction) => stepZoom(Math.sign(Number(direction))));
 ipcMain.on('dock:pointer', (_e, phase) => dockPointer(phase));
 ipcMain.on('notice:done', (_e, dontShowAgain) => noticeDone(!!dontShowAgain));
-ipcMain.on('hotkey:recording', (_e, active) => (active ? globalShortcut.unregisterAll() : registerHotkey()));
+ipcMain.on('hotkey:recording', (_e, active) => setHotkeyRecording(active));
 ipcMain.handle('hotkey:set', (_e, accelerator) => setHotkey(accelerator));
 ipcMain.handle('feedback:send', (_e, f) => (SNAPSHOT ? { ok: true } : sendFeedback(f))); // a test copy never mails
 ipcMain.on('link:open', (_e, url) => {
@@ -770,12 +866,16 @@ if (!SNAPSHOT && !UPDATE_TEST && !app.requestSingleInstanceLock()) {
     setupUpdater();
     if (UPDATE_TEST) return checkForUpdates(false);
     createWindow();
-    registerHotkey();
+    registerHotkey(); // globalShortcut until the key helper reports READY
+    startKeyHelper();
     buildTray();
     if (SNAPSHOT) snapshotMode(process.env.SC_SNAPSHOT);
     // The notice first if it is due, else the icon (or the bar once, so the player knows the app runs).
     else win.webContents.once('did-finish-load', startup);
   });
-  app.on('will-quit', () => globalShortcut.unregisterAll());
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+    stopKeyHelper();
+  });
   app.on('window-all-closed', (e) => e.preventDefault());
 }

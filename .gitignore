@@ -7,3 +7,6 @@ dist/
 
 *.log
 .claude-flow/
+
+# Built by scripts/build-keys.js before start/dist.
+/app/bin/

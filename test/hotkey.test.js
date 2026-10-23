@@ -1,38 +1,44 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { fromEvent } = require('../app/renderer/hotkey.js');
+const { fromEvent, isSingleKey } = require('../app/renderer/hotkey.js');
 
-const key = (code, mods = {}) => ({ code, key: code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
+const key = (code, mods = {}, k = code) => ({ code, key: k, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, ...mods });
 
-test('function keys and numpad work alone', () => {
+test('single keys are accepted', () => {
+  assert.strictEqual(fromEvent(key('Slash', {}, '/')).accelerator, '/');
   assert.strictEqual(fromEvent(key('F8')).accelerator, 'F8');
-  assert.strictEqual(fromEvent(key('F12')).accelerator, 'F12');
-  assert.strictEqual(fromEvent(key('Numpad5')).accelerator, 'num5');
+  assert.strictEqual(fromEvent(key('NumpadDivide', {}, '/')).accelerator, 'numdiv');
+  assert.strictEqual(fromEvent(key('KeyK', {}, 'k')).accelerator, 'K');
   assert.strictEqual(fromEvent(key('Insert')).accelerator, 'Insert');
 });
 
-test('modifiers are ordered Ctrl, Alt, Shift', () => {
-  assert.strictEqual(fromEvent(key('KeyF', { shiftKey: true, ctrlKey: true })).accelerator, 'Ctrl+Shift+F');
-  assert.strictEqual(fromEvent(key('Digit1', { altKey: true })).accelerator, 'Alt+1');
-  assert.strictEqual(fromEvent(key('Backquote', { ctrlKey: true })).accelerator, 'Ctrl+`');
-});
-
-test('a letter, digit or space alone is refused', () => {
-  for (const code of ['KeyA', 'Digit3', 'Space']) {
-    const r = fromEvent(key(code));
+test('any modifier combination is refused', () => {
+  for (const mods of [{ ctrlKey: true }, { altKey: true }, { shiftKey: true }, { metaKey: true }]) {
+    const r = fromEvent(key('KeyF', mods, 'f'));
     assert.strictEqual(r.accelerator, null);
-    assert.match(r.error, /alone/);
+    assert.match(r.error, /single key/);
   }
 });
 
-test('holding only modifiers is not a shortcut yet', () => {
-  const r = fromEvent(key('ControlLeft', { ctrlKey: true }));
+test('a modifier alone is refused', () => {
+  const r = fromEvent(key('ControlLeft', { ctrlKey: true }, 'Control'));
   assert.strictEqual(r.accelerator, null);
-  assert.deepStrictEqual(r.partial, ['Ctrl']);
+  assert.match(r.error, /single key/);
+});
+
+test('an unmapped key falls back to the character it types (ABNT2 "/")', () => {
+  assert.strictEqual(fromEvent(key('IntlRo', {}, '/')).accelerator, '/');
 });
 
 test('unmappable keys explain themselves', () => {
-  const r = fromEvent(key('IntlBackslash'));
+  const r = fromEvent(key('IntlYen', {}, 'Unidentified'));
   assert.strictEqual(r.accelerator, null);
   assert.match(r.error, /can't be used/);
+});
+
+test('isSingleKey tells single keys from combinations', () => {
+  assert.ok(isSingleKey('/'));
+  assert.ok(isSingleKey('numadd'));
+  assert.ok(!isSingleKey('Ctrl+Up'));
+  assert.ok(!isSingleKey(''));
 });

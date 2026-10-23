@@ -9,6 +9,10 @@ const contentEl = $('content');
 const filterEl = $('filter');
 
 const COFFEE_URL = 'https://buymeacoffee.com/fpessoau';
+const REPO_URL = 'https://github.com/VorxenSC/StarCompanion';
+// Why the app exists, shown in Settings → About (and in the README).
+const ABOUT_TEXT =
+  "I built Star Companion for players whose PCs struggle to leave Star Citizen: on many machines, a quick Alt+Tab to check a price turns into a long freeze, stutters or even a crash. Here, everything you'd look up sits right on top of the game: press a key, find it, keep flying. And even on a powerful rig, it's simply faster than leaving the cockpit.";
 // Translate: the English text is the key (see i18n.js). Section titles, notes, table headers, fact
 // labels and link labels are translated by the helpers below; call sites wrap only other text.
 const tr = (key, vars) => CompanionI18n.t(key, vars);
@@ -614,6 +618,14 @@ function renderSettings() {
     row('Check for updates at launch', `You have v${s.version}`, h('span', { class: 'set-inline' }, toggle('checkUpdates', s.checkUpdates), h('button', { class: 'set-btn', onclick: () => settingsAction('checkUpdates') }, 'Check now')), i++),
     row('Startup notice', 'What the overlay needs to work', h('button', { class: 'set-btn', onclick: () => settingsAction('notice') }, 'Show'), i++),
     row('Settings file', 'For advanced edits; opens its folder', h('button', { class: 'set-btn', onclick: () => settingsAction('showFile') }, 'Show in folder'), i++),
+    group('About Star Companion'),
+    h('p', { class: cls('about-text rise'), delay: 120 + i++ * 35 }, tr(ABOUT_TEXT)),
+    h(
+      'div',
+      { class: cls('about-links rise'), delay: 120 + i++ * 35 },
+      h('span', { class: 'dim' }, `Star Companion v${s.version} · by Vorxen`),
+      h('span', { class: 'set-inline' }, h('button', { class: 'set-btn', onclick: () => { settingsOpen = false; openFeedback(); } }, tr('Suggest')), h('button', { class: 'set-btn coffee-btn', onclick: () => companion.openLink(COFFEE_URL) }, tr('Buy me a coffee')), h('button', { class: 'set-btn', onclick: () => companion.openLink(REPO_URL) }, 'GitHub')),
+    ),
   );
 }
 

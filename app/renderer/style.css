@@ -308,6 +308,10 @@ td.dim:last-child, th.dim:last-child { white-space: nowrap; }
 .seg-btn.on { background: var(--accent-soft); color: var(--text-strong); }
 .switch:focus-visible, .seg-btn:focus-visible, .set-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+.about-text { margin: 10px 0 12px; color: rgba(225, 235, 244, 0.86); font-size: 14px; line-height: 1.55; }
+.about-links { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line-soft); font: 11px var(--mono); }
+.coffee-btn { color: var(--price); border-color: rgba(242, 179, 94, 0.45); }
+
 /* ---------- Suggestions form ---------- */
 .suggest { flex: none; color: rgba(205, 218, 230, 0.75); text-decoration: none; -webkit-app-region: no-drag; }
 .suggest:hover { color: var(--accent); text-decoration: none; }

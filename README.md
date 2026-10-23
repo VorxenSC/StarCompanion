@@ -1,20 +1,26 @@
 # Star Companion by Vorxen
 
-An in-game search overlay for Star Citizen. Press **Ctrl + ↑**, type, and see where to buy an item, how to
-craft it, which missions reward a blueprint, where to mine an ore and what each ship costs, in aUEC
-and in USD.
+An in-game search overlay for Star Citizen. Press **/**, type, and see where to buy an item, how to
+craft it, which missions reward a blueprint, where to mine an ore, where each commodity sells best
+and what each ship costs, in aUEC and in USD.
+
+## Why
+
+I built Star Companion for players whose PCs struggle to leave Star Citizen: on many machines, a quick
+Alt+Tab to check a price turns into a long freeze, stutters or even a crash. Here, everything you'd look
+up sits right on top of the game: press a key, find it, keep flying. And even on a powerful rig, it's
+simply faster than leaving the cockpit.
 
 The UI follows the "Star Companion by Vorxen" canvas made in Claude Design: an idle search bar that
 grows into a result panel as you type, with text revealed behind a scan line.
 
-## Executables
+## Install
 
-In `dist/`:
+Download `StarCompanion-<version>-setup.exe` from
+[Releases](https://github.com/VorxenSC/StarCompanion/releases/latest) and run it. It installs to a
+"Star Companion" folder, adds desktop and Start menu shortcuts, and updates itself from then on.
 
-- `StarCompanion-<version>-setup.exe`: installer, with desktop and Start menu shortcuts.
-- `StarCompanion-<version>-portable.exe`: runs without installing.
-
-When closed, Star Companion is a small, faint icon that stays on screen. Click it (or press **Ctrl + ↑**)
+When closed, Star Companion is a small, faint icon that stays on screen. Click it (or press **/**)
 and the search bar unfolds out of it toward the middle of the screen: right-to-left when the icon is
 on the right half, left-to-right when it is on the left. Closing folds the bar back into the icon.
 Drag the icon to place it anywhere; the tray menu can turn it off, in which case the shortcut alone opens it.
@@ -27,17 +33,16 @@ again" to skip it (the tray menu can show it again).
 
 At launch the installed app checks this repository's Releases. When a newer version exists it asks
 "Update now" or "Later" (with "Don't remind me about this version"); "Update now" downloads it,
-installs it and restarts. The portable exe can't replace itself, so it offers the download page
-instead. The tray menu has "Check for updates" and can turn the launch check off. A log is kept in
-`%APPDATA%\Star Companion\update.log`.
+installs it and restarts. The tray menu has "Check for updates", and Settings can turn the launch
+check off. A log is kept in `%APPDATA%\Star Companion\update.log`.
 
 To publish a new version: bump `version` in `package.json`, run `npm run dist`, and create a GitHub
-release tagged `v<version>` with `StarCompanion-<version>-setup.exe`, its `.blockmap`,
-`latest.yml` and the portable exe from `dist/`.
+release tagged `v<version>` with `StarCompanion-<version>-setup.exe`, its `.blockmap` and
+`latest.yml` from `dist/`.
 
 | Key / action | What it does |
 |---|---|
-| Ctrl + ↑ | open/close (default; click the key in the bar to change it) |
+| / | open/close (default; click the key in the bar to change it) |
 | ↑ ↓ | move through results |
 | Enter | open the selected result |
 | Tab / Shift+Tab | filter by type (all, items, ships, blueprints, missions, minerals, locations) |
@@ -47,15 +52,23 @@ release tagged `v<version>` with `StarCompanion-<version>-setup.exe`, its `.bloc
 | drag "Star Companion" or the bar | move the overlay (the icon follows) |
 | drag the corner grip | resize: width, and the panel's maximum height |
 
-To change the shortcut, click the key shown in the search bar (or tray menu → Change hotkey) and
-press the new combination: F-keys and numpad keys work alone, letters and numbers need Ctrl, Alt or
-Shift. Enter saves it, Esc cancels; a shortcut another program already holds is refused.
+The shortcut is a single key (no Ctrl, Alt or Shift). To change it, click the key shown in the search
+bar (or Settings → Shortcut → Change) and press the new key; Enter saves it, Esc cancels. The key
+still reaches the game, so pick one you don't need there; the numpad keys work well.
 
-The tray menu has: start with Windows (installed app, or the portable exe where it sits), show
-icon when closed, icon opacity, window opacity, text size, reset position and size, change hotkey,
-update database, edit settings, reload settings and quit. Everything set there or by
-dragging is saved in `config.json` (`hotkey`, `hideOnBlur`, `opacity`, `zoom`, `dock`,
-`dockOpacity`, `dockX`/`dockY`, `windowWidth`, `height` = maximum window height).
+Why the shortcut works in game: Star Citizen registers its keyboard with Raw Input's "no hotkeys"
+flag, which switches off ordinary global shortcuts while it has focus. A small helper
+(`native/keys`, built with the .NET Framework C# compiler that ships with Windows) listens with Raw
+Input in sink mode, the documented passive way for a background window to receive keys. Nothing is
+hooked or injected and the game process is never touched. Run the game and Star Companion at the
+same privilege level (both normal is best): Windows does not deliver an administrator window's keys
+to a normal one.
+
+Settings (gear button in the search bar, or tray → Settings…) has: shortcut, start with Windows,
+close when clicking the game, show icon when closed, icon opacity, window opacity, text size, reset
+position and size, updates, the startup notice and the settings file's folder. Everything is saved in
+`config.json` (`hotkey`, `hideOnBlur`, `opacity`, `zoom`, `dock`, `dockOpacity`, `dockX`/`dockY`,
+`windowWidth`, `height` = maximum window height).
 
 ## Data sources
 
@@ -105,7 +118,7 @@ npm install
 npm start          # run from source
 npm test           # search and database tests
 npm run icon       # re-render the app icon from the design
-npm run dist       # build the installer and the portable exe
+npm run dist       # build the installer
 ```
 
 Fonts (Chakra Petch, IBM Plex Sans, IBM Plex Mono) are bundled under `app/renderer/fonts` under the

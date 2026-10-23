@@ -116,6 +116,9 @@
     Automatic: 'Automático', 'Updates and help': 'Atualizações e ajuda', 'Check for updates at launch': 'Procurar atualizações ao abrir', 'You have v{version}': 'Você tem a v{version}',
     'Check now': 'Procurar agora', 'Startup notice': 'Aviso inicial', 'What the overlay needs to work': 'O que o overlay precisa para funcionar', Show: 'Mostrar',
     'Settings file': 'Arquivo de configurações', 'For advanced edits; opens its folder': 'Para edições avançadas; abre a pasta dele', 'Show in folder': 'Mostrar na pasta',
+    'About Star Companion': 'Sobre o Star Companion',
+    "I built Star Companion for players whose PCs struggle to leave Star Citizen: on many machines, a quick Alt+Tab to check a price turns into a long freeze, stutters or even a crash. Here, everything you'd look up sits right on top of the game: press a key, find it, keep flying. And even on a powerful rig, it's simply faster than leaving the cockpit.":
+      'Criei o Star Companion para quem joga num PC que sofre para sair do Star Citizen: em muitas máquinas, um simples Alt+Tab para conferir um preço vira um travamento longo, engasgos ou até um crash. Aqui, tudo o que você procuraria fica por cima do jogo: aperte uma tecla, encontre, continue voando. E mesmo num PC potente, é simplesmente mais rápido do que sair do cockpit.',
     // Tray menu and dialogs (main process)
     'Show / hide ({key})': 'Mostrar / esconder ({key})', 'Settings…': 'Configurações…', 'Check for updates (v{version})': 'Procurar atualizações (v{version})',
     'Updating database…': 'Atualizando a base de dados…', 'Update database': 'Atualizar base de dados', 'Send a suggestion…': 'Enviar uma sugestão…',

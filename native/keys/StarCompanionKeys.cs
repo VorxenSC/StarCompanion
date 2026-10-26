@@ -15,6 +15,11 @@
 //                                     Windows refuses SetForegroundWindow to a background app while the
 //                                     game is in front; joining the foreground thread's input for the
 //                                     call is the usual way around it. Answers "FOCUS ok" / "FOCUS fail".
+//   in:  "click <hwnd> <x> <y>"       focus as above, then, only once that window really is in front
+//                                     (so the game can never receive it), one left click at screen pixel
+//                                     x,y (the search box), and the cursor goes back where it was. Some
+//                                     games leave a window "focused" without keyboard input until it is
+//                                     clicked. Answers "CLICK ok" / "CLICK skipped".
 //   in:  "stats"                      answers "STATS <n>": key presses seen so far (diagnostics; which
 //                                     keys is never reported)
 //   out: "READY" once listening, "HIT" when a watched key goes down with no Ctrl/Alt/Shift/Win held,
@@ -64,6 +69,21 @@ internal static class Program
     [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern IntPtr SetFocus(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT p);
+    [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] private static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, INPUT[] inputs, int size);
+
+    [StructLayout(LayoutKind.Sequential)] private struct POINT { public int X; public int Y; }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+    // INPUT is a union; the mouse member is the largest one that matters here, padded for keyboard/hardware.
+    [StructLayout(LayoutKind.Sequential)]
+    private struct INPUT { public uint type; public MOUSEINPUT mi; }
+    private const uint INPUT_MOUSE = 0;
+    private const uint MOUSEEVENTF_MOVE = 0x0001, MOUSEEVENTF_LEFTDOWN = 0x0002, MOUSEEVENTF_LEFTUP = 0x0004, MOUSEEVENTF_VIRTUALDESK = 0x4000, MOUSEEVENTF_ABSOLUTE = 0x8000;
+    private const int SM_XVIRTUALSCREEN = 76, SM_YVIRTUALSCREEN = 77, SM_CXVIRTUALSCREEN = 78, SM_CYVIRTUALSCREEN = 79;
 
     private static readonly object Gate = new object();
     private static HashSet<uint> watched = new HashSet<uint>();
@@ -141,6 +161,31 @@ internal static class Program
         return GetForegroundWindow() == target;
     }
 
+    // One left click at screen pixel (x, y), with the coordinates inside the events themselves, then the
+    // cursor goes back. Refused unless the target window is in front: a click while the game is in front
+    // would reach the game.
+    private static bool Click(IntPtr target, int x, int y)
+    {
+        if (!Focus(target) || GetForegroundWindow() != target) return false;
+        POINT old;
+        bool hadOld = GetCursorPos(out old);
+        int vx = GetSystemMetrics(SM_XVIRTUALSCREEN), vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        int vw = Math.Max(1, GetSystemMetrics(SM_CXVIRTUALSCREEN) - 1), vh = Math.Max(1, GetSystemMetrics(SM_CYVIRTUALSCREEN) - 1);
+        int nx = (int)Math.Round((x - vx) * 65535.0 / vw), ny = (int)Math.Round((y - vy) * 65535.0 / vh);
+        uint at = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK | MOUSEEVENTF_MOVE;
+        INPUT[] inputs = new INPUT[3];
+        inputs[0].type = INPUT_MOUSE; inputs[0].mi = new MOUSEINPUT { dx = nx, dy = ny, dwFlags = at };
+        inputs[1].type = INPUT_MOUSE; inputs[1].mi = new MOUSEINPUT { dx = nx, dy = ny, dwFlags = at | MOUSEEVENTF_LEFTDOWN };
+        inputs[2].type = INPUT_MOUSE; inputs[2].mi = new MOUSEINPUT { dx = nx, dy = ny, dwFlags = at | MOUSEEVENTF_LEFTUP };
+        bool sent = SendInput(3, inputs, Marshal.SizeOf(typeof(INPUT))) == 3;
+        if (hadOld)
+        {
+            Thread.Sleep(30); // let the click land where it was aimed before the cursor moves back
+            SetCursorPos(old.X, old.Y);
+        }
+        return sent;
+    }
+
     private static bool TryReadKeyboard(IntPtr lParam, out uint vkey, out bool isUp)
     {
         vkey = 0;
@@ -205,6 +250,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        SetProcessDPIAware(); // screen pixels from Star Companion are physical pixels
         Listener listener = new Listener();
         RAWINPUTDEVICE[] devices = new RAWINPUTDEVICE[1];
         devices[0].usUsagePage = 0x01; // generic desktop
@@ -233,6 +279,16 @@ internal static class Program
                     if (!long.TryParse(parts[1], out h) || ui == null) { Send("FOCUS fail"); continue; }
                     IntPtr target = new IntPtr(h);
                     ui.Post(delegate { Send(Focus(target) ? "FOCUS ok" : "FOCUS fail"); }, null);
+                    continue;
+                }
+                if (parts[0] == "click" && parts.Length > 3)
+                {
+                    long h;
+                    int cx, cy;
+                    SynchronizationContext ui = uiContext;
+                    if (!long.TryParse(parts[1], out h) || !int.TryParse(parts[2], out cx) || !int.TryParse(parts[3], out cy) || ui == null) { Send("CLICK skipped"); continue; }
+                    IntPtr target = new IntPtr(h);
+                    ui.Post(delegate { Send(Click(target, cx, cy) ? "CLICK ok" : "CLICK skipped"); }, null);
                     continue;
                 }
                 if (parts[0] == "stats") { Send("STATS " + Thread.VolatileRead(ref keysSeen)); continue; }

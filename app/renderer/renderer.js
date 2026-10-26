@@ -857,6 +857,7 @@ function renderSettings() {
       i++,
     ),
     row('Start with Windows', s.canStartWithWindows ? 'Launch quietly when you sign in' : 'Available in the installed app', toggle('startWithWindows', s.startWithWindows, !s.canStartWithWindows), i++),
+    row('Click into the search box', 'When the shortcut opens it, so you can type at once in game', toggle('autoClick', s.autoClick), i++),
     row('Close when clicking the game', 'Fold back into the icon when the game gets focus', toggle('hideOnBlur', s.hideOnBlur), i++),
     group('Look'),
     row('Show icon when closed', 'A faint icon stays on screen; click it to open', toggle('dock', s.dock), i++),
@@ -1300,9 +1301,11 @@ function sendGeometry() {
   const docked = body.classList.contains('docked');
   if (docked) body.classList.remove('docked');
   const bar = document.querySelector('.bar').getBoundingClientRect();
+  const input = qEl.getBoundingClientRect();
   const inset = parseFloat(getComputedStyle(body).paddingLeft);
   if (docked) body.classList.add('docked');
-  companion.geometry({ inset: inset * zoom, barTop: bar.top * zoom, barHeight: bar.height * zoom });
+  // inputX/inputY: a point inside the search box, where the automatic click lands.
+  companion.geometry({ inset: inset * zoom, barTop: bar.top * zoom, barHeight: bar.height * zoom, inputX: (input.left + Math.min(40, input.width / 2)) * zoom, inputY: (input.top + input.height / 2) * zoom });
 }
 
 function applyLayoutVars(dockOpacity) {
@@ -1342,6 +1345,21 @@ wrapEl.addEventListener('animationend', (ev) => {
   if (ev.target !== wrapEl) return;
   if (ev.animationName === 'unfold') body.classList.remove('unfolding');
   if (ev.animationName === 'fold') companion.closed();
+});
+
+// The automatic click that follows a shortcut open: whatever it lands on (the bar may still be
+// unfolding), it only puts the caret in the search box.
+let autoClickUntil = 0;
+companion.onAutoClick(() => { autoClickUntil = Date.now() + 600; });
+document.addEventListener('mousedown', (ev) => {
+  if (Date.now() > autoClickUntil) return;
+  autoClickUntil = 0;
+  ev.preventDefault();
+  ev.stopPropagation();
+  qEl.focus();
+}, true);
+window.addEventListener('focus', () => {
+  if (!body.classList.contains('docked') && !settingsOpen && !feedback?.open && !recorder && document.activeElement === document.body) qEl.focus();
 });
 
 companion.onClose(() => {

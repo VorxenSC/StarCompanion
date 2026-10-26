@@ -135,6 +135,7 @@
     'System map': 'Mapa do sistema', 'Planets and moons': 'Planetas e luas', Planet: 'Planeta', Moons: 'Luas', 'Landing zone': 'Zona de pouso', 'Jump points': 'Pontos de salto', Star: 'Estrela',
     'Map of {name}': 'Mapa de {name}',
     Transparency: 'Transparência', Default: 'Padrão', 'Default is solid; 100% is as see-through as stays readable': 'Padrão é sólido; 100% é o mais transparente que ainda dá para ler',
+    'Click into the search box': 'Clicar na caixa de busca', 'When the shortcut opens it, so you can type at once in game': 'Quando o atalho abre a barra, para você digitar na hora dentro do jogo',
     'Key listener': 'Leitor de teclas', 'Active · {n} key presses seen{last}': 'Ativo · {n} teclas recebidas{last}', ' · shortcut last pressed {t}': ' · atalho apertado às {t}',
     'Not running: the shortcut only works outside the game': 'Parado: o atalho só funciona fora do jogo', 'Show log': 'Ver log',
     English: 'English', Português: 'Português',

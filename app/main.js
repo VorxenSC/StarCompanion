@@ -34,6 +34,7 @@ const DEFAULT_CONFIG = {
   checkUpdates: true, // look for a new release on GitHub at launch and ask before installing it
   skipVersion: null, // a release the player chose not to be reminded about
   language: 'auto', // 'auto' (Windows' language), 'en' or 'pt-BR'
+  autoClick: true, // when the shortcut opens the bar, click into the search box so typing works at once
   // dockX, dockY: where the icon sits; the bar unfolds from it. Saved when either is dragged.
   // sizeChosen: true once the player resized with the grip; their width and height are kept from then on.
 };
@@ -148,23 +149,41 @@ function setBounds(bounds) {
 // that one call) brings it forward; focus() stays as the first try and the fallback.
 let openedAt = 0;
 let focusGained = false; // since the last open: did the overlay ever get keyboard focus?
-function takeFocus() {
+//
+// Over Star Citizen that is not always enough: the window reports focus but keys don't reach the
+// search box until it is clicked. So when the shortcut opens the bar (byKey), the helper clicks into
+// the search box once the bar is really in front (never while the game is, so the game can't take it
+// as a shot) and puts the cursor back. The renderer turns that click into focus on the search box.
+const AUTO_CLICK_DELAY_MS = 60;
+function nativeHandle() {
+  const h = win.getNativeWindowHandle();
+  return h.length >= 8 ? h.readBigUInt64LE(0) : BigInt(h.readUInt32LE(0));
+}
+
+function takeFocus(byKey) {
   if (SNAPSHOT) return;
   win.show();
   win.focus();
   win.webContents.focus();
-  if (keyHelper && keyHelperReady && !win.isFocused()) {
-    const h = win.getNativeWindowHandle();
-    const hwnd = h.length >= 8 ? h.readBigUInt64LE(0) : BigInt(h.readUInt32LE(0));
-    keyHelper.stdin.write(`focus ${hwnd}\n`);
+  const helper = keyHelper && keyHelperReady;
+  if (helper && byKey && config.autoClick && Number.isFinite(geo.inputX)) {
+    setTimeout(() => {
+      if (state !== 'open' || !keyHelper) return;
+      const b = win.getBounds();
+      const p = screen.dipToScreenPoint({ x: b.x + geo.inputX, y: b.y + geo.inputY });
+      win.webContents.send('overlay:autoclick');
+      keyHelper.stdin.write(`click ${nativeHandle()} ${Math.round(p.x)} ${Math.round(p.y)}\n`);
+    }, AUTO_CLICK_DELAY_MS);
+  } else if (helper && !win.isFocused()) {
+    keyHelper.stdin.write(`focus ${nativeHandle()}\n`);
   }
   setTimeout(() => keysLog(`open: focused=${win.isFocused()}`), 400);
 }
 
-function open() {
+function open(byKey) {
   if (!win) return;
   if (state === 'open') {
-    takeFocus();
+    takeFocus(byKey);
     return;
   }
   const { dock, ...bounds } = openBounds();
@@ -174,7 +193,7 @@ function open() {
   win.setFocusable(!SNAPSHOT);
   setBounds(bounds);
   if (SNAPSHOT) win.showInactive();
-  else takeFocus();
+  else takeFocus(byKey);
   // Where the icon is inside the open window, in CSS px, so the unfold starts exactly on it.
   win.webContents.send('overlay:open', {
     side,
@@ -211,10 +230,10 @@ function dockNow() {
 
 // Open → close. The one exception: the overlay had focus, lost it to the game (with "close when
 // clicking the game" off), and the key brings it back instead.
-function toggle() {
+function toggle(byKey) {
   if (!win) return;
   if (state === 'open' && (win.isFocused() || !focusGained || config.hideOnBlur)) close();
-  else open();
+  else open(byKey === true);
 }
 
 // ---------- The icon: click opens, drag moves ----------
@@ -624,6 +643,8 @@ function startKeyHelper() {
         globalShortcut.unregisterAll(); // the helper now owns the key; both would toggle twice
       } else if (line.startsWith('FOCUS ')) {
         keysLog(`focus handoff: ${line.slice(6)}`);
+      } else if (line.startsWith('CLICK ')) {
+        keysLog(`click into the search box: ${line.slice(6)}`);
       } else if (line.startsWith('STATS ')) {
         keysSeen = Number(line.slice(6));
         statsWaiters.splice(0).forEach((done) => done());
@@ -634,7 +655,7 @@ function startKeyHelper() {
         keysLog(`shortcut pressed (state ${state}, game or other app in front: ${!win.isFocused()})`);
         // SC_DEBUG_KEYS: log instead of opening, so a test copy never takes over the screen.
         if (process.env.SC_DEBUG_KEYS) console.log(`[keys] HIT ${config.hotkey}`);
-        else toggle();
+        else toggle(true);
       }
     }
   });
@@ -706,6 +727,7 @@ function settingsSnapshot() {
     transparency: config.transparency,
     zoom: config.zoom,
     hideOnBlur: config.hideOnBlur,
+    autoClick: config.autoClick,
     checkUpdates: config.checkUpdates,
     language: config.language,
     languageInUse: i18n.getLanguage(),
@@ -723,6 +745,7 @@ function applySetting(key, value) {
     case 'transparency': if (TRANSPARENCY_STEPS.includes(value)) setTransparency(value); break;
     case 'zoom': if (ZOOM_STEPS.includes(value)) setZoom(value); break;
     case 'hideOnBlur': config.hideOnBlur = !!value; saveConfig(); break;
+    case 'autoClick': config.autoClick = !!value; saveConfig(); break;
     case 'checkUpdates': setCheckUpdates(!!value); break;
     case 'language':
       if (!i18n.languages.includes(value)) break;
@@ -942,7 +965,7 @@ ipcMain.handle('app:config', () => ({ language: i18n.getLanguage(), hotkey: conf
 ipcMain.on('overlay:hide', () => close());
 ipcMain.on('overlay:closed', () => finishClose());
 ipcMain.on('overlay:geometry', (_e, g) => {
-  if (g && [g.inset, g.barTop, g.barHeight].every(Number.isFinite)) geo = g;
+  if (g && [g.inset, g.barTop, g.barHeight].every(Number.isFinite)) geo = g; // also inputX/inputY: where to click
 });
 ipcMain.on('overlay:fit', (_e, height, beyondMax) => fitHeight(Number(height), !!beyondMax));
 ipcMain.on('overlay:fit-width', (_e, width) => fitWidth(Number(width)));

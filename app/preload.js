@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('companion', {
   settingsAction: (action) => ipcRenderer.invoke('settings:action', action),
   onSettings: (fn) => ipcRenderer.on('overlay:settings', () => fn()),
   onFeedback: (fn) => ipcRenderer.on('overlay:feedback', () => fn()),
+  onAutoClick: (fn) => ipcRenderer.on('overlay:autoclick', () => fn()),
   onOpen: (fn) => ipcRenderer.on('overlay:open', (_e, info) => fn(info)),
   onClose: (fn) => ipcRenderer.on('overlay:close', () => fn()),
   onDocked: (fn) => ipcRenderer.on('overlay:docked', (_e, info) => fn(info)),

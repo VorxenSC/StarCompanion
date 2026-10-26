@@ -66,7 +66,10 @@ to a normal one.
 
 With the game in front, Windows refuses to hand keyboard focus to a background app, so the helper
 also brings the search bar forward when the shortcut opens it (joining the game window's input for
-that one call, the usual way around the refusal), and the search box is ready to type in. Settings →
+that one call, the usual way around the refusal). Star Citizen can still leave the bar without
+keyboard input until it is clicked, so when the shortcut opens it the helper clicks into the search
+box, only once the bar is really in front (never while the game is, so the game cannot take it as a
+shot), and puts the cursor back. Settings → Click into the search box turns this off. Settings →
 Key listener shows whether the listener runs and how many key presses it has seen, and
 `%APPDATA%\Star Companion\keys.log` records each shortcut press and whether the bar got focus (never
 which other keys were pressed).
@@ -146,6 +149,7 @@ npm test           # search and database tests
 npm run icon       # re-render the app icon from the design
 npm run dist       # build the installer
 npm run dist:portable   # a portable exe for local testing (not published)
+# Both first move the previous version's files from dist/ into dist/Old.
 ```
 
 Fonts (Chakra Petch, IBM Plex Sans, IBM Plex Mono) are bundled under `app/renderer/fonts` under the

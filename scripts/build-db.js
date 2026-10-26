@@ -213,6 +213,26 @@ for (const b of craft?.blueprints || []) {
   }
 }
 
+// RSI's Ship Matrix fills components the wiki page leaves out (life support, a radar…); grade and class
+// come from the wiki's data for that item. Generic names ("radar", "power plant") are RSI placeholders.
+const wikiItemByName = new Map((wiki?.items || []).map((w) => [norm(w.name), w]));
+const matrixByName = new Map();
+for (const r of ships?.rsiMatrix || []) for (const k of [r.name, `${r.manufacturer} ${r.name}`]) matrixByName.set(norm(k), r);
+const GENERIC_PART = /^(radar|power plants?|coolers?|shield generators?|quantum drives?|jump modules?|life support|tbd)$/;
+for (const ship of new Set(shipByName.values())) {
+  const m = matrixByName.get(norm(ship.d.shortName)) || matrixByName.get(norm(ship.n));
+  if (!m) continue;
+  const have = new Set((ship.d.loadout || []).map((l) => `${l.type}|${norm(l.item)}`));
+  for (const c of m.components) {
+    if (GENERIC_PART.test(norm(c.name)) || have.has(`${c.type}|${norm(c.name)}`)) continue;
+    const w = wikiItemByName.get(norm(c.name));
+    for (let i = 0; i < c.count; i++) {
+      (ship.d.loadout ||= []).push({ type: c.type, item: c.name, size: c.size ?? w?.size ?? null, grade: w?.grade || null, class: w?.class || null, manufacturer: w?.manufacturer || null, mount: null, src: 'rsi' });
+    }
+    have.add(`${c.type}|${norm(c.name)}`);
+  }
+}
+
 for (const ship of new Set(shipByName.values())) {
   ship.d.wikiImage = wikiImages[ship.d.shortName] || wikiImages[ship.n];
   ship.d.buy.sort((a, z) => (a.price || 0) - (z.price || 0));
@@ -411,6 +431,7 @@ const meta = {
     'finder.cstone.space': cstone && { fetchedAt: cstone.fetchedAt },
     'starcitizen.tools': wiki && { fetchedAt: wiki.fetchedAt },
     'uexcorp.space (prices, as used by spviewer)': ships && { fetchedAt: ships.fetchedAt },
+    'robertsspaceindustries.com ship matrix': ships?.rsiMatrix?.length ? { fetchedAt: ships.fetchedAt } : undefined,
     'uexcorp.space marketplace': market && { fetchedAt: market.fetchedAt },
   },
   counts: entries.reduce((acc, e) => ((acc[e.t] = (acc[e.t] || 0) + 1), acc), {}),

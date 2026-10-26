@@ -212,14 +212,7 @@ function viewShip(e) {
     ],
     body: [
       // What the ship flies with comes first, right after the overview; prices follow.
-      d.loadout?.length &&
-        section(
-          'Default components',
-          table(
-            [['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'num']],
-            groupLoadout(d.loadout).map((l) => [l.port, h('span', null, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : ''), l.size ?? '', l.grade ?? '']),
-          ),
-        ),
+      d.loadout?.length && section('Default components', loadoutTable(d.loadout)),
       section(
         'Price in USD (RSI store)',
         store.length
@@ -247,14 +240,39 @@ function viewShip(e) {
   };
 }
 
+// The default loadout grouped like erkul.games and the RSI ship page: weapons first, then missiles and
+// the components, each with size (S3), grade (A–D) and class. Identical items on the same mount are
+// counted (×4); a gun or missile shows the turret or rack it sits on.
+const LOADOUT_GROUPS = [
+  ['WeaponGun', 'Weapons'], ['Missile', 'Missiles'], ['Bomb', 'Bombs'], ['Shield', 'Shields'], ['PowerPlant', 'Power plants'],
+  ['Cooler', 'Coolers'], ['QuantumDrive', 'Quantum drive'], ['JumpDrive', 'Jump drive'], ['Radar', 'Radar'], ['LifeSupportGenerator', 'Life support'],
+  ['WeaponMining', 'Mining lasers'], ['SalvageHead', 'Salvage heads'], ['TractorBeam', 'Tractor beams'], ['QuantumInterdictionGenerator', 'Quantum interdiction'],
+  ['EMP', 'EMP'], ['WeaponDefensive', 'Countermeasures'],
+];
 function groupLoadout(loadout) {
   const m = new Map();
   for (const l of loadout) {
-    const k = `${l.port}|${l.item}`;
+    const k = `${l.type}|${l.item}|${l.mount || ''}`;
     if (m.has(k)) m.get(k).count++;
     else m.set(k, { ...l, count: 1 });
   }
-  return [...m.values()];
+  const order = (t) => { const i = LOADOUT_GROUPS.findIndex(([g]) => g === t); return i < 0 ? LOADOUT_GROUPS.length : i; };
+  return [...m.values()].sort((a, z) => order(a.type) - order(z.type) || (z.size || 0) - (a.size || 0) || a.item.localeCompare(z.item));
+}
+
+function loadoutTable(loadout) {
+  const rows = groupLoadout(loadout);
+  const label = (t) => tr((LOADOUT_GROUPS.find(([g]) => g === t) || [t, t])[1]);
+  return table(
+    [['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'num'], ['Class', 'dim']],
+    rows.map((l, i) => [
+      i === 0 || rows[i - 1].type !== l.type ? label(l.type) : '',
+      h('span', null, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : '', l.mount && h('span', { class: 'dim' }, ` · ${tr('on {mount}', { mount: l.mount })}`)),
+      l.size != null ? `S${l.size}` : '',
+      l.grade ? h('span', { class: `grade grade-${l.grade.toLowerCase()}` }, l.grade) : '',
+      l.class ? tr(l.class) : '',
+    ]),
+  );
 }
 
 function viewBlueprint(e) {

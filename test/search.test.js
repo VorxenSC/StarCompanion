@@ -49,7 +49,7 @@ test('a ship named by the query comes before every other kind', () => {
     { id: 'sb', t: 'ship', n: 'Drake Cutlass Blue', s: 'Drake Interplanetary', d: { shortName: 'Cutlass Blue' } },
   ]);
   assert.strictEqual(search(s, 'cutlass black')[0].id, 'sh');
-  assert.deepStrictEqual(search(s, 'cutlass').slice(0, 2).map((e) => e.id).sort(), ['sb', 'sh']);
+  assert.deepStrictEqual(search(s, 'cutlass').slice(0, 2).map((e) => e.id), ['sh', 'sb'], 'variants in alphabetical order');
   assert.strictEqual(search(s, 'cutl bla')[0].id, 'sh');
 });
 

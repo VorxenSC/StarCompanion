@@ -447,6 +447,13 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(95, 212, 232, 0.25); border-radius: 4px; }
 
+/* Component grade letters (A best … D), as in game */
+.grade { display: inline-block; min-width: 20px; padding: 0 5px; border: 1px solid currentColor; border-radius: 2px; font: 600 11px/16px var(--mono); text-align: center; }
+.grade-a { color: #8fe3a4; }
+.grade-b { color: #5fd4e8; }
+.grade-c { color: #ffd27a; }
+.grade-d { color: rgba(205, 218, 230, 0.72); }
+
 /* Result groups: a small header where each kind of result starts. */
 .group-head { margin: 10px 14px 2px; font: 500 10px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); opacity: 0.8; }
 .group-head:first-child { margin-top: 4px; }

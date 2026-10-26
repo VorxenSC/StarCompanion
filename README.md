@@ -94,7 +94,8 @@ row with "+N variants"; the detail lists them all.
 | finder.cstone.space | shops, base price and verification date for ~3,000 items and ships; item pictures | `/GetSearch` index + each item page (cached) |
 | sc-craft.tools | 1,612 blueprints: materials, quality effects, missions that reward them | JSON API `/api/blueprints` |
 | scminer.rocks | 37 minerals: locations and abundance per system, best sale, mining lasers/modules/gadgets and where to buy them | datasets embedded in the site's JS bundles |
-| starcitizen.tools | items (size, grade, class, manufacturer), missions, locations, ships with default components | `api.star-citizen.wiki` |
+| starcitizen.tools | items (size, grade, class, manufacturer), missions, locations, ships | `api.star-citizen.wiki` |
+| starcitizen.tools ship pages | each ship's full default loadout, as erkul.games and the RSI ship page show it: guns with the turret or mount they sit on, missiles and bombs with their rack, and shields, power plants, coolers, quantum and jump drives, radar and life support with size, grade (A–D) and class (Civilian, Military, Stealth…) | `api.star-citizen.wiki` vehicle detail, one request per ship |
 | RSI Pledge Store | ship prices in USD (standalone, warbond, packages) | imported daily from robertsspaceindustries.com by the wiki |
 | UEX Corp (what spviewer.eu uses) | buy/sell/rent prices per terminal | public API `api.uexcorp.uk/2.0` |
 | UEX commodities | 124 commodities at ~2,600 terminal prices: what each terminal pays and charges, demand and stock levels, auto load/unload, and the live PU version | `commodities_prices_all`, `terminals`, `game_versions` |

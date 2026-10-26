@@ -15,17 +15,6 @@ async function wikiVehicles() {
   return [first, ...rest].flatMap((r) => r.data);
 }
 
-function flattenPorts(ports, out = []) {
-  for (const p of ports || []) {
-    const it = p.equipped_item;
-    if (it && it.name && !/^(<=|PLACEHOLDER)/.test(it.name)) {
-      out.push({ port: p.category_label || p.type, item: it.name, type: it.type, size: it.size, grade: it.grade, manufacturer: it.manufacturer?.name });
-    }
-    flattenPorts(p.ports, out);
-  }
-  return out;
-}
-
 // RSI pledge store listings (USD), as imported daily by the wiki from robertsspaceindustries.com.
 // The standalone-ship SKU is the one the store's "Standalone Ships" page shows; others are upgrades/packs.
 // Warbond = a discounted offer that can only be paid with new money (not store credit); it is the
@@ -49,7 +38,63 @@ function rsiStore(v) {
   }));
 }
 
-const LOADOUT_TYPES = /WeaponGun|Shield|PowerPlant|Cooler|QuantumDrive|Turret|MissileLauncher|Radar|WeaponMining|TractorBeam|SalvageHead|Missile/;
+// The default loadout as erkul.games and the RSI ship page show it: guns (with the mount they sit on),
+// missiles and bombs (with their rack), and the components with size, grade (A–D) and class. It comes
+// from each ship's own wiki page (the vehicle list leaves out what sits inside turrets and racks).
+const LOADOUT_KEEP = /^(WeaponGun|Missile|Bomb|Shield|PowerPlant|Cooler|QuantumDrive|JumpDrive|Radar|LifeSupportGenerator|TractorBeam|WeaponMining|SalvageHead|WeaponDefensive|EMP|QuantumInterdictionGenerator)$/;
+const MOUNTS = /^(Turret|TurretBase|MissileLauncher|BombLauncher|ToolArm|UtilityTurret)$/;
+const junkName = (n) => !n || /PLACEHOLDER|^<=|^\[|_subitem_/.test(n);
+
+function loadoutOf(ports, mount = null, out = []) {
+  for (const p of ports || []) {
+    const it = p.equipped_item;
+    if (!it) continue;
+    const named = !junkName(it.name);
+    if (named && LOADOUT_KEEP.test(it.type || '')) {
+      out.push({
+        type: it.type,
+        item: it.name,
+        size: it.size ?? null,
+        // Grades are letters for ship components; weapons carry a meaningless default, so only
+        // components that also have a class (Civilian, Military…) keep theirs.
+        grade: it.class && /^[A-D]$/.test(String(it.grade)) ? String(it.grade) : null,
+        class: it.class || null,
+        manufacturer: junkName(it.manufacturer?.name) || it.manufacturer?.name === 'Unknown' ? null : it.manufacturer.name,
+        mount,
+      });
+    }
+    loadoutOf(p.ports || it.ports, named && MOUNTS.test(it.type || '') ? it.name : mount, out);
+  }
+  return out;
+}
+
+// RSI's Ship Matrix: the specs the RSI ship pages show, all ships in one public JSON file. It names the
+// components (not the guns inside turrets, nor grades), so it only fills what the wiki page lacks.
+const RSI_MATRIX = 'https://robertsspaceindustries.com/ship-matrix/index';
+const MATRIX_TYPES = { shield_generators: 'Shield', power_plants: 'PowerPlant', coolers: 'Cooler', quantum_drives: 'QuantumDrive', jump_modules: 'JumpDrive', radar: 'Radar', life_support: 'LifeSupportGenerator' };
+async function rsiMatrix() {
+  try {
+    const res = await getJson(RSI_MATRIX);
+    return (res.data || []).map((r) => ({
+      name: r.name,
+      manufacturer: r.manufacturer?.name || null,
+      components: Object.values(r.compiled || {}).flatMap((group) => Object.entries(group).flatMap(([key, list]) =>
+        MATRIX_TYPES[key] ? list.filter((c) => c.name).map((c) => ({ type: MATRIX_TYPES[key], name: c.name, size: Number(c.size) || null, count: (Number(c.mounts) || 1) * (Number(c.quantity) || 1) })) : [])),
+    }));
+  } catch (err) {
+    console.warn(`RSI ship matrix unavailable (${err.message}); loadouts come from the wiki alone`);
+    return [];
+  }
+}
+
+async function wikiVehicleDetails(vehicles) {
+  const results = await pool(vehicles, 3, (v) => getJson(`${WIKI}/vehicles/${encodeURIComponent(v.slug || v.uuid)}`), { delayMs: 150, onProgress: progress('ship loadouts') });
+  const byUuid = new Map();
+  results.forEach((r, i) => { if (r?.data) byUuid.set(vehicles[i].uuid, r.data); });
+  const failed = results.filter((r) => r?.error).length;
+  if (failed) console.warn(`${failed} ship pages failed; their loadout falls back to the vehicle list`);
+  return byUuid;
+}
 
 async function main() {
   const [vehicles, itemPrices, buyPrices, rentPrices, terminals] = await Promise.all([
@@ -72,8 +117,9 @@ async function main() {
     return parts.filter((v, i) => parts.indexOf(v) === i).join(' - ');
   };
 
-  const ships = vehicles
-    .filter((v) => !/_Display$|_Template|_AI_|_PU_AI|Unmanned/i.test(v.class_name || ''))
+  const kept = vehicles.filter((v) => !/_Display$|_Template|_AI_|_PU_AI|Unmanned/i.test(v.class_name || ''));
+  const [details, matrix] = await Promise.all([wikiVehicleDetails(kept), rsiMatrix()]);
+  const ships = kept
     .map((v) => ({
       uuid: v.uuid,
       name: v.game_name || v.name,
@@ -96,7 +142,7 @@ async function main() {
       status: en(v.production_status),
       isVehicle: v.is_vehicle,
       description: en(v.description) || en(v.game_description),
-      loadout: flattenPorts(v.ports).filter((p) => LOADOUT_TYPES.test(p.type || '')),
+      loadout: loadoutOf((details.get(v.uuid) || v).ports),
     }));
 
   const shipBuy = buyPrices.data.map((p) => ({ name: p.vehicle_name, where: where(p.id_terminal, p.terminal_name), price: p.price_buy, updated: p.date_modified }));
@@ -116,6 +162,7 @@ async function main() {
     ships,
     shipBuy,
     shipRent,
+    rsiMatrix: matrix,
     itemPrices: items,
   });
 }

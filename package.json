@@ -1,7 +1,7 @@
 {
   "name": "star-companion",
   "productName": "Star Companion",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "description": "In-game search overlay for Star Citizen: items, ships, blueprints, missions and minerals.",
   "author": "Vorxen",
   "repository": "github:VorxenSC/StarCompanion",

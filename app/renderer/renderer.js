@@ -211,6 +211,15 @@ function viewShip(e) {
       ['Status', d.status],
     ],
     body: [
+      // What the ship flies with comes first, right after the overview; prices follow.
+      d.loadout?.length &&
+        section(
+          'Default components',
+          table(
+            [['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'num']],
+            groupLoadout(d.loadout).map((l) => [l.port, h('span', null, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : ''), l.size ?? '', l.grade ?? '']),
+          ),
+        ),
       section(
         'Price in USD (RSI store)',
         store.length
@@ -230,14 +239,6 @@ function viewShip(e) {
             ? h('p', { class: 'note' }, usd(d.msrp), ' MSRP — not listed in the store right now.')
             : note('No USD price (not sold in the RSI store).'),
       ),
-      d.loadout?.length &&
-        section(
-          'Default components',
-          table(
-            [['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'num']],
-            groupLoadout(d.loadout).map((l) => [l.port, h('span', null, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : ''), l.size ?? '', l.grade ?? '']),
-          ),
-        ),
       section('Buy in game (aUEC)', d.buy?.length ? shopsTable(d.buy) : note('Not sold in any in-game shop.')),
       d.rent?.length && section('Rent in game', shopsTable(d.rent)),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),

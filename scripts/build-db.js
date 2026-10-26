@@ -31,6 +31,7 @@ const ships = load('ships.json');
 const market = load('market.json');
 const commodities = load('commodities.json');
 const factions = load('factions.json');
+const wikiImages = load('images.json')?.images || {};
 // Hand-written notes (where players find things, systems): scripts/curated/*.json, shipped with the app.
 const CURATED = path.join(__dirname, 'curated');
 const curated = (f) => (fs.existsSync(path.join(CURATED, f)) ? JSON.parse(fs.readFileSync(path.join(CURATED, f), 'utf8')) : null);
@@ -213,6 +214,7 @@ for (const b of craft?.blueprints || []) {
 }
 
 for (const ship of new Set(shipByName.values())) {
+  ship.d.wikiImage = wikiImages[ship.d.shortName] || wikiImages[ship.n];
   ship.d.buy.sort((a, z) => (a.price || 0) - (z.price || 0));
   ship.d.rent.sort((a, z) => (a.price || 0) - (z.price || 0));
   add(ship);
@@ -226,26 +228,45 @@ const tipFor = (name) => {
   const t = tipsByName.get(norm(name)) || tipsByName.get(norm(baseName(name)));
   return t ? t.notes : undefined;
 };
+// UEX sometimes lists one game item twice: an older entry without the game uuid, spelled a little
+// differently ("Torrent Compensator 2"), and a newer one with it ("Torrent Compensator2"). Players may
+// list under either, so all entries whose names match once spaces are ignored count as the same item.
+const flat = (s) => norm(s).replace(/ /g, '');
 const uexByUuid = new Map();
-const uexByName = new Map();
+const uexByFlatName = new Map();
 for (const u of market?.items || []) {
   if (u.uuid) uexByUuid.set(u.uuid, u);
-  if (!uexByName.has(norm(u.name))) uexByName.set(norm(u.name), u);
+  const k = flat(u.name);
+  if (!uexByFlatName.has(k)) uexByFlatName.set(k, []);
+  uexByFlatName.get(k).push(u);
+}
+// The entry to use for an item: the one with the most open sell offers, else the uuid match, else the
+// first name match. Its id is what the marketplace link opens.
+function uexFor(it) {
+  const byUuid = it.d.uuid && uexByUuid.get(it.d.uuid);
+  const candidates = [...new Set([byUuid, ...(uexByFlatName.get(flat(it.n)) || []), ...(byUuid ? uexByFlatName.get(flat(byUuid.name)) || [] : [])].filter(Boolean))];
+  const listed = candidates.filter((u) => market.market[u.id]).sort((a, z) => market.market[z.id].sellCount - market.market[a.id].sellCount);
+  return { uex: listed[0] || byUuid || candidates[0], all: candidates };
 }
 
 for (const it of items.values()) {
   if (shipByName.has(norm(it.n))) continue; // wiki lists ships as items too; the ship entry wins
   // The wiki's cargo item for a commodity ("Laranite", Cargo / Cargo) is replaced by the commodity entry.
   if (commodityNames.has(norm(it.n)) && /cargo/i.test(it.d.type || '') && !it.d.shops?.length) continue;
-  const uex = (it.d.uuid && uexByUuid.get(it.d.uuid)) || uexByName.get(norm(it.n));
+  const { uex, all } = uexFor(it);
   if (uex) {
     it.d.uexId = uex.id;
-    if (!it.d.manufacturer && clean(uex.company)) it.d.manufacturer = uex.company;
+    const company = all.map((u) => clean(u.company)).find(Boolean);
+    if (!it.d.manufacturer && company) it.d.manufacturer = company;
     if (uex.image) it.d.image = uex.image; // shown when cstone has no picture
     if (market.market[uex.id]) it.d.market = market.market[uex.id];
   }
   delete it.d.uuid;
   if (isJunk(it.d.manufacturer)) delete it.d.manufacturer;
+  // Pictures when cstone has none: the wiki page's image, then a player's photo from a UEX offer.
+  if (wikiImages[it.n]) it.d.wikiImage = wikiImages[it.n];
+  if (it.d.market?.photo) it.d.playerPhoto = it.d.market.photo;
+  if (it.d.market) delete it.d.market.photo;
   const tip = tipFor(it.n);
   if (tip) it.d.tips = tip;
   const bp = bpByName.get(norm(it.n));

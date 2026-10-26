@@ -2,7 +2,9 @@
 // The public API returns the latest listings, and the full listing history of one item when filtered by
 // id_item. We take every item in the current feed, read its history, and summarise its open sell offers.
 // We also map every UEX item id (with its uuid), so each item can link to its filtered marketplace page.
-const { getJson, pool, writeRaw, progress } = require('./lib/http');
+const fs = require('fs');
+const path = require('path');
+const { getJson, pool, writeRaw, progress, RAW_DIR } = require('./lib/http');
 
 const UEX = 'https://api.uexcorp.uk/2.0';
 const now = () => Math.floor(Date.now() / 1000);
@@ -26,6 +28,8 @@ function summarise(listings) {
     sellCount: sells.length,
     buyCount: open.filter((l) => l.operation === 'buy').length,
     newest: new Date(Math.max(...sells.map((l) => l.date_added)) * 1000).toISOString().slice(0, 10),
+    // A player's photo of the item, from the newest open offer that has one (UEX's own thumbnail).
+    photo: [...sells].sort((a, z) => z.date_added - a.date_added).map((l) => String(l.photos || '').split(',')[0].trim()).find((u) => /^https:\/\//.test(u)) || undefined,
   };
 }
 
@@ -36,7 +40,13 @@ async function main() {
   const items = perCategory.flatMap((r) => r.data || []).map((i) => ({ id: i.id, name: i.name, uuid: i.uuid || null, company: i.company_name || null, image: i.screenshot || null }));
 
   const feed = (await getJson(`${UEX}/marketplace_listings`)).data;
-  const listed = [...new Set(feed.map((l) => l.id_item).filter((id) => id > 0))];
+  // The public feed only holds the latest 500 listings (about two days). Items that had open offers
+  // in the previous dump are checked again too, so an older listing that is still open is not lost.
+  let previous = [];
+  try {
+    previous = Object.keys(JSON.parse(fs.readFileSync(path.join(RAW_DIR, 'market.json'), 'utf8')).market || {}).map(Number);
+  } catch { /* first run */ }
+  const listed = [...new Set([...feed.map((l) => l.id_item), ...previous].filter((id) => id > 0))];
   const histories = await pool(listed, 2, (id) => getJson(`${UEX}/marketplace_listings?id_item=${id}`), { delayMs: 250, onProgress: progress('listed items') });
 
   const market = {};

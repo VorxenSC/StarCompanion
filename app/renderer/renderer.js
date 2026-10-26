@@ -609,17 +609,33 @@ function viewFaction(e) {
 
 const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, commodity: viewCommodity, faction: viewFaction, location: viewLocation };
 
-// cstone hosts a picture for most items and ships it lists.
+// The item's picture, by preference: cstone's render, the wiki page's picture, then a player's photo
+// from a UEX offer. All are tried at once (a missing cstone picture can take a while to fail): the
+// first to arrive shows at once and a more preferred one replaces it when it arrives; the box goes
+// away if none loads.
 function imageFor(e) {
   const id = e.d.cstoneUrl?.split('/').pop();
-  const urls = [id && `https://cstone.space/uifimages/${id}.png`, e.d.image].filter(Boolean);
+  const urls = [id && `https://cstone.space/uifimages/${id}.png`, e.d.image, e.d.wikiImage, e.d.playerPhoto].filter(Boolean);
   if (!urls.length) return null;
-  const img = h('img', { class: 'detail-img', alt: '', src: urls.shift() });
-  img.addEventListener('error', () => {
-    if (urls.length) img.src = urls.shift();
-    else { img.remove(); fit(); }
+  const img = h('img', { class: 'detail-img', alt: '' });
+  const state = urls.map(() => null); // null = pending, true = loaded, false = failed
+  const settle = () => {
+    if (state.every((s) => s === false)) { img.remove(); fit(); return; }
+    const best = state.findIndex((s) => s === true);
+    if (best !== -1 && img.dataset.shown !== String(best)) {
+      img.dataset.shown = String(best);
+      img.src = urls[best];
+      fit();
+    }
+  };
+  urls.forEach((url, i) => {
+    const probe = new Image();
+    probe.referrerPolicy = 'no-referrer'; // UEX's image server refuses requests carrying another site as referrer
+    probe.onload = () => { state[i] = true; settle(); };
+    probe.onerror = () => { state[i] = false; settle(); };
+    probe.src = url;
   });
-  img.addEventListener('load', fit);
+  img.referrerPolicy = 'no-referrer';
   return img;
 }
 

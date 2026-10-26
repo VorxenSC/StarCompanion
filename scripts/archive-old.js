@@ -28,7 +28,12 @@ if (fs.existsSync(DIST)) {
     if (!fs.statSync(path.join(DIST, file)).isFile()) continue;
     const v = versionOf(file);
     if (!v || v === version) continue;
-    fs.renameSync(path.join(DIST, file), freeName(file));
-    console.log(`archive-old: ${file} -> Old/`);
+    try {
+      fs.renameSync(path.join(DIST, file), freeName(file));
+      console.log(`archive-old: ${file} -> Old/`);
+    } catch (err) {
+      // A portable exe that is running is locked; it moves on the next build once it is closed.
+      console.warn(`archive-old: ${file} left in dist (${err.code}: in use?)`);
+    }
   }
 }

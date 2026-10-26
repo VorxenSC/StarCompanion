@@ -44,9 +44,12 @@
   }
 
   // tier 0: the name is the query; 1: the query is in the name as whole words; 2: everything else.
+  // A ship whose name the query spells (every word matches the start of a word of the name) goes
+  // above all of them, tier -1: someone typing a ship's name is looking for that ship.
   function scoreRow(row, q, tokens) {
     let score = 0;
     let tier = 2;
+    let named = true;
     if (row.key === q) { score += 1000; tier = 0; }
     else if (row.key.startsWith(q + ' ')) { score += 300; tier = 1; } // query is the name's leading whole word(s)
     else if ((' ' + row.key + ' ').includes(' ' + q + ' ')) { score += 150; tier = 1; } // query is whole words inside the name
@@ -56,7 +59,7 @@
     for (const t of tokens) {
       if (row.words.includes(t)) score += 40;
       else if (row.words.some((w) => w.startsWith(t))) score += 25;
-      else if (row.key.includes(t)) score += 10;
+      else if ((named = false) || row.key.includes(t)) score += 10;
       else if (row.sub.includes(t)) score += 4; // matched the subtitle (category, manufacturer…)
       else if (t.length >= 3 && isSubsequence(t, row.flat)) score += 2;
       else return null; // every token must match somewhere
@@ -64,6 +67,7 @@
     score += TYPE_BONUS[row.e.t] || 0;
     if (row.hasShops) score += 3;
     score -= Math.min(row.key.length, 60) / 10; // shorter names are closer matches
+    if (row.e.t === 'ship' && named) tier = -1;
     return { score, tier };
   }
 
@@ -80,7 +84,8 @@
       const s = scoreRow(row, q, tokens);
       if (!s || s.score <= 0) continue;
       const prev = best.get(row.e);
-      if (!prev || s.score > prev.score) best.set(row.e, s);
+      if (!prev) best.set(row.e, s);
+      else best.set(row.e, { score: Math.max(prev.score, s.score), tier: Math.min(prev.tier, s.tier) });
     }
     const group = (t) => { const i = GROUP_ORDER.indexOf(t); return i < 0 ? GROUP_ORDER.length : i; };
     let hits = [...best]

@@ -41,6 +41,18 @@ test('results are grouped: blueprint, then commodity, then item', () => {
   assert.deepStrictEqual(search(s, 'laser').map((e) => e.id), ['b', 'c', 'i']);
 });
 
+test('a ship named by the query comes before every other kind', () => {
+  const s = buildIndex([
+    { id: 'bp', t: 'blueprint', n: 'Cutlass Black Paint', s: '' },
+    { id: 'it', t: 'item', n: 'Cutlass Black Ship Armor', s: '' },
+    { id: 'sh', t: 'ship', n: 'Drake Cutlass Black', s: 'Drake Interplanetary', d: { shortName: 'Cutlass Black' } },
+    { id: 'sb', t: 'ship', n: 'Drake Cutlass Blue', s: 'Drake Interplanetary', d: { shortName: 'Cutlass Blue' } },
+  ]);
+  assert.strictEqual(search(s, 'cutlass black')[0].id, 'sh');
+  assert.deepStrictEqual(search(s, 'cutlass').slice(0, 2).map((e) => e.id).sort(), ['sb', 'sh']);
+  assert.strictEqual(search(s, 'cutl bla')[0].id, 'sh');
+});
+
 test('variants collapse to one row per family', () => {
   const v = buildIndex([
     { id: '1', t: 'item', n: 'Parallax Energy Assault Rifle', s: '', d: { variants: ['a', 'b', 'c'] } },

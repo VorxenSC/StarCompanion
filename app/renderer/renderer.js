@@ -76,6 +76,11 @@ function h(tag, attrs, ...kids) {
   return el;
 }
 const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : n ?? '—');
+// Tables list their rows in alphabetical order (of what the first column says, in the language shown).
+// The exceptions keep an order that carries meaning: reputation levels (a ladder) and a system's
+// planets (from the star outward), and 1×–10× rock counts.
+const alpha = (key) => (a, z) => String(key(a) ?? '').localeCompare(String(key(z) ?? ''), CompanionI18n.getLanguage(), { sensitivity: 'base', numeric: true });
+const sortedBy = (list, key) => [...list].sort(alpha(key));
 const auec = (n) => (typeof n === 'number' && n > 0 ? h('span', { class: 'price' }, `${fmt(n)} aUEC`) : h('span', { class: 'dim' }, '—'));
 const usd = (n) => h('span', { class: 'usd' }, `$${Number(n).toLocaleString('en-US')}`);
 const link = (label, url) => h('a', { onclick: () => companion.openLink(url) }, label);
@@ -100,7 +105,7 @@ function links(pairs) {
 
 // Where to buy or rent, in alphabetical order of the place (cheapest first when two read the same).
 function shopsTable(shops) {
-  const sorted = [...shops].sort((a, z) => String(a.where || '').localeCompare(String(z.where || ''), CompanionI18n.getLanguage()) || (a.price || Infinity) - (z.price || Infinity));
+  const sorted = [...shops].sort((a, z) => alpha((s) => s.where)(a, z) || (a.price || Infinity) - (z.price || Infinity));
   return table(
     [['Where', ''], ['Price', 'num'], ['Sells for', 'num'], ['Verified', 'dim'], ['Source', 'dim']],
     sorted.map((s) => [s.where, auec(s.price), s.sell ? auec(s.sell) : '', s.verified || '', SRC[s.src] || s.src]),
@@ -166,8 +171,8 @@ const round1 = (n) => Math.round(n * 10) / 10;
 function weaponSection(w) {
   return section(
     'Damage',
-    w.damages.length > 0 && table([['Damage type', ''], ['Per shot', 'num']], w.damages.map((x) => [x.kind.charAt(0).toUpperCase() + x.kind.slice(1), fmt(round1(x.damage))])),
-    w.modes.length > 0 && table([['Fire mode', ''], ['Rate', 'num'], ['DPS', 'num']], w.modes.map((x) => [x.mode, x.rpm ? `${fmt(x.rpm)} rpm` : tr('continuous'), x.dps ? fmt(Math.round(x.dps)) : '—'])),
+    w.damages.length > 0 && table([['Damage type', ''], ['Per shot', 'num']], sortedBy(w.damages, (x) => x.kind).map((x) => [x.kind.charAt(0).toUpperCase() + x.kind.slice(1), fmt(round1(x.damage))])),
+    w.modes.length > 0 && table([['Fire mode', ''], ['Rate', 'num'], ['DPS', 'num']], sortedBy(w.modes, (x) => x.mode).map((x) => [x.mode, x.rpm ? `${fmt(x.rpm)} rpm` : tr('continuous'), x.dps ? fmt(Math.round(x.dps)) : '—'])),
     note([w.class, w.type, w.magazine && tr('{n} rounds per magazine', { n: w.magazine })].filter(Boolean).join(' · ')),
   );
 }
@@ -220,7 +225,7 @@ function viewShip(e) {
           ? [
               table(
                 [['Offer', ''], ['USD', 'num'], ['', 'dim'], ['Checked', 'dim']],
-                store.map((s) => [
+                [...store].sort((a, z) => alpha((s) => s.title)(a, z) || (a.discountedUsd || a.usd) - (z.discountedUsd || z.usd)).map((s) => [
                   link(s.title, s.url),
                   s.discountedUsd ? h('span', null, usd(s.discountedUsd), ' ', h('s', { class: 'dim' }, `$${s.usd}`)) : usd(s.usd),
                   h('span', null, s.warbond ? h('span', { class: 'badge-warbond' }, 'WARBOND') : null, ' ', [s.pack && 'package', s.available ? 'on sale' : 'off sale'].filter(Boolean).join(', ')),
@@ -304,12 +309,12 @@ function viewBlueprint(e) {
       section(
         'Materials',
         table(
-          [['Slot', 'dim'], ['Material', ''], ['Qty', 'num'], ['Quality affects', 'dim']],
-          d.ingredients.map((ing) => [
+          [['Slot', 'dim'], ['Material', ''], ['Qty', 'num'], ['Quality affects', 'effects']],
+          [...d.ingredients].sort((a, z) => a.slot.localeCompare(z.slot)).map((ing) => [
             ing.slot,
             h('span', null, ing.options.map((o, i) => [i ? ' or ' : '', jump(o.name, o.name, 'mineral')])),
             ing.options.map((o) => `${o.qty} ${o.unit === 'scu' ? 'SCU' : 'pcs'}`).join(' / '),
-            ing.effects.map((f) => `${f.stat} ${pct(f.min)}→${pct(f.max)}`).join(', '),
+            ing.effects.map((f) => tr(f.stat)).join(', '), // what this material's quality changes (the simulator shows how much)
           ]),
         ),
       ),
@@ -319,7 +324,7 @@ function viewBlueprint(e) {
         d.missions.length
           ? table(
               [['Mission', ''], ['Faction', ''], ['Type', 'dim'], ['Drop chance', 'num']],
-              d.missions.map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', kinds(m), `${Math.round(m.chance * 100)}%`]),
+              sortedBy(d.missions, (m) => m.name).map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', kinds(m), `${Math.round(m.chance * 100)}%`]),
             )
           : note(d.defaultOwned ? 'Every player already owns this blueprint.' : 'No known mission.'),
       ),
@@ -392,6 +397,7 @@ function craftSimulator(e) {
     cells.set('DPS', { crafted, change, b: dps, derived: true });
     rows.push([tr('Damage per second'), fmtVal(dps.value), crafted, change]);
   }
+  rows.sort(alpha((r) => r[0]));
   const update = () => {
     const mods = craftedModifiers(all, qualities);
     for (const [stat, c] of cells) {
@@ -408,28 +414,61 @@ function craftSimulator(e) {
     r.addEventListener('input', () => oninput(Number(r.value)));
     return r;
   };
-  const outputs = [];
+  // The number beside a slider: click it to type a quality (0–1000); Enter or leaving the box applies
+  // it, Esc keeps the old value.
+  const qualityValue = (onSet) => {
+    const btn = h('button', { class: 'q-value', title: tr('Click to type a quality (0–1000)') }, '500');
+    btn.addEventListener('click', () => {
+      const input = h('input', { type: 'number', min: '0', max: String(QUALITY_MAX), step: '1', class: 'q-input', 'aria-label': tr('Quality') });
+      input.value = btn.textContent;
+      let done = false;
+      const finish = (apply) => {
+        if (done) return;
+        done = true;
+        const v = Math.round(Number(input.value));
+        if (apply && input.value !== '' && Number.isFinite(v)) onSet(Math.max(0, Math.min(QUALITY_MAX, v)));
+        input.replaceWith(btn);
+      };
+      input.addEventListener('keydown', (ev) => {
+        ev.stopPropagation(); // the box owns the keyboard: no search shortcuts while typing
+        if (ev.key === 'Enter') finish(true);
+        else if (ev.key === 'Escape') finish(false);
+      });
+      input.addEventListener('blur', () => finish(true));
+      btn.replaceWith(input);
+      input.focus();
+      input.select();
+    });
+    return btn;
+  };
   const slotSliders = [];
-  const globalOut = h('span', { class: 'q-value' }, '500');
-  const globalSlider = slider(500, (v) => {
+  const outputs = [];
+  const setSlot = (i, v) => {
+    qualities[i] = v;
+    slotSliders[i].value = String(v);
+    outputs[i].textContent = String(v);
+  };
+  const setAll = (v) => {
+    globalSlider.value = String(v);
     globalOut.textContent = String(v);
-    qualities.fill(v);
-    slotSliders.forEach((r, i) => { r.value = String(v); outputs[i].textContent = String(v); });
+    all.forEach((_ing, i) => setSlot(i, v));
     update();
-  });
-  const slotRows = all.map((ing, i) => {
-    const out = h('span', { class: 'q-value' }, '500');
-    outputs.push(out);
-    const r = slider(500, (v) => { qualities[i] = v; out.textContent = String(v); update(); });
-    slotSliders.push(r);
-    return h(
-      'div',
-      { class: 'q-row' },
-      h('span', { class: 'q-slot' }, ing.slot, h('span', { class: 'dim' }, ` · ${ing.options.map((o) => o.name).join(' / ')}`)),
-      r,
-      out,
-    );
-  });
+  };
+  const globalOut = qualityValue(setAll);
+  const globalSlider = slider(500, setAll);
+  // One row per material slot, in alphabetical order of the slot (Cabling, Frame, Regulator…).
+  const order = all.map((_ing, i) => i).sort((a, z) => all[a].slot.localeCompare(all[z].slot));
+  for (let i = 0; i < all.length; i++) {
+    outputs[i] = qualityValue((v) => { setSlot(i, v); update(); });
+    slotSliders[i] = slider(500, (v) => { setSlot(i, v); update(); });
+  }
+  const slotRows = order.map((i) => h(
+    'div',
+    { class: 'q-row' },
+    h('span', { class: 'q-slot' }, all[i].slot, h('span', { class: 'dim' }, ` · ${all[i].options.map((o) => o.name).join(' / ')}`)),
+    slotSliders[i],
+    outputs[i],
+  ));
   update();
   return section(
     'Crafted quality',
@@ -462,7 +501,7 @@ function viewMission(e) {
       d.blueprints?.length &&
         section(
           'Blueprints it can reward',
-          table([['Blueprint', ''], ['Chance', 'num']], d.blueprints.map((b) => [jump(b.name, b.name, 'blueprint'), `${Math.round(b.chance * 100)}%`])),
+          table([['Blueprint', ''], ['Chance', 'num']], sortedBy(d.blueprints, (b) => b.name).map((b) => [jump(b.name, b.name, 'blueprint'), `${Math.round(b.chance * 100)}%`])),
         ),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),
       links([['Wiki', d.url]]),
@@ -564,14 +603,14 @@ function viewMineral(e) {
       section(
         'Where to mine',
         systems.length
-          ? systems.map(([sys, list]) => [
+          ? sortedBy(systems, ([sys]) => sys).map(([sys, list]) => [
               h('div', { class: 'system' }, sys.toUpperCase()),
-              table([['Location', ''], ['Abundance', 'num']], [...list].sort((a, z) => z.abundance - a.abundance).map((l) => [l.name, `${l.abundance}%`])),
+              table([['Location', ''], ['Abundance', 'num']], sortedBy(list, (l) => l.name).map((l) => [l.name, `${l.abundance}%`])),
             ])
           : note('No known locations.'),
       ),
       d.usedIn?.length &&
-        section(`Used in ${d.usedInCount} blueprints`, h('div', null, d.usedIn.map((n) => h('span', { class: 'pill' }, jump(n, n, 'blueprint'))))),
+        section(`Used in ${d.usedInCount} blueprints`, h('div', null, sortedBy(d.usedIn, (n) => n).map((n) => h('span', { class: 'pill' }, jump(n, n, 'blueprint'))))),
       links([['scminer', d.url]]),
     ],
   };
@@ -622,7 +661,7 @@ function viewCommodity(e) {
         sells.length
           ? table(
               [['Location', ''], ['Pays / SCU', 'num'], ['Demand', ''], ['Updated', 'dim']],
-              sells.map((l) => [placeCell(l), auec(l.sell), demandMeter(l.inventory), l.updated || '']),
+              sortedBy(sells, (l) => l.where).map((l) => [placeCell(l), auec(l.sell), demandMeter(l.inventory), l.updated || '']),
             )
           : note('No terminal buys it.'),
       ),
@@ -631,7 +670,7 @@ function viewCommodity(e) {
         buys.length
           ? table(
               [['Location', ''], ['Costs / SCU', 'num'], ['Stock', ''], ['Updated', 'dim']],
-              buys.map((l) => [placeCell(l), auec(l.buy), stockMeter(l.stock), l.updated || '']),
+              sortedBy(buys, (l) => l.where).map((l) => [placeCell(l), auec(l.buy), stockMeter(l.stock), l.updated || '']),
             )
           : note('No terminal sells it.'),
       ),
@@ -652,7 +691,7 @@ function viewLocation(e) {
         'Planets and moons',
         table([['Planet', ''], ['Moons', ''], ['Landing zone', '']], o.bodies.map((b) => [jump(b.name, b.name, 'location'), h('span', null, b.moons.map((m, i) => [i ? ', ' : '', jump(m, m, 'location')])), b.zones.join(', ')])),
       ),
-      o?.jumpPoints?.length > 0 && section('Jump points', h('div', null, o.jumpPoints.map((j) => h('span', { class: 'pill' }, j)))),
+      o?.jumpPoints?.length > 0 && section('Jump points', h('div', null, sortedBy(o.jumpPoints, (j) => j).map((j) => h('span', { class: 'pill' }, j)))),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),
       links([['Wiki', d.url]]),
     ],
@@ -1242,6 +1281,18 @@ function render() {
   scrollEl.scrollTop = 0;
   widthPending = true;
   fit();
+  remeasureSoon();
+}
+
+// Measured the instant it is drawn, text can still be settling (the reveal animation, the fonts):
+// the width is measured once more after that, for whatever is on screen then.
+let remeasureTimer;
+function remeasureSoon() {
+  clearTimeout(remeasureTimer);
+  remeasureTimer = setTimeout(() => {
+    widthPending = true;
+    fit();
+  }, 600);
 }
 
 // The panel's height animates in CSS; the window follows: it grows at once (the extra space is
@@ -1463,12 +1514,23 @@ function setIconClip({ iconX, iconY, iconSize }) {
 }
 
 let lastIcon = null;
+function remeasureWhenSized(tries = 0) {
+  if (window.innerWidth * zoom < 200 && tries < 30) return requestAnimationFrame(() => remeasureWhenSized(tries + 1));
+  widthPending = true;
+  fit();
+  remeasureSoon(); // and again once the unfold has finished
+}
+
 companion.onOpen((info) => {
   lastIcon = info;
   body.classList.remove('docked', 'folding');
   body.classList.toggle('side-right', info.side === 'right');
   windowH = 0; // the window was the icon; let the first fit size it
   fit();
+  // The window reopens at the player's chosen width, so whatever is on screen is laid out again:
+  // the width its tables need is measured anew, then the height. Only once the window really has
+  // the bar's size: right after "open" it can still be the icon's 64 px square.
+  remeasureWhenSized();
   setIconClip(info);
   body.classList.remove('unfolding');
   void body.offsetWidth; // restart the animation
@@ -1548,6 +1610,7 @@ gripEl.addEventListener('pointercancel', releaseGrip);
 gripEl.addEventListener('lostpointercapture', releaseGrip);
 companion.onLayout((layout) => {
   maxHeight = layout.maxHeight;
+  if (layout.zoom !== zoom) widthPending = true; // new text size: the tables need a new width
   zoom = layout.zoom;
   body.classList.toggle('side-right', layout.side === 'right');
   applyLayoutVars(layout.dockOpacity);

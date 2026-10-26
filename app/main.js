@@ -1079,6 +1079,11 @@ function snapshotMode(spec) {
       else if (step === '@feedback') openFeedback();
       else if (step === '@settings') openSettings();
       else if (step === '@scroll-end') await win.webContents.executeJavaScript('scrollEl.scrollTop = 1e6');
+      else if (step.startsWith('@js:')) {
+        // "@js:expression": evaluates it in the overlay and appends the result to js.txt (layout checks).
+        const out = await win.webContents.executeJavaScript(step.slice(4)).catch((err) => `error: ${err.message}`);
+        fs.appendFileSync(path.join(dir, 'js.txt'), `${JSON.stringify(out)}\n`);
+      }
       else if (step === '@feedback-send') {
         // Fill the form and press send (a snapshot copy never mails: the send handler answers ok).
         await win.webContents.executeJavaScript(`$('fb-message').value = 'The commodity demand bars are great, could they show the SCU demand too?'; $('fb-message').dispatchEvent(new Event('input')); submitFeedback()`);

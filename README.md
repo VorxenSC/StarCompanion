@@ -96,6 +96,9 @@ mineral of that kind with its signature, in alphabetical order. The same choice 
 mineral signatures) and the tray menu. The list has the icon's opacity, never takes focus, lets clicks
 through, and hides while the search bar is open.
 
+Tables list their rows in alphabetical order (stats, shops, missions, mining locations, terminals…),
+except where the order is the information: reputation levels and a system's planets.
+
 Results are grouped by kind (blueprints, then commodities, minerals, items, ships, factions, missions,
 locations), with the exact name first. Colour and edition variants (Parallax "Sunstone"…) show as one
 row with "+N variants"; the detail lists them all.

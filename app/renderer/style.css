@@ -249,16 +249,16 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .detail > .rise > .sec-title:first-child { margin-top: 0; }
 .fact { position: relative; padding-top: 10px; border-top: 1px solid rgba(190, 215, 235, 0.18); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .fact-label { font: 10px var(--mono); text-transform: uppercase; color: rgba(205, 218, 230, 0.66); --ls: 0.14em; letter-spacing: var(--ls); }
-.fact-value { font: 500 18px var(--display); color: var(--text); overflow-wrap: anywhere; --ls: 0.02em; letter-spacing: var(--ls); }
+.fact-value { font: 500 18px var(--display); color: var(--text); overflow-wrap: break-word; --ls: 0.02em; letter-spacing: var(--ls); }
 .fact .scan { top: -1px; bottom: auto; height: 1px; width: 24px; }
 
 .sec-title { margin: 22px 0 6px; font: 500 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
 .desc { margin: 0; color: rgba(205, 218, 230, 0.82); white-space: pre-line; text-align: justify; hyphens: auto; }
 .note { margin: 0; color: var(--faint); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-/* Rows stay on one line; the window widens to fit them (up to half the screen), else they wrap. */
-/* Cells wrap when the window is narrower than a row; numbers and meters stay on one line. */
-.panel-content th, .panel-content td { white-space: normal; overflow-wrap: anywhere; }
+/* Cells wrap between words when the window is narrower than a row (a long word may still break,
+   but never so that a column shrinks to a letter or two); numbers and meters stay on one line. */
+.panel-content th, .panel-content td { white-space: normal; overflow-wrap: break-word; }
 th { text-align: left; font: 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: rgba(205, 218, 230, 0.66); border-bottom: 1px solid var(--line); padding: 6px 6px 5px; }
 td { padding: 6px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 .num { text-align: right; font-family: var(--mono); white-space: nowrap; }
@@ -283,6 +283,8 @@ a:hover, .link:hover { text-decoration: underline; }
 .headline-where { display: block; margin-top: 2px; font: 12px var(--sans); color: var(--muted); letter-spacing: 0; }
 
 td.dim:last-child, th.dim:last-child { white-space: nowrap; }
+/* Long text in a last column (quality effects) wraps with the window like any other text. */
+td.effects, th.effects { color: var(--muted); white-space: normal; }
 
 /* Donation link: present but quiet; warms up on hover. */
 .coffee { display: inline-flex; align-items: center; gap: 6px; flex: none; color: rgba(242, 179, 94, 0.75); text-decoration: none; -webkit-app-region: no-drag; }
@@ -485,11 +487,14 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 .tip-src { color: var(--muted); font-size: 12px; }
 
 /* Crafting simulator */
-.q-row { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 44px; align-items: center; gap: 12px; margin: 4px 0; }
+.q-row { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 64px; align-items: center; gap: 12px; margin: 4px 0; }
 .q-global { margin: 8px 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .q-global .q-slot { color: var(--accent); font-weight: 500; }
-.q-slot { font: 12px var(--mono); letter-spacing: 0.06em; overflow-wrap: anywhere; }
-.q-value { font: 13px var(--mono); text-align: right; color: var(--text); }
+.q-slot { font: 12px var(--mono); letter-spacing: 0.06em; overflow-wrap: break-word; }
+.q-value { font: 13px var(--mono); text-align: right; color: var(--text); background: none; border: 1px solid transparent; border-radius: 3px; padding: 2px 4px; cursor: text; }
+.q-value:hover, .q-value:focus-visible { border-color: var(--line); outline: none; }
+.q-input { width: 100%; box-sizing: border-box; padding: 2px 4px; font: 13px var(--mono); text-align: right; color: var(--text); background: rgba(5, 10, 15, 0.8); border: 1px solid var(--accent); border-radius: 3px; outline: none; }
+.q-input::-webkit-inner-spin-button { opacity: 0.5; }
 .q-range { width: 100%; accent-color: var(--accent); }
 .q-slots + table { margin-top: 10px; }
 td .up { color: #8fe3a4; }

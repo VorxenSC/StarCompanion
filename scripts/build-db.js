@@ -327,20 +327,33 @@ for (const [k, v] of bpByMission) {
 }
 
 // ---------- Minerals (scminer.rocks) ----------
-const priceByMineral = new Map((miner?.market?.minerals || []).map((m) => [norm(m.name), m]));
+// scminer lists some minerals twice in its price data (ore and refined); the entry with a price wins.
+const priceByMineral = new Map();
+for (const m of miner?.market?.minerals || []) {
+  const prev = priceByMineral.get(norm(m.name));
+  if (!prev || (!prev.bestSellPricePerScu && m.bestSellPricePerScu)) priceByMineral.set(norm(m.name), m);
+}
+// As on scminer.rocks' mineral cards: the server base value ("200,000" aUEC/SCU) and the volatile
+// ores, which must be sold or refined quickly (the site flags Quantainium and Savrilium).
+const baseValue = (v) => { const n = parseInt(String(v || '').replace(/,/g, ''), 10); return Number.isFinite(n) && n > 0 ? n : undefined; };
+const VOLATILE_MINERALS = /quanta?inium|savrilium/i;
 for (const m of miner?.minerals || []) {
   const market = priceByMineral.get(norm(m.name));
   add({
     t: 'mineral',
     n: m.name,
-    s: `${m.tier} · ${m.category === 'ship' ? 'Ship mining' : m.category === 'vehicle' ? 'ROC / vehicle' : m.category === 'fps' ? 'Hand mining' : m.category}`,
+    // "Mineral · Rare": what it is, then how rare. How it is mined is a fact in the detail.
+    s: `Mineral · ${m.tier ? m.tier.charAt(0).toUpperCase() + m.tier.slice(1) : ''}`.replace(/ · $/, ''),
     d: {
       tier: m.tier,
       category: m.category,
       signature: m.scanSignature,
+      rs: Array.isArray(m.values) && m.values.length ? m.values : undefined, // radar signature of 1 to 10 rocks
+      baseValue: baseValue(m.props?.value),
+      volatile: VOLATILE_MINERALS.test(m.name) || undefined,
       props: m.props,
       locations: m.locations,
-      bestSell: market ? { price: market.bestSellPricePerScu, where: market.bestTerminal } : undefined,
+      bestSell: market?.bestSellPricePerScu ? { price: market.bestSellPricePerScu, where: market.bestTerminal } : undefined,
       commodity: commodityNames.has(norm(m.name)) || undefined, // trade prices and demand per terminal
       usedIn: bpByResource.has(norm(m.name)) ? [...bpByResource.get(norm(m.name))].slice(0, 60) : undefined,
       usedInCount: bpByResource.get(norm(m.name))?.size,

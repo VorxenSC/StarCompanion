@@ -98,8 +98,9 @@ function links(pairs) {
   return present.length ? h('div', { class: 'links' }, present.map(([label, url]) => link(`${tr(label)} ↗`, url))) : null;
 }
 
+// Where to buy or rent, in alphabetical order of the place (cheapest first when two read the same).
 function shopsTable(shops) {
-  const sorted = [...shops].sort((a, z) => (a.price || Infinity) - (z.price || Infinity));
+  const sorted = [...shops].sort((a, z) => String(a.where || '').localeCompare(String(z.where || ''), CompanionI18n.getLanguage()) || (a.price || Infinity) - (z.price || Infinity));
   return table(
     [['Where', ''], ['Price', 'num'], ['Sells for', 'num'], ['Verified', 'dim'], ['Source', 'dim']],
     sorted.map((s) => [s.where, auec(s.price), s.sell ? auec(s.sell) : '', s.verified || '', SRC[s.src] || s.src]),
@@ -127,7 +128,7 @@ function viewItem(e) {
       ['Grade', d.grade],
       ['Class', d.class],
       ['Lowest price', cheapest && auec(cheapest.price)],
-      ['Player market', m && h('span', null, h('span', { class: 'price' }, `~${fmt(m.approx)} aUEC`))],
+      ['UEX market price', m && h('span', null, h('span', { class: 'price' }, `~${fmt(m.approx)} aUEC`))],
       ['Craftable', d.craftable],
       ['Loot', d.lootable ? tr('Can be found as loot') : null],
       ...attrs,
@@ -240,14 +241,15 @@ function viewShip(e) {
   };
 }
 
-// The default loadout grouped like erkul.games and the RSI ship page: weapons first, then missiles and
-// the components, each with size (S3), grade (A–D) and class. Identical items on the same mount are
-// counted (×4); a gun or missile shows the turret or rack it sits on.
+// The default loadout grouped like erkul.games and the RSI ship page, groups and the items inside
+// them in alphabetical order (of the group names in the language shown), each item with size (S3),
+// grade (A–D) and class. Identical items on the same mount are counted (×4); a gun or missile shows
+// the turret or rack it sits on.
 const LOADOUT_GROUPS = [
   ['WeaponGun', 'Weapons'], ['Missile', 'Missiles'], ['Bomb', 'Bombs'], ['Shield', 'Shields'], ['PowerPlant', 'Power plants'],
   ['Cooler', 'Coolers'], ['QuantumDrive', 'Quantum drive'], ['JumpDrive', 'Jump drive'], ['Radar', 'Radar'], ['LifeSupportGenerator', 'Life support'],
   ['WeaponMining', 'Mining lasers'], ['SalvageHead', 'Salvage heads'], ['TractorBeam', 'Tractor beams'], ['QuantumInterdictionGenerator', 'Quantum interdiction'],
-  ['EMP', 'EMP'], ['WeaponDefensive', 'Countermeasures'],
+  ['EMP', 'EMP'],
 ];
 function groupLoadout(loadout) {
   const m = new Map();
@@ -256,12 +258,18 @@ function groupLoadout(loadout) {
     if (m.has(k)) m.get(k).count++;
     else m.set(k, { ...l, count: 1 });
   }
-  const order = (t) => { const i = LOADOUT_GROUPS.findIndex(([g]) => g === t); return i < 0 ? LOADOUT_GROUPS.length : i; };
-  return [...m.values()].sort((a, z) => order(a.type) - order(z.type) || (z.size || 0) - (a.size || 0) || a.item.localeCompare(z.item));
+  const lang = CompanionI18n.getLanguage();
+  const groupName = (t) => tr((LOADOUT_GROUPS.find(([g]) => g === t) || [t, t])[1]);
+  return [...m.values()].sort((a, z) =>
+    groupName(a.type).localeCompare(groupName(z.type), lang) ||
+    a.item.localeCompare(z.item, lang) ||
+    (a.mount || '').localeCompare(z.mount || '', lang));
 }
 
+// Left out of the table: decoy and noise launchers (countermeasures) say little about a ship.
+const LOADOUT_HIDDEN = new Set(['WeaponDefensive']);
 function loadoutTable(loadout) {
-  const rows = groupLoadout(loadout);
+  const rows = groupLoadout(loadout.filter((l) => !LOADOUT_HIDDEN.has(l.type)));
   const label = (t) => tr((LOADOUT_GROUPS.find(([g]) => g === t) || [t, t])[1]);
   return table(
     [['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'num'], ['Class', 'dim']],
@@ -452,21 +460,96 @@ function viewMission(e) {
   };
 }
 
+// The levels scminer.rocks shows on its mineral cards, as bars: none/very low … extreme.
+const LEVELS = { none: 0, 'very low': 1, low: 1, medium: 2, moderate: 2, high: 3, 'very high': 4, extreme: 5 };
+function levelBar(word, tone) {
+  const n = LEVELS[String(word || '').toLowerCase()];
+  if (n == null) return word || null;
+  const label = String(word).toLowerCase() === 'very low' ? 'Very low' : word; // the data says "Very Low"
+  return h('span', { class: `level tone-${tone}` }, h('span', { class: 'level-track' }, h('i', { class: `level-fill w${n}` })), h('span', { class: 'level-word' }, tr(label)));
+}
+
+// The radar signature as one line for the game chat: "Gold RS: 3585, 7170, …". Players paste it to
+// tell how many rocks of an ore the scanner is reading.
+const rsLine = (e) => `${e.n} RS: ${e.d.rs.join(', ')}`;
+function copyRsButton(e) {
+  if (!e.d.rs || e.d.rs.length < 2) return null;
+  const label = tr('Copy RS for chat');
+  const btn = h('button', { class: 'set-btn copy-btn', title: rsLine(e) }, label);
+  btn.addEventListener('click', () => {
+    companion.copyText(rsLine(e));
+    btn.textContent = tr('Copied');
+    btn.classList.add('done');
+    setTimeout(() => { btn.textContent = label; btn.classList.remove('done'); }, 1600);
+  });
+  return btn;
+}
+
+// The signature list beside the icon (the "Pin mineral signatures" setting): one button pins this
+// mineral with its 1×–10× rocks, another the whole list of its kind (ship ores, hand-mined, ROC
+// ores). A button already showing on screen reads "Unpin" and takes the list away.
+const PIN_KIND = { ship: 'Pin all ship ores', fps: 'Pin all hand-mined', vehicle: 'Pin all ROC ores' };
+const pinButtons = [];
+function pinButton(e, mode) {
+  const label = mode === 'mineral' ? tr('Pin {name}', { name: e.n }) : tr(PIN_KIND[mode]);
+  const btn = h('button', { class: 'set-btn copy-btn', title: tr('A list of radar signatures beside the icon, for scanning') }, label);
+  const isOn = (s) => s.pinSignatures === mode && (mode !== 'mineral' || s.pinMineral === e.n);
+  btn.refresh = (s) => {
+    const on = isOn(s);
+    btn.textContent = on ? tr('Unpin') : label;
+    btn.classList.toggle('done', on);
+  };
+  pinButtons.push(btn);
+  companion.getSettings().then(btn.refresh);
+  btn.addEventListener('click', async () => {
+    const s = await companion.getSettings();
+    const next = await companion.setSetting('pinSignatures', isOn(s) ? false : { mode, mineral: e.n });
+    for (const b of pinButtons) if (b.isConnected) b.refresh(next);
+  });
+  return btn;
+}
+
+// The radar signature of 1 to 10 rocks of this ore, with the copy and pin buttons beside its title.
+function rsSection(e) {
+  const rs = e.d.rs?.length > 1 ? e.d.rs : e.d.signature > 0 ? [e.d.signature] : null;
+  if (!rs) return null;
+  const many = rs.length > 1;
+  pinButtons.length = 0;
+  return [
+    h('div', { class: 'sec-title' }, many ? tr('Radar signature (1× – {n}×)', { n: rs.length }) : tr('Radar signature')),
+    h('div', { class: 'rs-chips' }, rs.map((v, i) => h('span', { class: 'rs-chip' }, h('span', { class: 'dim' }, `${i + 1}×`), fmt(v)))),
+    // The copy and pin buttons, under the values they act on.
+    h('div', { class: 'rs-actions' }, many && copyRsButton(e), many && pinButton(e, 'mineral'), PIN_KIND[e.d.category] && pinButton(e, e.d.category)),
+  ];
+}
+
 function viewMineral(e) {
   const d = e.d;
   const systems = Object.entries(d.locations || {}).filter(([, list]) => list.length);
   const top = systems.flatMap(([, list]) => list).sort((a, z) => z.abundance - a.abundance)[0];
+  const shipOre = d.category === 'ship';
   return {
     facts: [
-      ['Found at', top && `${top.name} · ${top.abundance}%`],
-      ['Sell value', d.bestSell && h('span', null, auec(d.bestSell.price), ' / SCU')],
-      ['Best sale at', d.bestSell?.where],
-      ['Scan signature', d.signature && fmt(d.signature)],
-      ['Instability', d.props?.instability],
-      ['Resistance', d.props?.resistance],
+      ['Server base', shipOre && d.baseValue && h('span', null, auec(d.baseValue), ' / SCU')],
+      ['Radar signature', d.signature > 0 && `${fmt(d.signature)} RS`],
+      ['Volatile', d.volatile && h('span', { class: 'badge-volatile' }, tr('VOLATILE (15 MIN)'))],
+      ['Best Location', top && `${top.name} · ${top.abundance}%`],
+      ['Rarity', d.tier && tr(d.tier.charAt(0).toUpperCase() + d.tier.slice(1))],
+      ['Mined with', { ship: tr('Mining ship'), vehicle: tr('ROC / ground vehicle'), fps: tr('Hand tool (multitool)') }[d.category] || d.category],
+      ['Sell value', d.bestSell?.price > 0 && h('span', null, auec(d.bestSell.price), ' / SCU')],
+      ['Best sale at', d.bestSell?.price > 0 && d.bestSell.where],
       ['Found with', [d.props?.secondary, d.props?.tertiary].filter((x) => x && x !== '-').join(', ')],
     ],
+    sortFacts: true, // the card reads in alphabetical order, left to right
+    // The three levels on one row of their own, always in this order.
+    bars: [
+      ['Density', levelBar(d.props?.density, 'purple')],
+      ['Instability', levelBar(d.props?.instability, 'red')],
+      ['Resistance', levelBar(d.props?.resistance, 'orange')],
+    ],
     body: [
+      d.volatile && note('Volatile: once mined it becomes unstable in the hold. Sell or refine it within about 15 minutes, or it can explode.'),
+      rsSection(e),
       d.commodity && section('Trading', jump(`Prices and demand per location for ${e.n} →`, e.n, 'commodity')),
       section(
         'Where to mine',
@@ -660,21 +743,34 @@ function imageFor(e) {
 
 // The one or two facts worth reading first; they sit beside the name, the rest go in the grid below.
 const HEADLINE = {
-  item: ['Lowest price', 'Player market', 'DPS'],
+  item: ['Lowest price', 'UEX market price', 'DPS'],
   ship: ['Store price', 'Warbond', 'In-game price'],
   blueprint: ['Craft time'],
   mission: ['Reward'],
-  mineral: ['Sell value', 'Found at'],
+  mineral: ['Server base', 'Radar signature', 'Volatile'],
   commodity: ['Best sale', 'Cheapest buy'],
   faction: ['Type', 'Area'],
   location: ['System', 'Star'],
 };
 
 function renderDetail(e) {
-  const { facts, body } = VIEWS[e.t](e);
-  const shown = facts.filter(([, v]) => v != null && v !== '' && v !== false);
+  const { facts, body, actions, bars, sortFacts } = VIEWS[e.t](e);
+  const present = ([, v]) => v != null && v !== '' && v !== false;
+  const shown = facts.filter(present);
   const headline = shown.filter(([label]) => HEADLINE[e.t].includes(label));
   const rest = shown.filter(([label]) => !HEADLINE[e.t].includes(label));
+  if (sortFacts) rest.sort(([a], [z]) => tr(a).localeCompare(tr(z), CompanionI18n.getLanguage()));
+  const barRow = (bars || []).filter(present);
+  const fact = ([label, value], i) => {
+    const d = 200 + Math.min(i, 12) * 40;
+    return h(
+      'div',
+      { class: 'fact' },
+      h('div', { class: 'scan', delay: d }),
+      h('span', { class: 'fact-label in', delay: d }, tr(label)),
+      h('span', { class: 'fact-value in', delay: d }, value === true ? tr('Yes') : value),
+    );
+  };
   return h(
     'div',
     { class: 'detail' },
@@ -694,6 +790,7 @@ function renderDetail(e) {
         ),
         h('div', { class: 'detail-name in', delay: 40 }, e.n),
         h('div', { class: 'detail-meta in', delay: 110 }, e.s || ''),
+        actions?.some(Boolean) && h('div', { class: 'detail-actions in', delay: 130 }, actions),
         headline.length > 0 &&
           h(
             'div',
@@ -705,21 +802,8 @@ function renderDetail(e) {
       ),
     ),
     // Everything else spread across the full width.
-    rest.length > 0 &&
-      h(
-        'div',
-        { class: 'facts' },
-        rest.map(([label, value], i) => {
-          const d = 200 + Math.min(i, 12) * 40;
-          return h(
-            'div',
-            { class: 'fact' },
-            h('div', { class: 'scan', delay: d }),
-            h('span', { class: 'fact-label in', delay: d }, tr(label)),
-            h('span', { class: 'fact-value in', delay: d }, value === true ? tr('Yes') : value),
-          );
-        }),
-      ),
+    rest.length > 0 && h('div', { class: 'facts' }, rest.map(fact)),
+    barRow.length > 0 && h('div', { class: 'facts facts-bars' }, barRow.map((b, i) => fact(b, rest.length + i))),
     h('div', { class: 'rise', delay: 420 }, body),
   );
 }
@@ -893,13 +977,19 @@ function renderSettings() {
     ),
     row('Start with Windows', s.canStartWithWindows ? 'Launch quietly when you sign in' : 'Available in the installed app', toggle('startWithWindows', s.startWithWindows, !s.canStartWithWindows), i++),
     row('Click into the search box', 'When the shortcut opens it, so you can type at once in game', toggle('autoClick', s.autoClick), i++),
+    row(
+      'Pin mineral signatures',
+      'A list of radar signatures beside the icon, for scanning',
+      choice('pinSignatures', [[false, tr('Off')], ['ship', tr('Ship ores')], ['fps', tr('Hand-mined')], ['vehicle', tr('ROC ores')], ...(s.pinMineral ? [['mineral', s.pinMineral]] : [])], s.pinSignatures || false),
+      i++,
+    ),
     row('Close when clicking the game', 'Fold back into the icon when the game gets focus', toggle('hideOnBlur', s.hideOnBlur), i++),
     group('Look'),
     row('Show icon when closed', 'A faint icon stays on screen; click it to open', toggle('dock', s.dock), i++),
     row('Icon opacity', 'How visible the icon is while you play', steps('dockOpacity', s.steps.dockOpacity, s.dockOpacity, !s.dock), i++),
     row('Transparency', 'Default is solid; 100% is as see-through as stays readable', steps('transparency', s.steps.transparency, s.transparency, false, (v) => (v === 0 ? tr('Default') : pct(v))), i++),
     row('Text size', 'Also Ctrl + = and Ctrl + -', steps('zoom', s.steps.zoom, s.zoom), i++),
-    row('Language', 'Automatic follows Windows', choice('language', [['auto', tr('Automatic')], ['en', 'English'], ['pt-BR', 'Português']], s.language), i++),
+    row('Language', 'Automatic follows Windows', choice('language', [['auto', tr('Automatic')], ['en', tr('English')], ['pt-BR', tr('Portuguese')]], s.language), i++),
     row('Position and size', 'Back to the default place and size', h('button', { class: 'set-btn', onclick: () => settingsAction('resetLayout') }, tr('Reset')), i++),
     group('Updates and help'),
     row('Check for updates at launch', tr('You have v{version}', { version: s.version }), h('span', { class: 'set-inline' }, toggle('checkUpdates', s.checkUpdates), h('button', { class: 'set-btn', onclick: () => settingsAction('checkUpdates') }, tr('Check now'))), i++),
@@ -1471,6 +1561,8 @@ async function load() {
   const db = JSON.parse(raw);
   index = CompanionSearch.buildIndex(db.entries);
   itemByName = new Map(db.entries.filter((x) => x.t === 'item').map((x) => [x.n, x]));
+  // The pinned signature lists: every mineral with its kind, signature and 1×–10× values.
+  companion.pinRows(db.entries.filter((x) => x.t === 'mineral').map((x) => ({ n: x.n, tier: x.d.tier, category: x.d.category, sig: x.d.signature || 0, rs: x.d.rs })));
   const total = Object.values(db.meta.counts).reduce((a, b) => a + b, 0);
   const sources = Object.entries(db.meta.sources).filter(([, s]) => s);
   const oldest = sources.map(([, s]) => s.fetchedAt.slice(0, 10)).sort()[0];
@@ -1484,4 +1576,6 @@ async function load() {
 }
 
 fit();
-load().catch((err) => { $('dbinfo').textContent = `Could not load the database: ${err.message}`; });
+load()
+  .catch((err) => { $('dbinfo').textContent = `Could not load the database: ${err.message}`; })
+  .finally(() => companion.ready());

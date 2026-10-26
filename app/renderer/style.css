@@ -242,6 +242,8 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 
 /* The remaining facts fill the window's width: as many columns as fit, never narrower than 150px. */
 .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 24px; }
+/* Level bars (minerals): one row, equal columns, so the bars line up. */
+.facts.facts-bars { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px; }
 .fact { position: relative; padding-top: 10px; border-top: 1px solid rgba(190, 215, 235, 0.18); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .fact-label { font: 10px var(--mono); text-transform: uppercase; color: rgba(205, 218, 230, 0.66); --ls: 0.14em; letter-spacing: var(--ls); }
 .fact-value { font: 500 18px var(--display); color: var(--text); overflow-wrap: anywhere; --ls: 0.02em; letter-spacing: var(--ls); }
@@ -453,6 +455,22 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 .grade-b { color: #5fd4e8; }
 .grade-c { color: #ffd27a; }
 .grade-d { color: rgba(205, 218, 230, 0.72); }
+
+/* Mineral cards (as on scminer.rocks): level bars, volatile badge, radar signature chips */
+.level { display: inline-flex; align-items: center; gap: 10px; width: 100%; }
+.level-track { flex: 1; min-width: 60px; height: 5px; border-radius: 3px; background: rgba(190, 215, 235, 0.14); overflow: hidden; }
+.level-fill { display: block; height: 100%; border-radius: 3px; background: var(--lvl); }
+.level-fill.w0 { width: 4%; } .level-fill.w1 { width: 20%; } .level-fill.w2 { width: 45%; } .level-fill.w3 { width: 70%; } .level-fill.w4 { width: 85%; } .level-fill.w5 { width: 100%; }
+.level-word { flex: none; width: 96px; text-align: right; font: 500 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.tone-red { --lvl: #ff6b5e; } .tone-orange { --lvl: #f2a14a; } .tone-purple { --lvl: #b48cff; }
+.badge-volatile { display: inline-block; padding: 2px 8px; border: 1px solid #ff6b5e; border-radius: 3px; color: #ff8a7e; font: 600 12px var(--mono); letter-spacing: 0.08em; }
+.rs-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rs-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.rs-chip { display: inline-flex; gap: 6px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 3px; font: 13px var(--mono); }
+.copy-btn { flex: none; }
+.copy-btn.done { border-color: var(--accent); color: var(--accent); }
+.detail-actions { display: flex; gap: 8px; margin-top: 10px; }
+.rs-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 
 /* Result groups: a small header where each kind of result starts. */
 .group-head { margin: 10px 14px 2px; font: 500 10px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); opacity: 0.8; }

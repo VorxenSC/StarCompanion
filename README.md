@@ -20,6 +20,11 @@ Download `StarCompanion-<version>-setup.exe` from
 [Releases](https://github.com/VorxenSC/StarCompanion/releases/latest) and run it. It installs to a
 "Star Companion" folder, adds desktop and Start menu shortcuts, and updates itself from then on.
 
+At launch a splash (the Splash artboard of the design canvas) plays in full while the database
+loads: the panel opens, the name is revealed behind a scan line, the o7 icon draws itself and the
+statuses run to Ready. It fades after about four and a half seconds (later only if the database is
+still loading), never takes focus and lets clicks through.
+
 When closed, Star Companion is a small, faint icon that stays on screen. Click it (or press **/**)
 and the search bar unfolds out of it toward the middle of the screen: right-to-left when the icon is
 on the right half, left-to-right when it is on the left. Closing folds the bar back into the icon.
@@ -83,6 +88,14 @@ and size, updates, the startup notice and the settings file's folder. Everything
 `dockX`/`dockY`, `windowWidth`, `height` = maximum window height). Once you resize with the grip,
 your width and height are kept from then on.
 
+Mineral pages have a **Copy RS for chat** button under the radar signature: it copies the signature
+for 1 to 10 rocks as one line to paste in the game chat (`Gold RS: 3585, 7170, 10755, …`). Next to it,
+**Pin {mineral}** and **Pin all ship ores / hand-mined / ROC ores** keep a small list beside the icon to
+match a scanner reading while mining: one mineral with its signature for 1 to 10 rocks, or every
+mineral of that kind with its signature, in alphabetical order. The same choice is in Settings (Pin
+mineral signatures) and the tray menu. The list has the icon's opacity, never takes focus, lets clicks
+through, and hides while the search bar is open.
+
 Results are grouped by kind (blueprints, then commodities, minerals, items, ships, factions, missions,
 locations), with the exact name first. Colour and edition variants (Parallax "Sunstone"…) show as one
 row with "+N variants"; the detail lists them all.
@@ -93,9 +106,9 @@ row with "+N variants"; the detail lists them all.
 |---|---|---|
 | finder.cstone.space | shops, base price and verification date for ~3,000 items and ships; item pictures | `/GetSearch` index + each item page (cached) |
 | sc-craft.tools | 1,612 blueprints: materials, quality effects, missions that reward them | JSON API `/api/blueprints` |
-| scminer.rocks | 37 minerals: locations and abundance per system, best sale, mining lasers/modules/gadgets and where to buy them | datasets embedded in the site's JS bundles |
+| scminer.rocks | 37 minerals as on its mineral directory cards: rarity, server base value (ship ores, aUEC/SCU), radar signature for 1–10 rocks (with a "Copy for chat" button: "Quantainium RS: 3170, 6340, …"), volatile ores (Quantainium, Savrilium), instability, resistance and density, locations and abundance per system, best sale; mining lasers/modules/gadgets and where to buy them | datasets embedded in the site's JS bundles |
 | starcitizen.tools | items (size, grade, class, manufacturer), missions, locations, ships | `api.star-citizen.wiki` |
-| starcitizen.tools ship pages | each ship's full default loadout, as erkul.games and the RSI ship page show it: guns with the turret or mount they sit on, missiles and bombs with their rack, and shields, power plants, coolers, quantum and jump drives, radar and life support with size, grade (A–D) and class (Civilian, Military, Stealth…) | `api.star-citizen.wiki` vehicle detail, one request per ship |
+| starcitizen.tools ship pages | each ship's full default loadout, as erkul.games and the RSI ship page show it: guns with the turret or mount they sit on, missiles and bombs with their rack, and the components; groups and items in alphabetical order (coolers, jump drive, life support, missiles, power plants, quantum drive, radar, shields, weapons…), with size, grade (A–D) and class (Civilian, Military, Stealth…). Countermeasures are left out | `api.star-citizen.wiki` vehicle detail, one request per ship |
 | RSI Pledge Store | ship prices in USD (standalone, warbond, packages) | imported daily from robertsspaceindustries.com by the wiki |
 | UEX Corp (what spviewer.eu uses) | buy/sell/rent prices per terminal | public API `api.uexcorp.uk/2.0` |
 | UEX commodities | 124 commodities at ~2,600 terminal prices: what each terminal pays and charges, demand and stock levels, auto load/unload, and the live PU version | `commodities_prices_all`, `terminals`, `game_versions` |
@@ -148,11 +161,15 @@ aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7
 npm install
 npm start          # run from source
 npm test           # search and database tests
-npm run icon       # re-render the app icon from the design
 npm run dist       # build the installer
 npm run dist:portable   # a portable exe for local testing (not published)
 # Both first move the previous version's files from dist/ into dist/Old.
 ```
+
+The app icon (the o7 salute) comes from the design pack in `build/icons/` (SVG source, PNGs from 16 to
+1024 px and the `.ico`): `build/icon.ico` (exe, installer, shortcuts) and `build/icon.png` are copies
+of it, `app/renderer/icon.png` is the 128 px one (the on-screen icon) and `app/renderer/tray.png` the
+32 px one.
 
 Fonts (Chakra Petch, IBM Plex Sans, IBM Plex Mono) are bundled under `app/renderer/fonts` under the
 SIL Open Font License, so the overlay works offline.

@@ -1,7 +1,7 @@
 {
   "name": "star-companion",
   "productName": "Star Companion",
-  "version": "0.4.12",
+  "version": "0.4.23",
   "description": "In-game search overlay for Star Citizen: items, ships, blueprints, missions and minerals.",
   "author": "Vorxen",
   "repository": "github:VorxenSC/StarCompanion",
@@ -20,7 +20,6 @@
     "collect:images": "node scripts/collect-images.js",
     "build:db": "node scripts/build-db.js",
     "update-data": "node scripts/update-all.js",
-    "icon": "electron scripts/make-icon.js",
     "dist": "node scripts/archive-old.js && node scripts/build-keys.js && electron-builder --win nsis",
     "dist:portable": "node scripts/archive-old.js && node scripts/build-keys.js && electron-builder --win portable",
     "test": "node --test test/*.test.js"

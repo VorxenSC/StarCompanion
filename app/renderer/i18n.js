@@ -30,7 +30,7 @@
     'Data for Star Citizen PU {data}.': 'Dados do Star Citizen PU {data}.',
     // Detail: common
     Yes: 'Sim', Description: 'Descrição', Where: 'Onde', Price: 'Preço', 'Sells for': 'Vende por', Verified: 'Verificado', Source: 'Fonte',
-    Manufacturer: 'Fabricante', Type: 'Tipo', Size: 'Tamanho', Grade: 'Grau', Class: 'Classe', 'Lowest price': 'Menor preço', 'Player market': 'Mercado de jogadores',
+    Manufacturer: 'Fabricante', Type: 'Tipo', Size: 'Tamanho', Grade: 'Grau', Class: 'Classe', 'Lowest price': 'Menor preço', 'UEX market price': 'Preço de mercado UEX',
     Craftable: 'Craftável', Loot: 'Loot', 'Can be found as loot': 'Pode ser encontrado como loot', 'View the {name} blueprint →': 'Ver o blueprint de {name} →',
     'Where to buy': 'Onde comprar', 'Not sold in any known shop — found as loot.': 'Não é vendido em lojas conhecidas — vem de loot.', 'No known shop in the sources.': 'Nenhuma loja conhecida nas fontes.',
     'Player market (UEX)': 'Mercado de jogadores (UEX)', 'Approx. asking price': 'Preço pedido aprox.', Range: 'Faixa', Offers: 'Ofertas', Latest: 'Mais recente',
@@ -53,7 +53,7 @@
     Contractor: 'Contratante', Faction: 'Facção', Systems: 'Sistemas', Legality: 'Legalidade', Reward: 'Recompensa', 'Minimum reputation': 'Reputação mínima',
     Combat: 'Combate', 'Cargo hauling': 'Transporte de carga', Shareable: 'Compartilhável', 'One-time only': 'Só uma vez', 'Blueprints it can reward': 'Blueprints que pode dar',
     // Mineral
-    'Found at': 'Encontrado em', 'Sell value': 'Valor de venda', 'Best sale at': 'Melhor venda em', 'Scan signature': 'Assinatura de scan', Instability: 'Instabilidade',
+    'Best Location': 'Melhor local', 'Sell value': 'Valor de venda', 'Best sale at': 'Melhor venda em', 'Scan signature': 'Assinatura de scan', Instability: 'Instabilidade',
     Resistance: 'Resistência', 'Found with': 'Vem junto com', Trading: 'Comércio', 'Prices and demand per location for {name} →': 'Preços e demanda por local de {name} →',
     'Where to mine': 'Onde minerar', Abundance: 'Abundância', 'No known locations.': 'Nenhum local conhecido.', 'Used in {n} blueprints': 'Usado em {n} blueprints',
     // Commodity
@@ -140,9 +140,19 @@
     'Jump drive': 'Motor de salto', Radar: 'Radar', 'Life support': 'Suporte de vida', 'Mining lasers': 'Lasers de mineração', 'Salvage heads': 'Cabeças de salvage',
     'Tractor beams': 'Raios trator', 'Quantum interdiction': 'Interdição quântica', Countermeasures: 'Contramedidas', 'on {mount}': 'em {mount}',
     Civilian: 'Civil', Military: 'Militar', Industrial: 'Industrial', Stealth: 'Furtivo', Competition: 'Competição',
+    'Initializing overlay': 'Iniciando o overlay', 'Loading item database': 'Carregando a base de itens', Ready: 'Pronto', 'toggle overlay': 'abre e fecha',
+    Rarity: 'Raridade', 'Mined with': 'Minerado com', 'Mining ship': 'Nave de mineração', 'ROC / ground vehicle': 'ROC / veículo terrestre',
+    'Hand tool (multitool)': 'Ferramenta manual (multitool)', Common: 'Comum', Uncommon: 'Incomum', Rare: 'Raro', Epic: 'Épico', Legendary: 'Lendário',
+    'Server base': 'Valor base no servidor', 'Radar signature': 'Assinatura de radar', Volatile: 'Volátil', 'VOLATILE (15 MIN)': 'VOLÁTIL (15 MIN)',
+    Density: 'Densidade', Extreme: 'Extrema', 'Copy RS for chat': 'Copiar RS para o chat', 'Pin {name}': 'Fixar {name}', Unpin: 'Tirar da tela', 'Pin all ship ores': 'Fixar minérios de nave', 'Pin all hand-mined': 'Fixar minerados à mão',
+    'Pin all ROC ores': 'Fixar minérios de ROC', 'A list of radar signatures beside the icon, for scanning': 'Uma lista de assinaturas de radar ao lado do ícone, para escanear',
+    Off: 'Desligado', 'Ship ores': 'Minérios de nave', 'Hand-mined': 'Minerados à mão', 'ROC ores': 'Minérios de ROC', 'Ship ores RS': 'RS minérios de nave',
+    'Hand-mined RS': 'RS minerados à mão', 'ROC ores RS': 'RS minérios de ROC', rock: 'pedra', rocks: 'pedras', '{name} (1×–10× rocks)': '{name} (1×–10× pedras)', 'Pin mineral signatures': 'Fixar assinaturas dos minerais',
+     Copied: 'Copiado', 'Radar signature (1× – {n}×)': 'Assinatura de radar (1× – {n}×)',
+    'Volatile: once mined it becomes unstable in the hold. Sell or refine it within about 15 minutes, or it can explode.': 'Volátil: depois de minerado fica instável no compartimento. Venda ou refine em cerca de 15 minutos, ou ele pode explodir.',
     'Key listener': 'Leitor de teclas', 'Active · {n} key presses seen{last}': 'Ativo · {n} teclas recebidas{last}', ' · shortcut last pressed {t}': ' · atalho apertado às {t}',
     'Not running: the shortcut only works outside the game': 'Parado: o atalho só funciona fora do jogo', 'Show log': 'Ver log',
-    English: 'English', Português: 'Português',
+    English: 'Inglês', Portuguese: 'Português',
     "Press one key on its own (no Ctrl, Alt or Shift). It opens and closes Star Companion from anywhere, including in game, and still reaches the game, so pick one you don't use there: numpad keys work well.":
       'Aperte uma tecla sozinha (sem Ctrl, Alt ou Shift). Ela abre e fecha o Star Companion de qualquer lugar, inclusive no jogo, e continua chegando ao jogo; então escolha uma que você não usa lá: as do teclado numérico funcionam bem.',
     // Tray menu and dialogs (main process)

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut, ipcMain, net, shell, Tray, Menu, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, net, shell, Tray, Menu, nativeImage, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
@@ -35,6 +35,8 @@ const DEFAULT_CONFIG = {
   skipVersion: null, // a release the player chose not to be reminded about
   language: 'auto', // 'auto' (Windows' language), 'en' or 'pt-BR'
   autoClick: true, // when the shortcut opens the bar, click into the search box so typing works at once
+  pinSignatures: false, // the signature list beside the icon: false, 'ship', 'fps' (hand-mined), 'vehicle' (ROC) or 'mineral'
+  pinMineral: null, // with 'mineral': the one mineral pinned, with its 1×–10× rocks
   // dockX, dockY: where the icon sits; the bar unfolds from it. Saved when either is dragged.
   // sizeChosen: true once the player resized with the grip; their width and height are kept from then on.
 };
@@ -81,6 +83,7 @@ function loadConfig() {
       saved.transparency = TRANSPARENCY_STEPS.reduce((best, v) => (Math.abs(v - t) < Math.abs(best - t) ? v : best), 0);
     }
     delete saved.opacity;
+    if (saved.pinSignatures === true) saved.pinSignatures = 'ship'; // 0.4.18 had only the ship list
     // Sizes saved before 0.4.7 were defaults, not choices: take the new (taller) default.
     if (!saved.sizeChosen) {
       delete saved.height;
@@ -188,6 +191,7 @@ function open(byKey) {
   }
   const { dock, ...bounds } = openBounds();
   state = 'open';
+  updatePin();
   openedAt = Date.now();
   focusGained = false;
   win.setFocusable(!SNAPSHOT);
@@ -216,6 +220,7 @@ function finishClose() {
   else {
     state = 'hidden';
     win.hide();
+    updatePin();
   }
 }
 
@@ -226,6 +231,7 @@ function dockNow() {
   setBounds({ x: dock.x, y: dock.y, width: DOCK_SIZE, height: DOCK_SIZE });
   win.webContents.send('overlay:docked', { opacity: config.dockOpacity });
   win.showInactive();
+  updatePin();
 }
 
 // Open → close. The one exception: the overlay had focus, lost it to the game (with "close when
@@ -256,6 +262,7 @@ function dockPointer(phase) {
     if (wasDrag) {
       [config.dockX, config.dockY] = win.getPosition();
       saveConfig();
+      updatePin();
     } else open();
   }
 }
@@ -376,6 +383,7 @@ function setDock(enabled) {
 
 function setDockOpacity(value) {
   config.dockOpacity = value;
+  pinWin?.setOpacity(value);
   sendLayout();
   saveConfig();
   buildTray();
@@ -391,6 +399,7 @@ function resetLayout() {
   sendLayout();
   if (state === 'open') setBounds(openBounds());
   else if (state === 'docked') dockNow();
+  updatePin();
 }
 
 // ---------- Updates (GitHub releases) ----------
@@ -544,6 +553,140 @@ async function sendFeedback(f) {
 function openFeedback() {
   open();
   win.webContents.send('overlay:feedback');
+}
+
+// ---------- Pinned mineral signatures ----------
+// A small list beside the icon to match a scanner reading while mining, the kind the player picks:
+// the ship ores, the hand-mined gems or the ROC ores with their signature, in alphabetical order, or
+// one mineral with its signature for 1 to 10 rocks. Never focused and click-through, at the icon's
+// opacity. It hides while the search bar is open (the bar unfolds from the icon) and comes back.
+const PIN_WIDTH = 190;
+const PIN_GAP = 6;
+const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral'];
+const PIN_TITLES = { ship: 'Ship ores RS', fps: 'Hand-mined RS', vehicle: 'ROC ores RS' };
+let pinWin = null;
+let pinRows = []; // [{ n, tier, category, sig, rs: [1×…10×] }] from the overlay's database
+
+// What the list shows now: { title, unit, rows: [{ label, value, tier }] }, or null.
+function pinView() {
+  const mode = config.pinSignatures;
+  if (!PIN_MODES.includes(mode)) return null;
+  if (mode === 'mineral') {
+    const m = pinRows.find((r) => r.n === config.pinMineral);
+    if (!m) return null;
+    const values = m.rs?.length > 1 ? m.rs : [m.sig];
+    return { title: `${m.n} RS`, unit: '', rows: values.map((v, i) => ({ label: `${i + 1}× ${T(i ? 'rocks' : 'rock')}`, value: v, tier: m.tier })) };
+  }
+  const rows = pinRows
+    .filter((r) => r.category === mode && r.sig > 0)
+    .map((r) => ({ label: r.n, value: r.sig, tier: r.tier }))
+    .sort((a, z) => a.label.localeCompare(z.label, i18n.getLanguage()));
+  return rows.length ? { title: T(PIN_TITLES[mode]), unit: '1×', rows } : null;
+}
+
+function createPin() {
+  pinWin = new BrowserWindow({
+    width: PIN_WIDTH, height: 200, frame: false, transparent: true, resizable: false, movable: false, focusable: false,
+    skipTaskbar: true, alwaysOnTop: true, fullscreenable: false, show: false, backgroundColor: '#00000000',
+    webPreferences: { preload: path.join(__dirname, 'pin-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  pinWin.setAlwaysOnTop(true, 'screen-saver');
+  pinWin.setIgnoreMouseEvents(true);
+  pinWin.loadFile(path.join(__dirname, 'renderer', 'pin.html'));
+  pinWin.webContents.once('did-finish-load', () => { sendPinData(); updatePin(); });
+  pinWin.on('closed', () => { pinWin = null; });
+}
+
+function sendPinData() {
+  const view = pinView();
+  if (view) pinWin?.webContents.send('pin:data', view);
+}
+
+// Beside the icon, on the side facing the middle of the screen, top-aligned with it.
+function updatePin() {
+  const view = pinView();
+  const wanted = view && state !== 'open' && state !== 'closing' && !SNAPSHOT && !splash;
+  if (!wanted) {
+    if (pinWin?.isVisible()) pinWin.hide();
+    return;
+  }
+  if (!pinWin) return createPin();
+  const dock = dockPosition();
+  const { workArea: a } = screen.getDisplayNearestPoint({ x: dock.x + DOCK_SIZE / 2, y: dock.y + DOCK_SIZE / 2 });
+  pinWin.setOpacity(config.dockOpacity); // the same alpha as the icon it sits beside
+  const height = Math.min(a.height, 34 + view.rows.length * 17);
+  const iconOnRight = dock.x + DOCK_SIZE / 2 > a.x + a.width / 2;
+  let x = iconOnRight ? dock.x + DOCK_INSET - PIN_GAP - PIN_WIDTH : dock.x + DOCK_SIZE - DOCK_INSET + PIN_GAP;
+  x = Math.max(a.x, Math.min(a.x + a.width - PIN_WIDTH, x));
+  const y = Math.max(a.y, Math.min(a.y + a.height - height, dock.y + DOCK_INSET));
+  pinWin.setBounds({ x: Math.round(x), y: Math.round(y), width: PIN_WIDTH, height: Math.round(height) });
+  if (!pinWin.isVisible()) pinWin.showInactive();
+}
+
+// mode: false (off), 'ship', 'fps', 'vehicle', or 'mineral' with the mineral's name.
+function setPinSignatures(mode, mineral) {
+  config.pinSignatures = PIN_MODES.includes(mode) ? mode : false;
+  if (mode === 'mineral' && typeof mineral === 'string') config.pinMineral = mineral.slice(0, 80);
+  saveConfig();
+  buildTray();
+  sendPinData();
+  updatePin();
+}
+
+// ---------- Splash ----------
+// The splash (the Splash artboard of the design canvas) plays its whole timeline, however fast the
+// database loads: it fades at the design's own moment (85 % of its 5.2 s), or later if the database is
+// still loading then. Only after it has gone does the overlay (or the startup notice) appear.
+const SPLASH_MIN_MS = Math.round(5200 * 0.85);
+const SPLASH_TIMEOUT_MS = 10000; // never block start-up on a splash that went wrong
+let splash = null;
+let splashShownAt = 0;
+let afterSplash = null;
+
+function createSplash() {
+  const { workArea: a } = screen.getPrimaryDisplay();
+  const width = 640;
+  const height = 340;
+  splash = new BrowserWindow({
+    width, height,
+    x: Math.round(a.x + (a.width - width) / 2),
+    y: Math.round(a.y + (a.height - height) / 2),
+    frame: false, transparent: true, resizable: false, movable: false, focusable: false,
+    skipTaskbar: true, alwaysOnTop: true, fullscreenable: false, show: false, backgroundColor: '#00000000',
+    webPreferences: { preload: path.join(__dirname, 'splash-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  splash.setAlwaysOnTop(true, 'screen-saver');
+  splash.setIgnoreMouseEvents(true);
+  splash.loadFile(path.join(__dirname, 'renderer', 'splash.html'));
+  splash.webContents.once('did-finish-load', () => {
+    splash?.webContents.send('splash:info', { language: i18n.getLanguage() });
+  });
+  splash.once('ready-to-show', () => {
+    splashShownAt = Date.now();
+    splash?.showInactive(); // never takes focus from the game
+  });
+  splash.on('closed', () => { splash = null; });
+  setTimeout(endSplash, SPLASH_TIMEOUT_MS);
+}
+
+// The overlay has loaded its database: fade out once the splash's timeline has played.
+function splashReady() {
+  if (!splash) return endSplash();
+  const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - (splashShownAt || Date.now())));
+  setTimeout(() => {
+    if (!splash) return endSplash();
+    splash.webContents.send('splash:leave');
+    setTimeout(endSplash, 800); // in case the splash never answers
+  }, wait);
+}
+
+function endSplash() {
+  if (splash && !splash.isDestroyed()) splash.destroy();
+  splash = null;
+  setImmediate(updatePin);
+  const next = afterSplash;
+  afterSplash = null;
+  next?.();
 }
 
 // ---------- Startup notice ----------
@@ -728,6 +871,8 @@ function settingsSnapshot() {
     zoom: config.zoom,
     hideOnBlur: config.hideOnBlur,
     autoClick: config.autoClick,
+    pinSignatures: config.pinSignatures,
+    pinMineral: config.pinMineral,
     checkUpdates: config.checkUpdates,
     language: config.language,
     languageInUse: i18n.getLanguage(),
@@ -746,6 +891,10 @@ function applySetting(key, value) {
     case 'zoom': if (ZOOM_STEPS.includes(value)) setZoom(value); break;
     case 'hideOnBlur': config.hideOnBlur = !!value; saveConfig(); break;
     case 'autoClick': config.autoClick = !!value; saveConfig(); break;
+    case 'pinSignatures':
+      if (value && typeof value === 'object') setPinSignatures(value.mode, value.mineral);
+      else setPinSignatures(value);
+      break;
     case 'checkUpdates': setCheckUpdates(!!value); break;
     case 'language':
       if (!i18n.languages.includes(value)) break;
@@ -753,6 +902,7 @@ function applySetting(key, value) {
       applyLanguage();
       saveConfig();
       buildTray();
+      sendPinData();
       break;
     default: break;
   }
@@ -833,6 +983,16 @@ function buildTray() {
     Menu.buildFromTemplate([
       { label: T('Show / hide ({key})', { key: config.hotkey }), click: toggle },
       { label: T('Settings…'), click: openSettings },
+      {
+        label: T('Pin mineral signatures'),
+        submenu: [
+          { label: T('Off'), type: 'radio', checked: !config.pinSignatures, click: () => setPinSignatures(false) },
+          { label: T('Ship ores'), type: 'radio', checked: config.pinSignatures === 'ship', click: () => setPinSignatures('ship') },
+          { label: T('Hand-mined'), type: 'radio', checked: config.pinSignatures === 'fps', click: () => setPinSignatures('fps') },
+          { label: T('ROC ores'), type: 'radio', checked: config.pinSignatures === 'vehicle', click: () => setPinSignatures('vehicle') },
+          ...(config.pinMineral ? [{ label: T('{name} (1×–10× rocks)', { name: config.pinMineral }), type: 'radio', checked: config.pinSignatures === 'mineral', click: () => setPinSignatures('mineral', config.pinMineral) }] : []),
+        ],
+      },
       { type: 'separator' },
       updateStatus
         ? { label: updateStatus, enabled: false }
@@ -964,6 +1124,14 @@ ipcMain.handle('db:load', () => fs.promises.readFile(dbFile(), 'utf8'));
 ipcMain.handle('app:config', () => ({ language: i18n.getLanguage(), hotkey: config.hotkey, maxHeight: maxHeight(), zoom: config.zoom, dockOpacity: config.dockOpacity, liveGameVersion }));
 ipcMain.on('overlay:hide', () => close());
 ipcMain.on('overlay:closed', () => finishClose());
+ipcMain.on('app:ready', () => splashReady());
+ipcMain.on('pin:rows', (_e, rows) => {
+  if (!Array.isArray(rows)) return;
+  pinRows = rows.filter((r) => r && typeof r.n === 'string' && Number.isFinite(r.sig)).slice(0, 120);
+  sendPinData();
+  updatePin();
+});
+ipcMain.on('splash:done', () => endSplash());
 ipcMain.on('overlay:geometry', (_e, g) => {
   if (g && [g.inset, g.barTop, g.barHeight].every(Number.isFinite)) geo = g; // also inputX/inputY: where to click
 });
@@ -979,6 +1147,9 @@ ipcMain.on('notice:done', (_e, dontShowAgain) => noticeDone(!!dontShowAgain));
 ipcMain.on('hotkey:recording', (_e, active) => setHotkeyRecording(active));
 ipcMain.handle('hotkey:set', (_e, accelerator) => setHotkey(accelerator));
 ipcMain.handle('feedback:send', (_e, f) => (SNAPSHOT ? { ok: true } : sendFeedback(f))); // a test copy never mails
+ipcMain.on('clipboard:write', (_e, text) => {
+  if (typeof text === 'string' && text.length <= 2000) clipboard.writeText(text);
+});
 ipcMain.on('link:open', (_e, url) => {
   if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
 });
@@ -995,13 +1166,17 @@ if (!SNAPSHOT && !UPDATE_TEST && !app.requestSingleInstanceLock()) {
     applyLanguage();
     setupUpdater();
     if (UPDATE_TEST) return checkForUpdates(false);
+    if (!SNAPSHOT) createSplash();
     createWindow();
     registerHotkey(); // globalShortcut until the key helper reports READY
     startKeyHelper();
     buildTray();
     if (SNAPSHOT) snapshotMode(process.env.SC_SNAPSHOT);
-    // The notice first if it is due, else the icon (or the bar once, so the player knows the app runs).
-    else win.webContents.once('did-finish-load', startup);
+    else {
+      // The notice first if it is due, else the icon (or the bar once, so the player knows the app
+      // runs) — after the splash, which leaves when the overlay reports its database loaded.
+      afterSplash = startup;
+    }
   });
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();

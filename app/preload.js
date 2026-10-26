@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('companion', {
   loadDb: () => ipcRenderer.invoke('db:load'),
   config: () => ipcRenderer.invoke('app:config'),
   hide: () => ipcRenderer.send('overlay:hide'),
+  ready: () => ipcRenderer.send('app:ready'), // database loaded: the splash can leave
   closed: () => ipcRenderer.send('overlay:closed'),
   fit: (height, beyondMax) => ipcRenderer.send('overlay:fit', height, beyondMax),
   fitWidth: (width) => ipcRenderer.send('overlay:fit-width', width),
@@ -12,6 +13,8 @@ contextBridge.exposeInMainWorld('companion', {
   zoom: (direction) => ipcRenderer.send('overlay:zoom', direction),
   dockPointer: (phase) => ipcRenderer.send('dock:pointer', phase),
   openLink: (url) => ipcRenderer.send('link:open', url),
+  copyText: (text) => ipcRenderer.send('clipboard:write', text),
+  pinRows: (rows) => ipcRenderer.send('pin:rows', rows), // mineral signatures for the pinned list
   noticeDone: (dontShowAgain) => ipcRenderer.send('notice:done', dontShowAgain),
   hotkeyRecording: (active) => ipcRenderer.send('hotkey:recording', active),
   setHotkey: (accelerator) => ipcRenderer.invoke('hotkey:set', accelerator),

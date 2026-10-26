@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'" />
+<title>Star Companion</title>
+<link rel="stylesheet" href="splash.css" />
+</head>
+<!-- The splash from the "Star Companion by Vorxen" Claude Design canvas (Splash artboard, o7 version):
+     the glass panel only; the window around it is transparent, over the game or the desktop. -->
+<body>
+<div class="sp-panel" id="panel">
+  <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+  <div class="sp-head">
+    <div class="sp-logo" role="img" aria-label="Star Companion icon: o7">
+      <div class="sp-lfill">
+        <svg width="120" height="120" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+          <defs><linearGradient id="spBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#13222E"/><stop offset="1" stop-color="#060A0F"/></linearGradient></defs>
+          <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#spBg)"/>
+        </svg>
+      </div>
+      <div class="sp-lglow"></div>
+      <div class="sp-lframe">
+        <svg width="120" height="120" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+          <rect x="17.5" y="17.5" width="477" height="477" rx="110.5" stroke="#5FD4E8" stroke-opacity="0.5" stroke-width="5"/>
+        </svg>
+      </div>
+      <div class="sp-lo">
+        <svg width="120" height="120" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+          <circle cx="182" cy="287" r="72" stroke="#EAFBFF" stroke-width="30"/>
+        </svg>
+      </div>
+      <div class="sp-l7">
+        <svg width="120" height="120" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+          <path d="M328 367 L402 153 H242" stroke="#5FD4E8" stroke-width="30" stroke-linecap="square" stroke-linejoin="miter"/>
+        </svg>
+      </div>
+    </div>
+    <div class="sp-titles">
+      <div class="sp-wordwrap">
+        <div class="sp-word">Star Companion</div>
+        <div class="sp-sweep"></div>
+      </div>
+      <div class="sp-sub"><span class="sp-rule"></span><span class="sp-by">by</span><span class="sp-vorxen">Vorxen</span></div>
+    </div>
+  </div>
+
+  <div class="sp-foot">
+    <div class="sp-status" role="status" aria-live="polite">
+      <span class="sp-s sp-s1" id="s1">Initializing overlay</span>
+      <span class="sp-s sp-s2" id="s2">Loading item database</span>
+      <span class="sp-s sp-s3" id="s3">Ready</span>
+    </div>
+    <div class="sp-track"><div class="sp-fill"></div></div>
+  </div>
+</div>
+<script src="i18n.js"></script>
+<script src="splash.js"></script>
+</body>
+</html>

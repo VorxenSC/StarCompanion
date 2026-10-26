@@ -1,0 +1,80 @@
+@font-face { font-family: 'Chakra Petch'; font-weight: 600; src: url('fonts/chakra-petch-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; src: url('fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 500; src: url('fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); }
+
+/* The Splash artboard's 5.2 s timeline, played once and in full: the panel opens from a line, the
+   name is revealed behind a scan line, the icon frame and tile appear, the "o" and the "7" draw, the
+   statuses run to Ready while the bar fills. The panel's fade-out (the artboard's 85–96 %) is started
+   by the main process, which waits for the timeline and for the database (.out). */
+:root { --accent: #5fd4e8; --t: 5.2s; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: 'IBM Plex Mono', monospace; }
+body { display: flex; align-items: center; justify-content: center; }
+
+.sp-panel {
+  position: relative; width: 580px; height: 280px; box-sizing: border-box;
+  background: rgba(9, 15, 22, 0.92); border: 1px solid rgba(190, 215, 235, 0.22); border-radius: 3px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  animation: spPanelIn calc(var(--t) * 0.11) linear both;
+}
+.sp-panel.out { animation: spPanelOut calc(var(--t) * 0.11) linear both; }
+.corner { position: absolute; width: 12px; height: 12px; border: 0 solid var(--accent); }
+.corner.tl { left: -1px; top: -1px; border-left-width: 2px; border-top-width: 2px; }
+.corner.tr { right: -1px; top: -1px; border-right-width: 2px; border-top-width: 2px; }
+.corner.bl { left: -1px; bottom: -1px; border-left-width: 2px; border-bottom-width: 2px; }
+.corner.br { right: -1px; bottom: -1px; border-right-width: 2px; border-bottom-width: 2px; }
+
+.sp-head { position: absolute; left: 40px; right: 40px; top: 40px; display: flex; align-items: center; gap: 30px; }
+.sp-logo { position: relative; flex: none; width: 120px; height: 120px; }
+.sp-logo > div { position: absolute; left: 0; top: 0; width: 120px; height: 120px; }
+.sp-logo svg { display: block; }
+.sp-logo > .sp-lglow { left: -30px; top: -30px; width: 180px; height: 180px; opacity: 0.25; background: radial-gradient(circle, rgba(95, 212, 232, 0.55) 0%, rgba(95, 212, 232, 0) 62%); pointer-events: none; }
+.sp-titles { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sp-wordwrap { position: relative; }
+.sp-word { font: 600 28px/1.1 'Chakra Petch', sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: #fff; white-space: nowrap; text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent); }
+.sp-sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--accent); box-shadow: 0 0 14px 2px var(--accent); opacity: 0; pointer-events: none; }
+.sp-sub { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.sp-rule { width: 28px; height: 1px; background: var(--accent); opacity: 0.7; }
+.sp-by { font-size: 12px; letter-spacing: 0.08em; color: rgba(205, 218, 230, 0.8); }
+.sp-vorxen { font: 600 24px/1 'Chakra Petch', sans-serif; letter-spacing: 0.32em; text-transform: uppercase; color: var(--accent); text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+.sp-foot { position: absolute; left: 40px; right: 40px; bottom: 36px; display: flex; flex-direction: column; gap: 12px; }
+.sp-status { position: relative; height: 16px; }
+.sp-s { position: absolute; left: 0; top: 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(205, 218, 230, 0.78); opacity: 0; }
+.sp-s3 { color: var(--accent); }
+.sp-track { position: relative; height: 2px; background: rgba(190, 215, 235, 0.16); }
+.sp-fill { position: absolute; inset: 0; transform-origin: left center; background: var(--accent); box-shadow: 0 0 10px 1px var(--accent); }
+
+.sp-lfill { animation: spLFill var(--t) cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.sp-lframe { animation: spLFrame var(--t) cubic-bezier(0.5, 0, 0.2, 1) both; }
+.sp-lo { animation: spLO var(--t) cubic-bezier(0.5, 0, 0.2, 1) both; }
+.sp-l7 { animation: spL7 var(--t) cubic-bezier(0.3, 0.6, 0.2, 1) both; }
+.sp-lglow { animation: spLGlow var(--t) ease-out both; }
+.sp-word { animation: spWord var(--t) cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.sp-sub { animation: spSub var(--t) cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.sp-sweep { animation: spSweep var(--t) cubic-bezier(0.3, 0.6, 0.3, 1) both; }
+.sp-fill { animation: spFill var(--t) cubic-bezier(0.4, 0, 0.2, 1) both; }
+.sp-s1 { animation: spS1 var(--t) ease both; }
+.sp-s2 { animation: spS2 var(--t) ease both; }
+.sp-s3 { animation: spS3 var(--t) ease both; }
+
+/* The artboard's spPanel, split at its hold: opening (0–11 %) and fade-out (85–96 %). */
+@keyframes spPanelIn { 0% { opacity: 0; clip-path: inset(49.5% -40px 49.5% -40px); transform: scale(0.985); } 27% { opacity: 1; } 100% { opacity: 1; clip-path: inset(-40px -40px -40px -40px); transform: scale(1); } }
+@keyframes spPanelOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.02); } }
+@keyframes spLFrame { 0%, 14% { opacity: 0; clip-path: inset(50% 50% 50% 50% round 26px); } 15% { opacity: 1; } 22%, 100% { opacity: 1; clip-path: inset(0 0 0 0 round 26px); } }
+@keyframes spLFill { 0%, 18% { opacity: 0; transform: scale(0.97); } 26%, 100% { opacity: 1; transform: scale(1); } }
+@keyframes spLO { 0%, 24% { opacity: 0; clip-path: inset(0 100% 0 0); } 25% { opacity: 1; } 33%, 100% { opacity: 1; clip-path: inset(0 0 0 0); } }
+@keyframes spL7 { 0%, 33% { opacity: 0; clip-path: inset(78% 0 0 0); } 34% { opacity: 1; clip-path: inset(78% 0 0 0); } 46% { opacity: 1; clip-path: inset(20% 0 0 0); } 47%, 100% { opacity: 1; clip-path: inset(0 0 0 0); } }
+@keyframes spLGlow { 0%, 40% { opacity: 0; transform: scale(0.6); } 46% { opacity: 0.9; transform: scale(1); } 60%, 100% { opacity: 0.25; transform: scale(1.15); } }
+@keyframes spWord { 0%, 4% { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(-14px); letter-spacing: 0.42em; filter: blur(4px); } 10% { filter: blur(0); } 14% { opacity: 1; clip-path: inset(0 0 0 0); transform: translateX(0); letter-spacing: 0.18em; filter: blur(0); } 100% { opacity: 1; clip-path: inset(0 0 0 0); transform: translateX(0); letter-spacing: 0.18em; filter: blur(0); } }
+@keyframes spSub { 0%, 14% { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(-10px); letter-spacing: 0.34em; filter: blur(3px); } 20% { filter: blur(0); } 25% { opacity: 1; clip-path: inset(0 0 0 0); transform: translateX(0); letter-spacing: 0.08em; filter: blur(0); } 100% { opacity: 1; clip-path: inset(0 0 0 0); transform: translateX(0); letter-spacing: 0.08em; filter: blur(0); } }
+@keyframes spSweep { 0%, 4% { left: 0; opacity: 0; } 5% { left: 0; opacity: 1; } 15% { left: 100%; opacity: 0; } 100% { left: 100%; opacity: 0; } }
+@keyframes spFill { 0%, 5% { transform: scaleX(0); } 15% { transform: scaleX(0.32); } 28% { transform: scaleX(0.6); } 38% { transform: scaleX(0.86); } 47% { transform: scaleX(1); } 100% { transform: scaleX(1); } }
+@keyframes spS1 { 0%, 5% { opacity: 0; transform: translateY(5px); } 8% { opacity: 1; transform: translateY(0); } 20% { opacity: 1; transform: translateY(0); } 23% { opacity: 0; transform: translateY(-5px); } 100% { opacity: 0; transform: translateY(-5px); } }
+@keyframes spS2 { 0%, 22% { opacity: 0; transform: translateY(5px); } 25% { opacity: 1; transform: translateY(0); } 43% { opacity: 1; transform: translateY(0); } 46% { opacity: 0; transform: translateY(-5px); } 100% { opacity: 0; transform: translateY(-5px); } }
+@keyframes spS3 { 0%, 45% { opacity: 0; transform: translateY(5px); } 48% { opacity: 1; transform: translateY(0); } 100% { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-panel, .sp-panel.out, .sp-lfill, .sp-lframe, .sp-lo, .sp-l7, .sp-lglow, .sp-word, .sp-sub, .sp-sweep, .sp-fill, .sp-s1, .sp-s2, .sp-s3 { animation: none; }
+  .sp-s1, .sp-s2, .sp-sweep { opacity: 0; }
+  .sp-s3 { opacity: 1; }
+}

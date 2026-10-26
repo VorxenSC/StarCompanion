@@ -71,9 +71,12 @@ async function main() {
   }));
 
   const missions = (await fetchAll('missions'))
-    .filter((m) => !m.not_for_release && m.title && !m.title.startsWith('['))
+    // Titles that start with a fill-in token ("[TargetName] needs stomping") are kept: the database
+    // uses them to tell which faction offers a blueprint mission, not as mission entries.
+    .filter((m) => !m.not_for_release && m.title)
     .map((m) => ({
       uuid: m.uuid,
+      debugName: m.debug_name || null, // e.g. "Battaglia_RecoverItem_VeryHard": what kind of mission it is
       title: m.title,
       description: m.description,
       giver: m.mission_giver?.name || m.mission_giver || null,

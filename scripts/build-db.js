@@ -56,6 +56,7 @@ const MISSION_TOKENS = [
   [/^dropoff\d*$/, 'the drop-off point'],
   [/^pickup\d*$/, 'the pickup point'],
   [/^item\d*$/, 'the item'],
+  [/^objects?$/, 'the objects'],
   [/^system$/, 'the system'],
   [/^ship$/, 'the ship'],
   [/^creature$/, 'the creature'],
@@ -182,6 +183,53 @@ for (const g of gear) {
   }
 }
 
+// ---------- Who offers a blueprint mission, and what kind it is (wiki) ----------
+// sc-craft names a mission by its title, with the game's fill-in tokens ("Defend ~mission(Location)
+// From Mercs"); the wiki has each variant, often filled in ("Defend Fuel Tanks From Mercs"). A token
+// matches any words. The kind of mission comes from the game's internal name
+// ("Battaglia_RecoverItem_VeryHard", "HH_Pyro_…_KillShip").
+const MISSION_KINDS = [
+  [/Escort(Ships|Convoy)|_Escort$/i, 'Escort'],
+  [/Defend|Protect|Guard/i, 'Defense'],
+  [/KillShip|MultiKill|Bounty|EliminateSpecific|EliminateBoss|Assassinat|Mercenary/i, 'Bounty hunting'],
+  [/Sabotage|Bombing|WaveAttack|EliminateAll|Attack|Assault|BoardShip|Raid|Destroy|Ambush|HeavyCombat/i, 'Attack'],
+  [/Patrol/i, 'Patrol'],
+  [/RecoverItem|BlackBox|Recovery|Retriev|RecoverEncrypted|DataDownload|CreateUplink/i, 'Recovery'],
+  [/FacilityDelve|Delve/i, 'Facility raid'],
+  [/Salvage/i, 'Salvage'],
+  [/ScanMineRocks|ScanRocks|Rockcracker|Mining|MineRocks/i, 'Mining'],
+  [/Courier|Delivery|Haul|AToB|Cargo|ResourceGathering/i, 'Delivery'],
+  [/MissingPersons|Investigat/i, 'Investigation'],
+  [/KillAnimals|Creature/i, 'Hunting'],
+];
+const missionKind = (debugName) => MISSION_KINDS.find(([re]) => re.test(debugName || ''))?.[1];
+const titleKey = (t) => norm(String(t || '').replace(/~\w+\([^)]*\)|\[[^\]]*\]/g, ' qqslotqq ')).replace(/\s+/g, ' ');
+const wikiMissionsByKey = new Map();
+for (const m of wiki?.missions || []) {
+  const k = titleKey(m.title);
+  if (!wikiMissionsByKey.has(k)) wikiMissionsByKey.set(k, []);
+  wikiMissionsByKey.get(k).push(m);
+}
+// A title with fill-in tokens becomes a pattern; the wiki variants it matches are that mission.
+function wikiVariants(title) {
+  const key = titleKey(title);
+  if (wikiMissionsByKey.has(key) && !key.includes('qqslotqq')) return wikiMissionsByKey.get(key);
+  const re = new RegExp(`^${key.split('qqslotqq').map((p) => p.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.+')}$`);
+  return [...wikiMissionsByKey].filter(([k]) => re.test(k)).flatMap(([, list]) => list);
+}
+const uniq = (list) => [...new Set(list.filter(Boolean))];
+// sc-craft's mission names keep the game's tokens ("Defend ~mission(Objects)"): shown as plain words.
+const missionDisplay = (name) => cleanMissionText(String(name || '').replace(/~mission\(([^)]*)\)/g, (_m, inner) => `[${inner}]`));
+function missionInfo(title) {
+  const variants = wikiVariants(title);
+  if (!variants.length) return {};
+  return {
+    factions: uniq(variants.map((m) => clean(m.faction) || clean(m.giver))),
+    kinds: uniq(variants.map((m) => missionKind(m.debugName))),
+    systems: uniq(variants.flatMap((m) => m.systems || [])),
+  };
+}
+
 // ---------- Blueprints (sc-craft.tools) ----------
 const bpByName = new Map();
 const bpByMission = new Map();
@@ -196,7 +244,7 @@ for (const b of craft?.blueprints || []) {
       defaultOwned: b.defaultOwned,
       ingredients: b.ingredients,
       itemStats: b.itemStats || undefined,
-      missions: b.missions.sort((a, z) => z.chance - a.chance),
+      missions: b.missions.sort((a, z) => z.chance - a.chance).map((m) => ({ ...m, name: missionDisplay(m.name), ...missionInfo(m.name) })),
       url: `https://sc-craft.tools/?search=${encodeURIComponent(b.name)}`,
     },
   });
@@ -308,6 +356,7 @@ for (const it of items.values()) {
 // ---------- Missions: wiki missions + blueprint rewards from sc-craft ----------
 const seenMission = new Set();
 for (const m of wiki?.missions || []) {
+  if (m.title.startsWith('[')) continue; // fill-in title: only used to place blueprint missions
   const k = norm(m.title);
   const rewards = bpByMission.get(k)?.bps;
   const dupKey = `${k}|${m.giver}|${m.rewardMin}`;
@@ -320,10 +369,10 @@ for (const m of wiki?.missions || []) {
     d: { ...m, description: cleanMissionText(m.description), faction: clean(m.faction), giver: clean(m.giver), minStanding: clean(m.minStanding), blueprints: rewards || undefined },
   });
 }
-const wikiMissionKeys = new Set((wiki?.missions || []).map((m) => norm(m.title)));
+const wikiMissionKeys = new Set((wiki?.missions || []).filter((m) => !m.title.startsWith('[')).map((m) => norm(m.title)));
 for (const [k, v] of bpByMission) {
   if (wikiMissionKeys.has(k)) continue;
-  add({ t: 'mission', n: v.name, s: 'Blueprint reward', d: { blueprints: v.bps } });
+  add({ t: 'mission', n: missionDisplay(v.name), s: 'Blueprint reward', d: { blueprints: v.bps, ...missionInfo(v.name) } });
 }
 
 // ---------- Minerals (scminer.rocks) ----------

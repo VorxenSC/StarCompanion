@@ -287,12 +287,18 @@ function viewBlueprint(e) {
   const d = e.d;
   const mins = Math.round((d.craftTime || 0) / 60);
   const best = d.missions[0];
+  const kinds = (m) => (m.kinds || []).map((k) => tr(k)).join(', ');
   return {
     facts: [
       ['Craft time', d.craftTime ? (mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}min` : `${mins} min`) : null],
       ['Materials', d.ingredients.length],
       ['Missions', d.missions.length || (d.defaultOwned ? 'Default blueprint' : 'None known')],
-      ['Best drop', best && `${Math.round(best.chance * 100)}% · ${best.name}`],
+      // The mission most likely to give it, its odds, who offers it and what kind of job it is.
+      ['Best mission', best && jump(best.name, best.name, 'mission'), { wide: true }],
+      ['Drop chance', best && `${Math.round(best.chance * 100)}%`],
+      ['Faction', best?.factions?.join(', ')],
+      ['Mission type', best && kinds(best)],
+      ['Systems', best?.systems?.join(', ')],
     ],
     body: [
       section(
@@ -307,13 +313,16 @@ function viewBlueprint(e) {
           ]),
         ),
       ),
+      craftSimulator(e),
       section(
         'Missions that reward it',
         d.missions.length
-          ? table([['Mission', ''], ['Chance', 'num']], d.missions.map((m) => [jump(m.name, m.name, 'mission'), `${Math.round(m.chance * 100)}%`]))
+          ? table(
+              [['Mission', ''], ['Faction', ''], ['Type', 'dim'], ['Drop chance', 'num']],
+              d.missions.map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', kinds(m), `${Math.round(m.chance * 100)}%`]),
+            )
           : note(d.defaultOwned ? 'Every player already owns this blueprint.' : 'No known mission.'),
       ),
-      craftSimulator(e),
       section('Item', jump(`Where to buy a ready-made ${e.n} →`, e.n, 'item')),
       variantsSection(e),
       links([['sc-craft.tools', d.url]]),
@@ -437,7 +446,8 @@ function viewMission(e) {
   return {
     facts: [
       ['Contractor', d.giver],
-      ['Faction', d.faction],
+      ['Faction', d.faction || d.factions?.join(', ')],
+      ['Mission type', d.kinds?.map((k) => tr(k)).join(', ')],
       ['Systems', d.systems?.join(', ')],
       ['Legality', d.legal],
       ['Reward', reward],
@@ -761,11 +771,11 @@ function renderDetail(e) {
   const rest = shown.filter(([label]) => !HEADLINE[e.t].includes(label));
   if (sortFacts) rest.sort(([a], [z]) => tr(a).localeCompare(tr(z), CompanionI18n.getLanguage()));
   const barRow = (bars || []).filter(present);
-  const fact = ([label, value], i) => {
+  const fact = ([label, value, opts], i) => {
     const d = 200 + Math.min(i, 12) * 40;
     return h(
       'div',
-      { class: 'fact' },
+      { class: opts?.wide ? 'fact wide' : 'fact' },
       h('div', { class: 'scan', delay: d }),
       h('span', { class: 'fact-label in', delay: d }, tr(label)),
       h('span', { class: 'fact-value in', delay: d }, value === true ? tr('Yes') : value),

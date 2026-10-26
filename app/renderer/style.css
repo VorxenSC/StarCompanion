@@ -244,6 +244,9 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 24px; }
 /* Level bars (minerals): one row, equal columns, so the bars line up. */
 .facts.facts-bars { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px; }
+.fact.wide { grid-column: span 2; } /* a long value (a mission name) on one line */
+/* The first section right after the facts: the page's own gap is spacing enough. */
+.detail > .rise > .sec-title:first-child { margin-top: 0; }
 .fact { position: relative; padding-top: 10px; border-top: 1px solid rgba(190, 215, 235, 0.18); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .fact-label { font: 10px var(--mono); text-transform: uppercase; color: rgba(205, 218, 230, 0.66); --ls: 0.14em; letter-spacing: var(--ls); }
 .fact-value { font: 500 18px var(--display); color: var(--text); overflow-wrap: anywhere; --ls: 0.02em; letter-spacing: var(--ls); }

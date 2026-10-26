@@ -193,7 +193,7 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .row:hover { background: rgba(95, 212, 232, 0.1); }
 .row.active { background: var(--accent-soft); }
 .row-type { flex: none; width: 74px; font: 11px var(--mono); text-transform: uppercase; color: var(--accent); --ls: 0.14em; letter-spacing: var(--ls); }
-.row-name { flex: none; max-width: 330px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 19px var(--display); color: #f2f7fb; --ls: 0.02em; letter-spacing: var(--ls); }
+.row-name { flex: 0 1 auto; max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 19px var(--display); color: #f2f7fb; --ls: 0.02em; letter-spacing: var(--ls); }
 .row-meta { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; color: var(--muted); --ls: 0.01em; letter-spacing: var(--ls); }
 .row-arrow { flex: none; visibility: hidden; }
 .row.active .row-arrow { visibility: visible; }
@@ -248,12 +248,12 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .fact .scan { top: -1px; bottom: auto; height: 1px; width: 24px; }
 
 .sec-title { margin: 22px 0 6px; font: 500 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
-.desc { margin: 0; color: rgba(205, 218, 230, 0.82); white-space: pre-line; }
+.desc { margin: 0; color: rgba(205, 218, 230, 0.82); white-space: pre-line; text-align: justify; hyphens: auto; }
 .note { margin: 0; color: var(--faint); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 /* Rows stay on one line; the window widens to fit them (up to half the screen), else they wrap. */
-.panel-content th, .panel-content td { white-space: nowrap; }
-.panel-content.wrap-rows th, .panel-content.wrap-rows td { white-space: normal; }
+/* Cells wrap when the window is narrower than a row; numbers and meters stay on one line. */
+.panel-content th, .panel-content td { white-space: normal; overflow-wrap: anywhere; }
 th { text-align: left; font: 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: rgba(205, 218, 230, 0.66); border-bottom: 1px solid var(--line); padding: 6px 6px 5px; }
 td { padding: 6px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 .num { text-align: right; font-family: var(--mono); white-space: nowrap; }
@@ -308,7 +308,7 @@ td.dim:last-child, th.dim:last-child { white-space: nowrap; }
 .seg-btn.on { background: var(--accent-soft); color: var(--text-strong); }
 .switch:focus-visible, .seg-btn:focus-visible, .set-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.about-text { margin: 10px 0 12px; color: rgba(225, 235, 244, 0.86); font-size: 14px; line-height: 1.55; }
+.about-text { text-align: justify; margin: 10px 0 12px; color: rgba(225, 235, 244, 0.86); font-size: 14px; line-height: 1.55; }
 .about-links { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line-soft); font: 11px var(--mono); }
 .coffee-btn { color: var(--price); border-color: rgba(242, 179, 94, 0.45); }
 
@@ -356,7 +356,7 @@ td.dim:last-child, th.dim:last-child { white-space: nowrap; }
 .notice { padding: 22px; display: flex; flex-direction: column; gap: 6px; }
 .notice .detail-name { font-size: 28px; margin-bottom: 10px; }
 .notice-list { display: flex; flex-direction: column; gap: 12px; }
-.notice-text { margin: 0; color: rgba(225, 235, 244, 0.86); font-size: 14px; }
+.notice-text { text-align: justify; margin: 0; color: rgba(225, 235, 244, 0.86); font-size: 14px; }
 .notice-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
 .notice-check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font: 12px var(--mono); letter-spacing: 0.04em; color: var(--muted); cursor: pointer; }
 .notice-check input { width: 16px; height: 16px; accent-color: var(--accent); }
@@ -446,3 +446,35 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(95, 212, 232, 0.25); border-radius: 4px; }
+
+/* Result groups: a small header where each kind of result starts. */
+.group-head { margin: 10px 14px 2px; font: 500 10px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); opacity: 0.8; }
+.group-head:first-child { margin-top: 4px; }
+
+/* Variants, community tips */
+.pill.current { border-color: var(--accent); color: var(--accent); }
+.tip { margin: 0 0 6px; color: var(--text); text-align: justify; }
+.tip-src { color: var(--muted); font-size: 12px; }
+
+/* Crafting simulator */
+.q-row { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 44px; align-items: center; gap: 12px; margin: 4px 0; }
+.q-global { margin: 8px 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.q-global .q-slot { color: var(--accent); font-weight: 500; }
+.q-slot { font: 12px var(--mono); letter-spacing: 0.06em; overflow-wrap: anywhere; }
+.q-value { font: 13px var(--mono); text-align: right; color: var(--text); }
+.q-range { width: 100%; accent-color: var(--accent); }
+.q-slots + table { margin-top: 10px; }
+td .up { color: #8fe3a4; }
+td .down { color: #ff9b8a; }
+
+/* System map (schematic until the drawn maps arrive) */
+.sysmap { display: block; width: 100%; height: auto; margin: 4px 0 8px; }
+.sysmap-star { fill: #ffd27a; filter: drop-shadow(0 0 10px rgba(255, 196, 92, 0.7)); }
+.sysmap-orbit { fill: none; stroke: var(--line); stroke-dasharray: 3 4; }
+.sysmap-body { cursor: pointer; }
+.sysmap-body circle { fill: var(--accent); }
+.sysmap-body .sysmap-moon { fill: var(--muted); }
+.sysmap-body text { fill: var(--text); font: 12px var(--sans); }
+.sysmap-body .sysmap-zone { fill: var(--muted); font-size: 10px; }
+.sysmap-body:hover circle:first-child { fill: #fff; }
+.hints i { font-style: normal; }

@@ -17,6 +17,30 @@ async function fetchAll(endpoint) {
 }
 
 const en = (d) => (d && typeof d === 'object' ? d.en_EN || Object.values(d)[0] : d) || null;
+const realName = (s) => (s && !/PLACEHOLDER|^<=|^\[/.test(s) ? s : null);
+
+// Damage and fire modes of a personal or ship weapon, as the wiki reads them from the game files.
+function weaponStats(w) {
+  if (!w) return null;
+  const damages = (w.damages || []).filter((d) => d.damage > 0).map((d) => ({ kind: d.name, damage: Math.round(d.damage * 100) / 100 }));
+  const modes = (w.modes || []).map((m) => ({
+    mode: m.mode,
+    rpm: m.rpm ?? m.rounds_per_minute ?? null,
+    dps: m.damage_per_second ?? null,
+    pellets: m.pellets_per_shot ?? null,
+  })).filter((m) => m.rpm || m.dps);
+  const out = {
+    class: w.class || null,
+    type: w.type || null,
+    perShot: w.damage_per_shot || damages.reduce((a, d) => a + d.damage, 0) || null,
+    damages,
+    modes,
+    magazine: w.magazine_size ?? w.capacity ?? null,
+    range: w.effective_range ?? w.range ?? null,
+  };
+  return out.perShot || modes.length ? out : null;
+}
+
 const wikiUrl = (title) => `https://starcitizen.tools/${encodeURIComponent(title.replace(/ /g, '_'))}`;
 
 async function main() {
@@ -27,7 +51,8 @@ async function main() {
     classification: i.classification_label || i.classification,
     type: i.type_label || i.type,
     subType: i.sub_type_label || i.sub_type,
-    manufacturer: i.manufacturer?.name || null,
+    // Some items carry a placeholder manufacturer; the description data names the real one.
+    manufacturer: realName(i.manufacturer?.name) || realName(i.manufacturer_description) || null,
     size: i.size,
     grade: i.grade,
     class: i.class,
@@ -40,6 +65,8 @@ async function main() {
       price: s.items?.[0]?.price_calculated ?? s.price ?? null,
     })),
     uex: i.uex_prices || null,
+    weapon: weaponStats(i.personal_weapon || i.vehicle_weapon),
+    baseVariant: i.is_base_variant ?? null,
     url: wikiUrl(i.name),
   }));
 

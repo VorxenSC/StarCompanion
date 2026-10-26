@@ -22,6 +22,7 @@ async function main() {
     category: b.category,
     craftTime: b.craft_time_seconds,
     tiers: b.tiers,
+    itemStats: b.item_stats || null, // base fire rates, mass… the crafting simulator starts from
     defaultOwned: !!b.default_owned,
     ingredients: (b.ingredients || []).map((ing) => ({
       slot: ing.slot,
@@ -35,6 +36,9 @@ async function main() {
         stat: q.stat,
         min: q.modifier_at_min,
         max: q.modifier_at_max,
+        qMin: q.quality_min ?? 0, // the quality range the modifier is spread over
+        qMax: q.quality_max ?? 1000,
+        kind: q.type || 'multiplicative',
       })),
     })),
     missions: (b.missions || []).map((m) => ({ name: m.name, chance: Number(m.drop_chance) })),

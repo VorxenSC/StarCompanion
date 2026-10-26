@@ -25,14 +25,17 @@ const TYPES = [
   ['mission', 'Missions'],
   ['mineral', 'Minerals'],
   ['commodity', 'Commodities'],
+  ['faction', 'Factions'],
   ['location', 'Locations'],
 ];
-const TYPE_LABEL = { item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', commodity: 'Commodity', location: 'Location' };
+const TYPE_LABEL = { item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', commodity: 'Commodity', faction: 'Faction', location: 'Location' };
+const GROUP_LABEL = { item: 'Items', ship: 'Ships', blueprint: 'Blueprints', mission: 'Missions', mineral: 'Minerals', commodity: 'Commodities', faction: 'Factions', location: 'Locations' };
 const SRC = { cstone: 'cstone', wiki: 'wiki', uex: 'UEX', scminer: 'scminer' };
 const PANEL_GAP = 6; // .panel.open margin-top
 const SHRINK_DELAY = 440; // let the panel's height transition finish before the window shrinks
 
 let index = [];
+let itemByName = new Map(); // item entries by exact name: blueprints read their weapon's base stats here
 let type = 'all';
 let results = [];
 let idx = 0;
@@ -112,8 +115,12 @@ function viewItem(e) {
   const cheapest = d.shops?.filter((s) => s.price > 0).sort((a, z) => a.price - z.price)[0];
   const m = d.market;
   const uexUrl = d.uexId && `https://uexcorp.space/marketplace/?id_item=${d.uexId}`;
+  const w = d.weapon;
+  const topDps = w && Math.max(0, ...w.modes.map((x) => x.dps || 0));
   return {
     facts: [
+      ['Damage', w?.perShot && h('span', null, h('span', { class: 'price' }, fmt(round1(w.perShot))), tr(' per shot'))],
+      ['DPS', topDps > 0 && fmt(Math.round(topDps))],
       ['Manufacturer', d.manufacturer],
       ['Type', d.type],
       ['Size', d.size],
@@ -122,10 +129,12 @@ function viewItem(e) {
       ['Lowest price', cheapest && auec(cheapest.price)],
       ['Player market', m && h('span', null, h('span', { class: 'price' }, `~${fmt(m.approx)} aUEC`))],
       ['Craftable', d.craftable],
-      ['Loot', d.lootable ? 'Can be found as loot' : null],
+      ['Loot', d.lootable ? tr('Can be found as loot') : null],
       ...attrs,
     ],
     body: [
+      tipsSection(d.tips),
+      w && weaponSection(w),
       d.blueprint && section('Blueprint', jump(`View the ${e.n} blueprint →`, e.n, 'blueprint')),
       section(
         'Where to buy',
@@ -143,10 +152,38 @@ function viewItem(e) {
           m && note('Median of open player sell offers on the UEX marketplace; quality, pips and bundles vary, so check the listings.'),
           uexUrl && h('p', { class: 'note' }, link('Open the UEX marketplace filtered for this item ↗', uexUrl)),
         ),
+      variantsSection(e),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),
       links([['UEX market', uexUrl], ['cstone', d.cstoneUrl], ['Wiki', d.wikiUrl], ['scminer', d.minerUrl]]),
     ],
   };
+}
+
+const round1 = (n) => Math.round(n * 10) / 10;
+
+// Damage per shot by kind and each fire mode's rate and damage per second (wiki, from the game files).
+function weaponSection(w) {
+  return section(
+    'Damage',
+    w.damages.length > 0 && table([['Damage type', ''], ['Per shot', 'num']], w.damages.map((x) => [x.kind.charAt(0).toUpperCase() + x.kind.slice(1), fmt(round1(x.damage))])),
+    w.modes.length > 0 && table([['Fire mode', ''], ['Rate', 'num'], ['DPS', 'num']], w.modes.map((x) => [x.mode, x.rpm ? `${fmt(x.rpm)} rpm` : tr('continuous'), x.dps ? fmt(Math.round(x.dps)) : '—'])),
+    note([w.class, w.type, w.magazine && tr('{n} rounds per magazine', { n: w.magazine })].filter(Boolean).join(' · ')),
+  );
+}
+
+// The other colours or editions of the same item (or blueprint), one click away.
+function variantsSection(e) {
+  const v = e.d.variants;
+  if (!v || v.length < 2) return null;
+  return section(
+    tr('Variants ({n})', { n: v.length }),
+    h('div', null, v.map((name) => h('span', { class: `pill${name === e.n ? ' current' : ''}` }, name === e.n ? name : jump(name, name, e.t)))),
+  );
+}
+
+function tipsSection(tips) {
+  if (!tips?.length) return null;
+  return section('Where players find it', tips.map((t) => h('p', { class: 'tip' }, t.text, t.seen && h('span', { class: 'tip-src' }, ` — ${tr(t.seen)}`))));
 }
 
 function viewShip(e) {
@@ -249,10 +286,122 @@ function viewBlueprint(e) {
           ? table([['Mission', ''], ['Chance', 'num']], d.missions.map((m) => [jump(m.name, m.name, 'mission'), `${Math.round(m.chance * 100)}%`]))
           : note(d.defaultOwned ? 'Every player already owns this blueprint.' : 'No known mission.'),
       ),
+      craftSimulator(e),
       section('Item', jump(`Where to buy a ready-made ${e.n} →`, e.n, 'item')),
+      variantsSection(e),
       links([['sc-craft.tools', d.url]]),
     ],
   };
+}
+
+// ---------- Crafting simulator (same rules as sc-craft.tools) ----------
+// Each material slot has a quality from 0 to 1000. A slot's quality effect moves a stat from its
+// modifier at the lowest quality to its modifier at the highest, in a straight line; slots that touch
+// the same stat multiply together. Base values come from the finished item (wiki and sc-craft).
+const QUALITY_MAX = 1000;
+function slotModifier(f, q) {
+  const lo = f.qMin ?? 0;
+  const hi = f.qMax ?? QUALITY_MAX;
+  const t = hi > lo ? Math.max(0, Math.min(1, (q - lo) / (hi - lo))) : 1;
+  return f.min + (f.max - f.min) * t;
+}
+
+function craftedModifiers(ingredients, qualities) {
+  const out = new Map();
+  ingredients.forEach((ing, i) => {
+    for (const f of ing.effects) {
+      const m = slotModifier(f, qualities[i]);
+      out.set(f.stat, (out.has(f.stat) ? out.get(f.stat) : 1) * m);
+    }
+  });
+  return out;
+}
+
+// Base values for the stats sc-craft names, when the finished item tells us them.
+function craftBases(e) {
+  const item = itemByName.get(e.n);
+  const w = item?.d.weapon;
+  const stats = e.d.itemStats;
+  const rate = stats?.fire_modes?.[0]?.fire_rate || w?.modes.find((m) => m.rpm)?.rpm;
+  const dps = w && Math.max(0, ...w.modes.map((m) => m.dps || 0));
+  const bases = new Map();
+  if (w?.perShot) bases.set('Impact Force', { value: w.perShot, unit: '', label: 'Damage per shot' });
+  if (rate) bases.set('Fire Rate', { value: rate, unit: ' rpm' });
+  if (dps > 0) bases.set('DPS', { value: dps, unit: '', derived: ['Impact Force', 'Fire Rate'] });
+  if (stats?.mass_kg) bases.set('Mass', { value: stats.mass_kg, unit: ' kg', fixed: true });
+  return bases;
+}
+
+function craftSimulator(e) {
+  const ings = e.d.ingredients.filter((ing) => ing.effects.length);
+  if (!ings.length) return null;
+  const all = e.d.ingredients;
+  const qualities = all.map(() => 500);
+  const bases = craftBases(e);
+  const stats = [...new Set(all.flatMap((ing) => ing.effects.map((f) => f.stat)))];
+  const cells = new Map(); // stat -> { crafted, change }
+  const fmtVal = (v, unit) => `${fmt(v >= 100 ? Math.round(v) : round1(v))}${unit || ''}`;
+  const rows = [];
+  for (const stat of stats) {
+    const b = bases.get(stat);
+    const crafted = h('span', { class: 'price' });
+    const change = h('span');
+    cells.set(stat, { crafted, change, b });
+    rows.push([tr(b?.label || stat), b ? fmtVal(b.value, b.unit) : h('span', { class: 'dim' }, '×1.00'), crafted, change]);
+  }
+  const dps = bases.get('DPS');
+  if (dps && stats.some((x) => dps.derived.includes(x))) {
+    const crafted = h('span', { class: 'price' });
+    const change = h('span');
+    cells.set('DPS', { crafted, change, b: dps, derived: true });
+    rows.push([tr('Damage per second'), fmtVal(dps.value), crafted, change]);
+  }
+  const update = () => {
+    const mods = craftedModifiers(all, qualities);
+    for (const [stat, c] of cells) {
+      const m = c.derived ? c.b.derived.reduce((acc, k) => acc * (mods.get(k) ?? 1), 1) : mods.get(stat) ?? 1;
+      c.crafted.textContent = c.b ? fmtVal(c.b.value * m, c.b.unit) : `×${m.toFixed(2)}`;
+      const pctChange = Math.round((m - 1) * 1000) / 10;
+      c.change.textContent = pctChange === 0 ? '±0%' : `${pctChange > 0 ? '+' : ''}${pctChange}%`;
+      c.change.className = pctChange > 0 ? 'up' : pctChange < 0 ? 'down' : 'dim';
+    }
+  };
+  const slider = (value, oninput) => {
+    const r = h('input', { type: 'range', min: '0', max: String(QUALITY_MAX), step: '10', class: 'q-range' });
+    r.value = String(value);
+    r.addEventListener('input', () => oninput(Number(r.value)));
+    return r;
+  };
+  const outputs = [];
+  const slotSliders = [];
+  const globalOut = h('span', { class: 'q-value' }, '500');
+  const globalSlider = slider(500, (v) => {
+    globalOut.textContent = String(v);
+    qualities.fill(v);
+    slotSliders.forEach((r, i) => { r.value = String(v); outputs[i].textContent = String(v); });
+    update();
+  });
+  const slotRows = all.map((ing, i) => {
+    const out = h('span', { class: 'q-value' }, '500');
+    outputs.push(out);
+    const r = slider(500, (v) => { qualities[i] = v; out.textContent = String(v); update(); });
+    slotSliders.push(r);
+    return h(
+      'div',
+      { class: 'q-row' },
+      h('span', { class: 'q-slot' }, ing.slot, h('span', { class: 'dim' }, ` · ${ing.options.map((o) => o.name).join(' / ')}`)),
+      r,
+      out,
+    );
+  });
+  update();
+  return section(
+    'Crafted quality',
+    h('div', { class: 'q-row q-global' }, h('span', { class: 'q-slot' }, tr('All materials')), globalSlider, globalOut),
+    h('div', { class: 'q-slots' }, slotRows),
+    table([['Stat', ''], ['Base', 'num'], ['Crafted', 'num'], ['Change', 'num']], rows),
+    note('Material quality 0–1000, as on sc-craft.tools: each slot moves its stats in a straight line between the lowest and highest quality, and slots on the same stat multiply.'),
+  );
 }
 
 function viewMission(e) {
@@ -382,33 +531,108 @@ function viewCommodity(e) {
 
 function viewLocation(e) {
   const d = e.d;
+  const o = d.overview;
   return {
-    facts: [['Type', d.type], ['Inside', d.parent], ['System', d.system], ['Missions available', d.missionCount || null]],
-    body: [d.description && section('Description', h('p', { class: 'desc' }, d.description)), links([['Wiki', d.url]])],
+    facts: [['Type', d.type], ['Inside', d.parent], ['System', d.system], ['Star', o?.star], ['Missions available', d.missionCount || null]],
+    body: [
+      o && section('System map', systemMap(e.n, o), o.summary && h('p', { class: 'desc' }, o.summary)),
+      o && section(
+        'Planets and moons',
+        table([['Planet', ''], ['Moons', ''], ['Landing zone', '']], o.bodies.map((b) => [jump(b.name, b.name, 'location'), h('span', null, b.moons.map((m, i) => [i ? ', ' : '', jump(m, m, 'location')])), b.zones.join(', ')])),
+      ),
+      o?.jumpPoints?.length > 0 && section('Jump points', h('div', null, o.jumpPoints.map((j) => h('span', { class: 'pill' }, j)))),
+      d.description && section('Description', h('p', { class: 'desc' }, d.description)),
+      links([['Wiki', d.url]]),
+    ],
   };
 }
 
-const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, commodity: viewCommodity, location: viewLocation };
+// A schematic of the system: the star, then each planet on its orbit, moons as dots around it.
+// Stands in until the drawn map for each system is designed.
+function systemMap(name, o) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, text) => {
+    const x = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) x.setAttribute(k, v);
+    if (text != null) x.textContent = text;
+    return x;
+  };
+  const n = o.bodies.length;
+  const W = 640;
+  const H = 150;
+  const cy = 64;
+  const svg = el('svg', { class: 'sysmap', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': tr('Map of {name}', { name }) });
+  svg.append(el('circle', { cx: 0, cy, r: 34, class: 'sysmap-star' }));
+  o.bodies.forEach((b, i) => {
+    const x = 90 + (i * (W - 140)) / Math.max(1, n - 1);
+    svg.append(el('path', { d: `M ${x} ${cy - 46} A ${x} ${x} 0 0 1 ${x} ${cy + 46}`, class: 'sysmap-orbit' }));
+    const g = el('g', { class: 'sysmap-body' });
+    g.append(el('circle', { cx: x, cy, r: 9 }));
+    b.moons.forEach((_, j) => {
+      const a = (j / Math.max(1, b.moons.length)) * Math.PI * 2 - Math.PI / 2;
+      g.append(el('circle', { cx: x + Math.cos(a) * 17, cy: cy + Math.sin(a) * 17, r: 2.4, class: 'sysmap-moon' }));
+    });
+    g.append(el('text', { x, y: cy + 40, 'text-anchor': 'middle' }, b.name));
+    if (b.zones.length) g.append(el('text', { x, y: cy + 56, 'text-anchor': 'middle', class: 'sysmap-zone' }, b.zones[0]));
+    g.addEventListener('click', () => goTo(b.name, 'location'));
+    svg.append(g);
+  });
+  return svg;
+}
+
+function viewFaction(e) {
+  const d = e.d;
+  const ranks = d.ranks || [];
+  return {
+    facts: [
+      ['Type', d.type],
+      ['Area', d.area],
+      ['Focus', d.focus],
+      ['Leadership', d.leadership],
+      ['Headquarters', d.headquarters],
+      ['Founded', d.founded],
+      ['Ranks', ranks.filter((r) => r.min >= 0).length || null],
+    ],
+    body: [
+      d.description && section('About', h('p', { class: 'desc' }, d.description)),
+      ranks.length
+        ? section(
+            'Reputation levels',
+            table([['Standing', ''], ['Reputation needed', 'num']], ranks.map((r) => [r.name, r.min < 0 ? tr('below 0') : fmt(r.min)])),
+            note('Reputation is earned by completing this faction\'s contracts; each standing unlocks better-paid ones.'),
+          )
+        : note('No reputation ladder: this faction does not track standing with players.'),
+      links([['Wiki', d.url]]),
+    ],
+  };
+}
+
+const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, commodity: viewCommodity, faction: viewFaction, location: viewLocation };
 
 // cstone hosts a picture for most items and ships it lists.
 function imageFor(e) {
   const id = e.d.cstoneUrl?.split('/').pop();
-  if (!id) return null;
-  const img = h('img', { class: 'detail-img', alt: '', src: `https://cstone.space/uifimages/${id}.png` });
-  img.addEventListener('error', () => { img.remove(); fit(); });
+  const urls = [id && `https://cstone.space/uifimages/${id}.png`, e.d.image].filter(Boolean);
+  if (!urls.length) return null;
+  const img = h('img', { class: 'detail-img', alt: '', src: urls.shift() });
+  img.addEventListener('error', () => {
+    if (urls.length) img.src = urls.shift();
+    else { img.remove(); fit(); }
+  });
   img.addEventListener('load', fit);
   return img;
 }
 
 // The one or two facts worth reading first; they sit beside the name, the rest go in the grid below.
 const HEADLINE = {
-  item: ['Lowest price', 'Player market'],
+  item: ['Lowest price', 'Player market', 'DPS'],
   ship: ['Store price', 'Warbond', 'In-game price'],
   blueprint: ['Craft time'],
   mission: ['Reward'],
   mineral: ['Sell value', 'Found at'],
   commodity: ['Best sale', 'Cheapest buy'],
-  location: ['System'],
+  faction: ['Type', 'Area'],
+  location: ['System', 'Star'],
 };
 
 function renderDetail(e) {
@@ -430,7 +654,7 @@ function renderDetail(e) {
         h(
           'div',
           { class: 'detail-top' },
-          h('span', { class: 'detail-type in' }, TYPE_LABEL[e.t]),
+          h('span', { class: 'detail-type in' }, tr(TYPE_LABEL[e.t])),
           h('button', { class: 'back', onclick: back }, 'Back ', h('kbd', null, 'ESC')),
         ),
         h('div', { class: 'detail-name in', delay: 40 }, e.n),
@@ -440,7 +664,7 @@ function renderDetail(e) {
             'div',
             { class: 'headline' },
             headline.map(([label, value], i) =>
-              h('div', { class: 'headline-fact' }, h('span', { class: 'fact-label in', delay: 150 + i * 60 }, label), h('span', { class: 'headline-value in', delay: 150 + i * 60 }, value)),
+              h('div', { class: 'headline-fact' }, h('span', { class: 'fact-label in', delay: 150 + i * 60 }, tr(label)), h('span', { class: 'headline-value in', delay: 150 + i * 60 }, value)),
             ),
           ),
       ),
@@ -456,8 +680,8 @@ function renderDetail(e) {
             'div',
             { class: 'fact' },
             h('div', { class: 'scan', delay: d }),
-            h('span', { class: 'fact-label in', delay: d }, label),
-            h('span', { class: 'fact-value in', delay: d }, value === true ? 'Yes' : value),
+            h('span', { class: 'fact-label in', delay: d }, tr(label)),
+            h('span', { class: 'fact-value in', delay: d }, value === true ? tr('Yes') : value),
           );
         }),
       ),
@@ -471,15 +695,18 @@ function renderList() {
     { class: 'list' },
     results.map((e, i) => {
       const d = Math.min(i, 12) * 45;
-      return h(
+      const more = e.variantHits?.n > 1 ? tr(' · +{n} variants', { n: e.variantHits.n - 1 }) : '';
+      // A header where a new kind starts (only in "all": a filter shows one kind anyway).
+      const header = type === 'all' && (i === 0 || results[i - 1].t !== e.t) && h('div', { class: 'group-head' }, tr(GROUP_LABEL[e.t]));
+      return [header, h(
         'button',
         { class: `row${i === idx ? ' active' : ''}`, onclick: () => open(i), onmousemove: () => setIdx(i, false) },
         h('div', { class: 'scan', delay: d }),
-        h('span', { class: 'row-type in', delay: d }, TYPE_LABEL[e.t]),
+        h('span', { class: 'row-type in', delay: d }, tr(TYPE_LABEL[e.t])),
         h('span', { class: 'row-name in', delay: d }, e.n),
-        h('span', { class: 'row-meta in', delay: d }, e.s || ''),
+        h('span', { class: 'row-meta in', delay: d }, `${e.s || ''}${more}`),
         rowArrow(),
-      );
+      )];
     }),
   );
 }
@@ -576,7 +803,20 @@ function closeSettings() {
 
 async function changeSetting(key, value) {
   settings = await companion.setSetting(key, value);
+  if (key === 'language') {
+    CompanionI18n.setLanguage(settings.languageInUse);
+    translateStatic();
+  }
   render();
+}
+
+// Text written in index.html: elements marked data-i18n, plus the search box's placeholder.
+function translateStatic() {
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = tr(el.dataset.i18n);
+  qEl.placeholder = tr('Search items, ships, blueprints, missions, minerals…');
+  $('settings-btn').title = $('settings-btn').ariaLabel = tr('Settings');
+  $('suggest').title = tr('Send an idea, a bug or a data fix to the developer');
+  $('coffee').title = tr('Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7');
 }
 
 async function settingsAction(action) {
@@ -593,31 +833,42 @@ function renderSettings() {
   const pct = (v) => `${Math.round(v * 100)}%`;
   const toggle = (key, on, disabled) =>
     h('button', { class: `switch${on ? ' on' : ''}`, role: 'switch', 'aria-checked': on ? 'true' : 'false', disabled: disabled ? 'disabled' : null, onclick: () => changeSetting(key, !on) }, h('i'));
-  const steps = (key, list, current, disabled) =>
-    h('span', { class: 'seg', role: 'group' }, list.map((v) => h('button', { class: `seg-btn${Math.abs(current - v) < 0.001 ? ' on' : ''}`, disabled: disabled ? 'disabled' : null, onclick: () => changeSetting(key, v) }, pct(v))));
+  const steps = (key, list, current, disabled, label = pct) =>
+    h('span', { class: 'seg', role: 'group' }, list.map((v) => h('button', { class: `seg-btn${Math.abs(current - v) < 0.001 ? ' on' : ''}`, disabled: disabled ? 'disabled' : null, onclick: () => changeSetting(key, v) }, label(v))));
   const row = (label, hint, control, i) =>
-    h('div', { class: cls('set-row rise'), delay: 120 + i * 35 }, h('div', { class: 'set-text' }, h('span', { class: 'set-label' }, label), hint && h('span', { class: 'set-hint' }, hint)), h('div', { class: 'set-control' }, control));
-  const group = (title) => h('div', { class: cls('set-group rise'), delay: 100 }, title);
+    h('div', { class: cls('set-row rise'), delay: 120 + i * 35 }, h('div', { class: 'set-text' }, h('span', { class: 'set-label' }, tr(label)), hint && h('span', { class: 'set-hint' }, tr(hint))), h('div', { class: 'set-control' }, control));
+  const group = (title) => h('div', { class: cls('set-group rise'), delay: 100 }, tr(title));
+  const choice = (key, options, current) =>
+    h('span', { class: 'seg', role: 'group' }, options.map(([v, label]) => h('button', { class: `seg-btn${current === v ? ' on' : ''}`, onclick: () => changeSetting(key, v) }, label)));
   let i = 0;
   return h(
     'div',
     { class: 'notice settings' },
-    h('div', { class: 'detail-top' }, h('span', { class: cls('detail-type in') }, 'Settings'), h('button', { class: 'back', onclick: closeSettings }, 'Done ', h('kbd', null, 'ESC'))),
+    h('div', { class: 'detail-top' }, h('span', { class: cls('detail-type in') }, tr('Settings')), h('button', { class: 'back', onclick: closeSettings }, tr('Done '), h('kbd', null, 'ESC'))),
     h('div', { class: cls('detail-name in'), delay: 40 }, 'Star Companion'),
     group('Opening'),
-    row('Shortcut', 'Opens and closes the search, even in game', h('span', { class: 'set-inline' }, h('kbd', null, s.hotkey), h('button', { class: 'set-btn', onclick: () => startRecorder(s.hotkey) }, 'Change')), i++),
+    row('Shortcut', 'Opens and closes the search, even in game', h('span', { class: 'set-inline' }, h('kbd', null, s.hotkey), h('button', { class: 'set-btn', onclick: () => startRecorder(s.hotkey) }, tr('Change'))), i++),
+    row(
+      'Key listener',
+      s.keys.listener
+        ? tr('Active · {n} key presses seen{last}', { n: fmt(s.keys.seen ?? 0), last: s.keys.lastHitAt ? tr(' · shortcut last pressed {t}', { t: new Date(s.keys.lastHitAt).toLocaleTimeString() }) : '' })
+        : tr('Not running: the shortcut only works outside the game'),
+      h('button', { class: 'set-btn', onclick: () => settingsAction('showKeysLog') }, tr('Show log')),
+      i++,
+    ),
     row('Start with Windows', s.canStartWithWindows ? 'Launch quietly when you sign in' : 'Available in the installed app', toggle('startWithWindows', s.startWithWindows, !s.canStartWithWindows), i++),
     row('Close when clicking the game', 'Fold back into the icon when the game gets focus', toggle('hideOnBlur', s.hideOnBlur), i++),
     group('Look'),
     row('Show icon when closed', 'A faint icon stays on screen; click it to open', toggle('dock', s.dock), i++),
     row('Icon opacity', 'How visible the icon is while you play', steps('dockOpacity', s.steps.dockOpacity, s.dockOpacity, !s.dock), i++),
-    row('Window opacity', null, steps('opacity', s.steps.opacity, s.opacity), i++),
+    row('Transparency', 'Default is solid; 100% is as see-through as stays readable', steps('transparency', s.steps.transparency, s.transparency, false, (v) => (v === 0 ? tr('Default') : pct(v))), i++),
     row('Text size', 'Also Ctrl + = and Ctrl + -', steps('zoom', s.steps.zoom, s.zoom), i++),
-    row('Position and size', 'Back to the default place and size', h('button', { class: 'set-btn', onclick: () => settingsAction('resetLayout') }, 'Reset'), i++),
+    row('Language', 'Automatic follows Windows', choice('language', [['auto', tr('Automatic')], ['en', 'English'], ['pt-BR', 'Português']], s.language), i++),
+    row('Position and size', 'Back to the default place and size', h('button', { class: 'set-btn', onclick: () => settingsAction('resetLayout') }, tr('Reset')), i++),
     group('Updates and help'),
-    row('Check for updates at launch', `You have v${s.version}`, h('span', { class: 'set-inline' }, toggle('checkUpdates', s.checkUpdates), h('button', { class: 'set-btn', onclick: () => settingsAction('checkUpdates') }, 'Check now')), i++),
-    row('Startup notice', 'What the overlay needs to work', h('button', { class: 'set-btn', onclick: () => settingsAction('notice') }, 'Show'), i++),
-    row('Settings file', 'For advanced edits; opens its folder', h('button', { class: 'set-btn', onclick: () => settingsAction('showFile') }, 'Show in folder'), i++),
+    row('Check for updates at launch', tr('You have v{version}', { version: s.version }), h('span', { class: 'set-inline' }, toggle('checkUpdates', s.checkUpdates), h('button', { class: 'set-btn', onclick: () => settingsAction('checkUpdates') }, tr('Check now'))), i++),
+    row('Startup notice', 'What the overlay needs to work', h('button', { class: 'set-btn', onclick: () => settingsAction('notice') }, tr('Show')), i++),
+    row('Settings file', 'For advanced edits; opens its folder', h('button', { class: 'set-btn', onclick: () => settingsAction('showFile') }, tr('Show in folder')), i++),
     group('About Star Companion'),
     h('p', { class: cls('about-text rise'), delay: 120 + i++ * 35 }, tr(ABOUT_TEXT)),
     h(
@@ -749,7 +1000,7 @@ function renderRecorder() {
     { class: 'notice recorder' },
     h('div', { class: 'detail-type in' }, 'Keyboard shortcut'),
     h('div', { class: 'detail-name in', delay: 40 }, 'Press the new shortcut'),
-    h('p', { class: 'notice-text rise', delay: 120 }, 'An F-key or numpad key works alone; letters and numbers need Ctrl, Alt or Shift. It opens and closes Star Companion from anywhere, including in game.'),
+    h('p', { class: 'notice-text rise', delay: 120 }, 'Press one key on its own (no Ctrl, Alt or Shift). It opens and closes Star Companion from anywhere, including in game, and still reaches the game, so pick one you don\'t use there: numpad keys work well.'),
     h('div', { class: 'rise', delay: 180 }, renderRecorderKeys()),
     h('div', { class: 'rec-meta rise', delay: 220 }, h('span', null, 'Current: ', h('kbd', null, r.current)), h('span', { class: 'rec-error', id: 'rec-error' }, r.error || '')),
     h(
@@ -820,7 +1071,7 @@ function recorderKey(ev) {
 // ---------- State → screen ----------
 function render() {
   const q = qEl.value.trim();
-  filterEl.textContent = type === 'all' ? '' : `Filter · ${TYPES.find(([t]) => t === type)[1]}`;
+  filterEl.textContent = type === 'all' ? '' : tr('Filter · {name}', { name: tr(TYPES.find(([t]) => t === type)[1]) });
   if (recorder) {
     listKey = '';
     contentEl.replaceChildren(renderRecorder());
@@ -849,10 +1100,11 @@ function render() {
   } else {
     listKey = '';
     contentEl.replaceChildren(
-      h('div', { class: 'empty' }, h('span', { class: 'empty-tag in' }, 'No signal'), h('span', { class: 'empty-text in', delay: 60 }, `Nothing matches “${q}”`)),
+      h('div', { class: 'empty' }, h('span', { class: 'empty-tag in' }, tr('No signal')), h('span', { class: 'empty-text in', delay: 60 }, tr('Nothing matches “{q}”', { q }))),
     );
   }
   scrollEl.scrollTop = 0;
+  widthPending = true;
   fit();
 }
 
@@ -860,6 +1112,7 @@ function render() {
 // transparent) and shrinks only after the panel has finished closing.
 let shrinkTimer;
 let windowH = 0;
+let widthPending = false; // new content on screen: measure the width it wants once
 // Width the panel's tables need to keep every row on one line, in window px (0 = no tables).
 // Each table is measured at its natural width, plus its offset from the left and the room to its right.
 function tablesWidth() {
@@ -874,17 +1127,13 @@ function tablesWidth() {
   return need;
 }
 
-// Ask for the width that keeps rows on one line; main caps it at half the screen. If the window is
-// still narrower than the rows need (capped, or not resized yet), rows wrap instead of being cut off;
-// the resize that follows runs this again and lifts the wrap once they fit.
+// Ask once, when new content appears, for the width that keeps table rows on one line; main caps it
+// at half the screen and never goes below the player's chosen width. Narrower than that, cells wrap.
+// Window resizes never measure again: measuring on resize fed back into itself (the window kept
+// growing and shrinking).
 function fitWidth() {
-  contentEl.classList.remove('wrap-rows');
-  // The estimate, corrected by what still overflows the panel at the current width (the measured
-  // overflow is exact; the estimate alone can come up a few px short).
-  const overflow = Math.max(0, scrollEl.scrollWidth - scrollEl.clientWidth);
-  const need = Math.max(tablesWidth(), overflow ? window.innerWidth + overflow : 0) + (overflow ? 4 : 0);
-  companion.fitWidth(Math.ceil(need * zoom));
-  if (need > window.innerWidth + 1) contentEl.classList.add('wrap-rows');
+  const need = tablesWidth();
+  companion.fitWidth(Math.ceil((need ? need + 8 : 0) * zoom));
 }
 
 window.addEventListener('resize', () => {
@@ -894,7 +1143,10 @@ window.addEventListener('resize', () => {
 function fit() {
   // Docked, the window is the icon; folding, it is about to become the icon. Neither is laid out.
   if (document.body.classList.contains('docked') || document.body.classList.contains('folding')) return;
-  if (!gripping) fitWidth();
+  if (widthPending && !gripping) {
+    widthPending = false;
+    fitWidth();
+  }
   const open = contentEl.childElementCount > 0;
   // Everything except the panel: body padding, brand line, bar, key hints.
   const pad = parseFloat(getComputedStyle(document.body).paddingTop) + parseFloat(getComputedStyle(document.body).paddingBottom);
@@ -918,7 +1170,7 @@ function fit() {
 }
 
 function search() {
-  results = CompanionSearch.search(index, qEl.value, { type });
+  results = CompanionSearch.search(index, qEl.value, { type, collapseVariants: true });
   idx = 0;
   detail = null;
   render();
@@ -1000,6 +1252,8 @@ document.addEventListener('keydown', (ev) => {
     else if (ev.key === 'Enter' && feedback.status === 'sent') { ev.preventDefault(); closeFeedback(); }
     return;
   }
+  // A quality slider keeps its arrow keys and Home/End.
+  if (ev.target?.type === 'range' && /^(Arrow|Home$|End$|Page)/.test(ev.key)) return;
   if (ev.ctrlKey && (ev.key === '=' || ev.key === '+')) companion.zoom(1);
   else if (ev.ctrlKey && ev.key === '-') companion.zoom(-1);
   else if (ev.ctrlKey && ev.key === '0') companion.zoom(0);
@@ -1154,6 +1408,8 @@ companion.onDbUpdated(({ ok }) => {
 
 async function load() {
   const [raw, cfg] = await Promise.all([companion.loadDb(), companion.config()]);
+  CompanionI18n.setLanguage(cfg.language);
+  translateStatic();
   maxHeight = cfg.maxHeight;
   zoom = cfg.zoom || 1;
   applyLayoutVars(cfg.dockOpacity);
@@ -1161,10 +1417,11 @@ async function load() {
   $('hotkey').textContent = $('hotkey2').textContent = cfg.hotkey;
   const db = JSON.parse(raw);
   index = CompanionSearch.buildIndex(db.entries);
+  itemByName = new Map(db.entries.filter((x) => x.t === 'item').map((x) => [x.n, x]));
   const total = Object.values(db.meta.counts).reduce((a, b) => a + b, 0);
   const sources = Object.entries(db.meta.sources).filter(([, s]) => s);
   const oldest = sources.map(([, s]) => s.fetchedAt.slice(0, 10)).sort()[0];
-  $('dbinfo').textContent = `${fmt(total)} records · data ${oldest}`;
+  $('dbinfo').textContent = tr('{records} records · data {date}', { records: fmt(total), date: oldest });
   dataDate = oldest;
   gameVersion = db.meta.gameVersion || null;
   renderPu(cfg.liveGameVersion);

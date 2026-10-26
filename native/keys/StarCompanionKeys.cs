@@ -11,6 +11,12 @@
 //   in:  "keys <token> [<token>...]"  keys to watch; a token is "vk:<decimal>" or "char:<c>" (the key
 //                                     that types c on the active layout, so "/" works on ABNT2 and US)
 //   in:  "pause" / "resume"           stop / restart reporting (while the shortcut is being changed)
+//   in:  "focus <hwnd>"               bring Star Companion's window to the front with keyboard focus.
+//                                     Windows refuses SetForegroundWindow to a background app while the
+//                                     game is in front; joining the foreground thread's input for the
+//                                     call is the usual way around it. Answers "FOCUS ok" / "FOCUS fail".
+//   in:  "stats"                      answers "STATS <n>": key presses seen so far (diagnostics; which
+//                                     keys is never reported)
 //   out: "READY" once listening, "HIT" when a watched key goes down with no Ctrl/Alt/Shift/Win held,
 //        "ERROR <message>" if listening is impossible.
 // The process exits when stdin closes, so it never outlives Star Companion.
@@ -50,9 +56,20 @@ internal static class Program
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "VkKeyScanW")]
     private static extern short VkKeyScan(char ch);
 
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, IntPtr pid);
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint attach, uint attachTo, bool on);
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern IntPtr SetFocus(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hwnd);
+
     private static readonly object Gate = new object();
     private static HashSet<uint> watched = new HashSet<uint>();
     private static bool paused;
+    private static int keysSeen;
+    private static volatile SynchronizationContext uiContext;
 
     private sealed class Listener : NativeWindow
     {
@@ -90,12 +107,38 @@ internal static class Program
             bool isNew = down.Add(vkey); // fire on the up→down transition, not on auto-repeat
             lastSeen[vkey] = now;
             if (!isNew) return;
+            Interlocked.Increment(ref keysSeen);
 
             bool modifierHeld = down.Contains(VK_SHIFT) || down.Contains(VK_CONTROL) || down.Contains(VK_MENU) || down.Contains(VK_LWIN) || down.Contains(VK_RWIN);
             bool hit;
             lock (Gate) hit = !paused && !modifierHeld && watched.Contains(vkey);
             if (hit) Send("HIT");
         }
+    }
+
+    // Runs on the listener's thread: it owns a window, so it has an input queue to attach.
+    private static bool Focus(IntPtr target)
+    {
+        if (!IsWindow(target)) return false;
+        IntPtr fg = GetForegroundWindow();
+        if (fg == target) return true;
+        uint me = GetCurrentThreadId();
+        uint fgThread = fg == IntPtr.Zero ? 0 : GetWindowThreadProcessId(fg, IntPtr.Zero);
+        uint targetThread = GetWindowThreadProcessId(target, IntPtr.Zero);
+        bool joinedFg = fgThread != 0 && fgThread != me && AttachThreadInput(me, fgThread, true);
+        bool joinedTarget = targetThread != 0 && targetThread != me && targetThread != fgThread && AttachThreadInput(me, targetThread, true);
+        try
+        {
+            BringWindowToTop(target);
+            SetForegroundWindow(target);
+            SetFocus(target);
+        }
+        finally
+        {
+            if (joinedFg) AttachThreadInput(me, fgThread, false);
+            if (joinedTarget) AttachThreadInput(me, targetThread, false);
+        }
+        return GetForegroundWindow() == target;
     }
 
     private static bool TryReadKeyboard(IntPtr lParam, out uint vkey, out bool isUp)
@@ -146,6 +189,19 @@ internal static class Program
         lock (Console.Out) { Console.Out.WriteLine(line); Console.Out.Flush(); }
     }
 
+    // A form-less application context that records the UI SynchronizationContext once the message loop
+    // runs, so stdin commands that need the listener's thread (focus) can be posted to it.
+    private sealed class UiContextCapture : ApplicationContext
+    {
+        public UiContextCapture()
+        {
+            System.Windows.Forms.Timer t = new System.Windows.Forms.Timer();
+            t.Interval = 1;
+            t.Tick += delegate { uiContext = SynchronizationContext.Current; t.Stop(); t.Dispose(); };
+            t.Start();
+        }
+    }
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -170,6 +226,16 @@ internal static class Program
             while ((line = Console.In.ReadLine()) != null)
             {
                 string[] parts = line.Trim().Split(' ');
+                if (parts[0] == "focus" && parts.Length > 1)
+                {
+                    long h;
+                    SynchronizationContext ui = uiContext;
+                    if (!long.TryParse(parts[1], out h) || ui == null) { Send("FOCUS fail"); continue; }
+                    IntPtr target = new IntPtr(h);
+                    ui.Post(delegate { Send(Focus(target) ? "FOCUS ok" : "FOCUS fail"); }, null);
+                    continue;
+                }
+                if (parts[0] == "stats") { Send("STATS " + Thread.VolatileRead(ref keysSeen)); continue; }
                 lock (Gate)
                 {
                     if (parts[0] == "keys") watched = ParseKeys(parts, 1);
@@ -182,7 +248,8 @@ internal static class Program
         reader.IsBackground = true;
         reader.Start();
 
-        Application.Run();
+        Application.Run(new UiContextCapture());
+        GC.KeepAlive(listener);
         return 0;
     }
 }

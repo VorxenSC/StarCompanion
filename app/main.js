@@ -3,6 +3,8 @@ const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const i18n = require('./renderer/i18n.js');
+const T = i18n.t;
 
 const REPO = { owner: 'VorxenSC', repo: 'StarCompanion' };
 const RELEASES_URL = `https://github.com/${REPO.owner}/${REPO.repo}/releases/latest`;
@@ -22,8 +24,8 @@ const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 const DEFAULT_CONFIG = {
   hotkey: '/', // the single key that shows/hides the overlay (Electron Accelerator format)
   hideOnBlur: true, // close when you click back into the game
-  opacity: 1, // whole-window opacity, also set from the tray menu
-  height: 760, // maximum height; the window shrinks to fit shorter results
+  transparency: 0, // 0 = solid ("Default"); 1 = the most see-through that still reads well
+  height: 1520, // maximum height (capped to the screen); the window shrinks to fit shorter results
   windowWidth: 720, // the design's 680px column plus room for its glow; changed with the resize grip
   zoom: 1, // text size: Ctrl+= / Ctrl+- / Ctrl+0 in the overlay, or the tray menu
   dock: true, // keep a discreet icon on screen while the overlay is closed
@@ -31,12 +33,17 @@ const DEFAULT_CONFIG = {
   showNotice: true, // the "Before you start" notice at launch, until "Don't show this again"
   checkUpdates: true, // look for a new release on GitHub at launch and ask before installing it
   skipVersion: null, // a release the player chose not to be reminded about
+  language: 'auto', // 'auto' (Windows' language), 'en' or 'pt-BR'
   // dockX, dockY: where the icon sits; the bar unfolds from it. Saved when either is dragged.
+  // sizeChosen: true once the player resized with the grip; their width and height are kept from then on.
 };
 
 const MIN_HEIGHT = 100;
 const MIN_WIDTH = 520;
-const OPACITY_STEPS = [1, 0.9, 0.8, 0.7, 0.6];
+// Transparency: Default (solid) … 100% (as see-through as stays readable). Window opacity = 1 - 0.45 × t.
+const TRANSPARENCY_STEPS = [0, 0.25, 0.5, 0.75, 1];
+const MIN_OPACITY = 0.55;
+const opacityFor = (t) => 1 - (1 - MIN_OPACITY) * t;
 const ZOOM_STEPS = [0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6];
 const DOCK_OPACITY_STEPS = [0.2, 0.35, 0.5, 0.7];
 // The docked window is a DOCK_SIZE square with the icon centred in it; the bar unfolds so that its
@@ -45,6 +52,7 @@ const DOCK_SIZE = 64;
 const ICON_SIZE = 44;
 const DOCK_INSET = (DOCK_SIZE - ICON_SIZE) / 2;
 const CLOSE_FALLBACK_MS = 900; // if the renderer never reports the fold animation finished
+const BLUR_GRACE_MS = 600;
 
 const SNAPSHOT = !!process.env.SC_SNAPSHOT;
 
@@ -66,12 +74,28 @@ function loadConfig() {
     delete saved.width;
     // Shortcuts are single keys since 0.4.6; a saved combination (e.g. Ctrl+Up) becomes the default.
     if (typeof saved.hotkey === 'string' && /.\+./.test(saved.hotkey)) delete saved.hotkey;
+    // 0.4.7: "opacity" became "transparency" (the scale was the wrong way round for players).
+    if (saved.transparency == null && Number.isFinite(saved.opacity)) {
+      const t = (1 - saved.opacity) / (1 - MIN_OPACITY);
+      saved.transparency = TRANSPARENCY_STEPS.reduce((best, v) => (Math.abs(v - t) < Math.abs(best - t) ? v : best), 0);
+    }
+    delete saved.opacity;
+    // Sizes saved before 0.4.7 were defaults, not choices: take the new (taller) default.
+    if (!saved.sizeChosen) {
+      delete saved.height;
+      delete saved.windowWidth;
+    }
     return { ...DEFAULT_CONFIG, ...saved };
   } catch {
     fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(DEFAULT_CONFIG, null, 2));
     return { ...DEFAULT_CONFIG };
   }
+}
+
+// The language in use: the player's choice, or Windows' display language when it is "auto".
+function applyLanguage() {
+  i18n.setLanguage(i18n.resolve(config.language, app.getPreferredSystemLanguages()));
 }
 
 // Snapshot runs must never overwrite the player's saved layout.
@@ -119,21 +143,38 @@ function setBounds(bounds) {
 }
 
 // ---------- Open / close ----------
+// Windows only gives keyboard focus to the app the player last used. With the game in front, the
+// overlay's own focus() is refused, so the key helper (which may join the foreground thread's input for
+// that one call) brings it forward; focus() stays as the first try and the fallback.
+let openedAt = 0;
+let focusGained = false; // since the last open: did the overlay ever get keyboard focus?
+function takeFocus() {
+  if (SNAPSHOT) return;
+  win.show();
+  win.focus();
+  win.webContents.focus();
+  if (keyHelper && keyHelperReady && !win.isFocused()) {
+    const h = win.getNativeWindowHandle();
+    const hwnd = h.length >= 8 ? h.readBigUInt64LE(0) : BigInt(h.readUInt32LE(0));
+    keyHelper.stdin.write(`focus ${hwnd}\n`);
+  }
+  setTimeout(() => keysLog(`open: focused=${win.isFocused()}`), 400);
+}
+
 function open() {
   if (!win) return;
   if (state === 'open') {
-    win.focus();
+    takeFocus();
     return;
   }
   const { dock, ...bounds } = openBounds();
   state = 'open';
+  openedAt = Date.now();
+  focusGained = false;
   win.setFocusable(!SNAPSHOT);
   setBounds(bounds);
   if (SNAPSHOT) win.showInactive();
-  else {
-    win.show();
-    win.focus();
-  }
+  else takeFocus();
   // Where the icon is inside the open window, in CSS px, so the unfold starts exactly on it.
   win.webContents.send('overlay:open', {
     side,
@@ -168,9 +209,11 @@ function dockNow() {
   win.showInactive();
 }
 
+// Open → close. The one exception: the overlay had focus, lost it to the game (with "close when
+// clicking the game" off), and the key brings it back instead.
 function toggle() {
   if (!win) return;
-  if (state === 'open' && win.isFocused()) close();
+  if (state === 'open' && (win.isFocused() || !focusGained || config.hideOnBlur)) close();
   else open();
 }
 
@@ -205,7 +248,8 @@ function dockPointer(phase) {
 function fitHeight(wanted, beyondMax) {
   if (!win || state !== 'open' || !Number.isFinite(wanted)) return;
   // beyondMax: content that must show whole (the startup notice) may use the screen's height.
-  const limit = beyondMax ? screen.getDisplayMatching(win.getBounds()).workArea.height : config.height;
+  const screenH = screen.getDisplayMatching(win.getBounds()).workArea.height;
+  const limit = beyondMax ? screenH : Math.min(screenH, config.height);
   const target = Math.round(Math.max(MIN_HEIGHT, Math.min(limit, wanted)));
   openHeight = target;
   const [w, current] = win.getSize();
@@ -240,6 +284,7 @@ function resizeFromGrip(width, maxHeight) {
   const { workArea } = screen.getDisplayMatching(win.getBounds());
   config.windowWidth = Math.round(Math.max(MIN_WIDTH, Math.min(workArea.width, width)));
   config.height = Math.round(Math.max(220, Math.min(workArea.height, maxHeight)));
+  config.sizeChosen = true;
   const b = win.getBounds();
   // Anchored on the icon's side: with the icon on the right, the bar grows and shrinks leftward.
   const x = side === 'right' ? b.x + b.width - config.windowWidth : b.x;
@@ -283,13 +328,19 @@ function stepZoom(direction) {
 }
 
 // The renderer lays out in CSS px; it needs the zoom to turn them into window pixels.
-function sendLayout() {
-  win?.webContents.send('overlay:layout', { maxHeight: config.height, zoom: config.zoom, side, dockOpacity: config.dockOpacity });
+// The saved maximum height, capped to the screen the overlay is on.
+function maxHeight() {
+  const area = win ? screen.getDisplayMatching(win.getBounds()).workArea : screen.getPrimaryDisplay().workArea;
+  return Math.min(area.height, config.height);
 }
 
-function setOpacity(value) {
-  config.opacity = value;
-  win.setOpacity(value);
+function sendLayout() {
+  win?.webContents.send('overlay:layout', { maxHeight: maxHeight(), zoom: config.zoom, side, dockOpacity: config.dockOpacity });
+}
+
+function setTransparency(value) {
+  config.transparency = value;
+  win.setOpacity(opacityFor(value));
   saveConfig();
   buildTray();
 }
@@ -316,6 +367,7 @@ function resetLayout() {
   delete config.dockY;
   config.windowWidth = DEFAULT_CONFIG.windowWidth;
   config.height = DEFAULT_CONFIG.height;
+  config.sizeChosen = false;
   saveConfig();
   sendLayout();
   if (state === 'open') setBounds(openBounds());
@@ -355,10 +407,10 @@ function setupUpdater() {
   autoUpdater.on('update-not-available', (info) => {
     updateLog('up to date', info.version);
     if (UPDATE_TEST) return app.quit();
-    if (manualCheck) dialog.showMessageBox({ type: 'info', title: 'Star Companion', message: 'You have the latest version.', detail: `Star Companion ${app.getVersion()}`, noLink: true });
+    if (manualCheck) dialog.showMessageBox({ type: 'info', title: 'Star Companion', message: T('You have the latest version.'), detail: `Star Companion ${app.getVersion()}`, noLink: true });
   });
   autoUpdater.on('download-progress', (p) => {
-    updateStatus = `Downloading update… ${Math.round(p.percent)}%`;
+    updateStatus = T('Downloading update… {pct}%', { pct: Math.round(p.percent) });
     buildTray();
   });
   autoUpdater.on('update-downloaded', () => {
@@ -371,7 +423,7 @@ function setupUpdater() {
     updateStatus = '';
     buildTray();
     if (UPDATE_TEST) return app.quit();
-    if (manualCheck) dialog.showMessageBox({ type: 'warning', title: 'Star Companion', message: 'Could not check for updates.', detail: String(err?.message || err), noLink: true });
+    if (manualCheck) dialog.showMessageBox({ type: 'warning', title: 'Star Companion', message: T('Could not check for updates.'), detail: String(err?.message || err), noLink: true });
   });
 }
 
@@ -379,21 +431,21 @@ async function askToUpdate(info) {
   if (!manualCheck && info.version === config.skipVersion) return;
   const { response, checkboxChecked } = await dialog.showMessageBox({
     type: 'info',
-    title: 'Star Companion update',
-    message: `Star Companion ${info.version} is available`,
+    title: T('Star Companion update'),
+    message: T('Star Companion {version} is available', { version: info.version }),
     detail: PORTABLE
-      ? `You have ${app.getVersion()}. The portable version can't update itself: download the new one from GitHub.`
-      : `You have ${app.getVersion()}. Update now? It downloads (about 100 MB), installs and restarts Star Companion.`,
-    buttons: [PORTABLE ? 'Open download page' : 'Update now', 'Later'],
+      ? T("You have {current}. The portable version can't update itself: download the new one from GitHub.", { current: app.getVersion() })
+      : T('You have {current}. Update now? It downloads (about 100 MB), installs and restarts Star Companion.', { current: app.getVersion() }),
+    buttons: [PORTABLE ? T('Open download page') : T('Update now'), T('Later')],
     defaultId: 0,
     cancelId: 1,
-    checkboxLabel: manualCheck ? undefined : "Don't remind me about this version",
+    checkboxLabel: manualCheck ? undefined : T("Don't remind me about this version"),
     noLink: true,
   });
   if (response === 0) {
     if (PORTABLE) shell.openExternal(RELEASES_URL);
     else {
-      updateStatus = 'Downloading update…';
+      updateStatus = T('Downloading update…');
       buildTray();
       autoUpdater.downloadUpdate().catch((err) => updateLog('download failed', err?.message || err));
     }
@@ -406,7 +458,7 @@ async function askToUpdate(info) {
 function checkForUpdates(manual) {
   manualCheck = manual;
   if (!app.isPackaged && !UPDATE_TEST) {
-    if (manual) dialog.showMessageBox({ type: 'info', title: 'Star Companion', message: 'Updates are checked by the installed app.', detail: 'You are running from source; use git pull.', noLink: true });
+    if (manual) dialog.showMessageBox({ type: 'info', title: 'Star Companion', message: T('Updates are checked by the installed app.'), detail: T('You are running from source; use git pull.'), noLink: true });
     return;
   }
   autoUpdater.checkForUpdates().catch((err) => updateLog('check failed', err?.message || err));
@@ -513,6 +565,29 @@ const VK = {
 let keyHelper = null;
 let keyHelperReady = false;
 let keyHelperStarts = 0;
+let keysSeen = null; // key presses the helper has seen (diagnostics shown in Settings)
+let lastHitAt = null;
+const statsWaiters = [];
+// Asks the helper how many key presses it has seen; resolves within 200 ms either way.
+function refreshKeyStats() {
+  if (!(keyHelper && keyHelperReady)) return Promise.resolve();
+  return new Promise((resolve) => {
+    statsWaiters.push(resolve);
+    keyHelper.stdin.write('stats\n');
+    setTimeout(resolve, 200);
+  });
+}
+
+// %APPDATA%\Star Companion\keys.log: when the listener started, each shortcut press and whether the
+// overlay got focus. Never which other keys were pressed. Kept short.
+const KEYS_LOG = path.join(app.getPath('userData'), 'keys.log');
+function keysLog(line) {
+  if (SNAPSHOT || UPDATE_TEST) return;
+  try {
+    if (fs.existsSync(KEYS_LOG) && fs.statSync(KEYS_LOG).size > 200 * 1024) fs.renameSync(KEYS_LOG, KEYS_LOG + '.old');
+    fs.appendFileSync(KEYS_LOG, `${new Date().toISOString()} ${line}\n`);
+  } catch { /* logging must never break the shortcut */ }
+}
 let recordingHotkey = false;
 let quitting = false;
 
@@ -544,9 +619,19 @@ function startKeyHelper() {
       buffered = buffered.slice(nl + 1);
       if (line === 'READY') {
         if (process.env.SC_DEBUG_KEYS) console.log('[keys] READY');
+        keysLog(`listener ready, shortcut ${config.hotkey} (${keyToken(config.hotkey)})`);
         keyHelperReady = true;
         globalShortcut.unregisterAll(); // the helper now owns the key; both would toggle twice
+      } else if (line.startsWith('FOCUS ')) {
+        keysLog(`focus handoff: ${line.slice(6)}`);
+      } else if (line.startsWith('STATS ')) {
+        keysSeen = Number(line.slice(6));
+        statsWaiters.splice(0).forEach((done) => done());
+      } else if (line.startsWith('ERROR')) {
+        keysLog(`listener ${line}`);
       } else if (line === 'HIT' && !recordingHotkey) {
+        lastHitAt = Date.now();
+        keysLog(`shortcut pressed (state ${state}, game or other app in front: ${!win.isFocused()})`);
         // SC_DEBUG_KEYS: log instead of opening, so a test copy never takes over the screen.
         if (process.env.SC_DEBUG_KEYS) console.log(`[keys] HIT ${config.hotkey}`);
         else toggle();
@@ -554,7 +639,8 @@ function startKeyHelper() {
     }
   });
   child.on('error', () => {});
-  child.on('exit', () => {
+  child.on('exit', (code) => {
+    keysLog(`listener stopped (exit ${code})`);
     if (keyHelper === child) {
       keyHelper = null;
       keyHelperReady = false;
@@ -617,12 +703,15 @@ function settingsSnapshot() {
     canStartWithWindows: app.isPackaged,
     dock: config.dock,
     dockOpacity: config.dockOpacity,
-    opacity: config.opacity,
+    transparency: config.transparency,
     zoom: config.zoom,
     hideOnBlur: config.hideOnBlur,
     checkUpdates: config.checkUpdates,
+    language: config.language,
+    languageInUse: i18n.getLanguage(),
     version: app.getVersion(),
-    steps: { dockOpacity: DOCK_OPACITY_STEPS, opacity: OPACITY_STEPS, zoom: ZOOM_STEPS },
+    keys: { listener: !!(keyHelper && keyHelperReady), seen: keysSeen, lastHitAt, log: KEYS_LOG },
+    steps: { dockOpacity: DOCK_OPACITY_STEPS, transparency: TRANSPARENCY_STEPS, zoom: ZOOM_STEPS },
   };
 }
 
@@ -631,10 +720,17 @@ function applySetting(key, value) {
     case 'startWithWindows': setStartWithWindows(!!value); break;
     case 'dock': setDock(!!value); break;
     case 'dockOpacity': if (DOCK_OPACITY_STEPS.includes(value)) setDockOpacity(value); break;
-    case 'opacity': if (OPACITY_STEPS.includes(value)) setOpacity(value); break;
+    case 'transparency': if (TRANSPARENCY_STEPS.includes(value)) setTransparency(value); break;
     case 'zoom': if (ZOOM_STEPS.includes(value)) setZoom(value); break;
     case 'hideOnBlur': config.hideOnBlur = !!value; saveConfig(); break;
     case 'checkUpdates': setCheckUpdates(!!value); break;
+    case 'language':
+      if (!i18n.languages.includes(value)) break;
+      config.language = value;
+      applyLanguage();
+      saveConfig();
+      buildTray();
+      break;
     default: break;
   }
   return settingsSnapshot();
@@ -645,6 +741,7 @@ function settingsAction(action) {
   else if (action === 'checkUpdates') checkForUpdates(true);
   else if (action === 'notice') win.webContents.send('overlay:notice');
   else if (action === 'showFile') shell.showItemInFolder(CONFIG_FILE); // Explorer, never "open with"
+  else if (action === 'showKeysLog') shell.showItemInFolder(fs.existsSync(KEYS_LOG) ? KEYS_LOG : CONFIG_FILE);
   return settingsSnapshot();
 }
 
@@ -708,21 +805,21 @@ function buildTray() {
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'renderer', 'tray.png')));
     tray.on('click', toggle);
   }
-  tray.setToolTip(`Star Companion — press ${config.hotkey} to open`);
+  tray.setToolTip(T('Star Companion — press {key} to open', { key: config.hotkey }));
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: `Show / hide (${config.hotkey})`, click: toggle },
-      { label: 'Settings…', click: openSettings },
+      { label: T('Show / hide ({key})', { key: config.hotkey }), click: toggle },
+      { label: T('Settings…'), click: openSettings },
       { type: 'separator' },
       updateStatus
         ? { label: updateStatus, enabled: false }
-        : { label: `Check for updates (v${app.getVersion()})`, click: () => checkForUpdates(true) },
-      { label: updating ? 'Updating database…' : 'Update database', enabled: !updating, click: updateData },
+        : { label: T('Check for updates (v{version})', { version: app.getVersion() }), click: () => checkForUpdates(true) },
+      { label: updating ? T('Updating database…') : T('Update database'), enabled: !updating, click: updateData },
       { type: 'separator' },
-      { label: 'Send a suggestion…', click: openFeedback },
-      { label: 'Buy me a coffee…', click: () => shell.openExternal(COFFEE_URL) },
+      { label: T('Send a suggestion…'), click: openFeedback },
+      { label: T('Buy me a coffee…'), click: () => shell.openExternal(COFFEE_URL) },
       { type: 'separator' },
-      { label: 'Quit', click: () => app.quit() },
+      { label: T('Quit'), click: () => app.quit() },
     ]),
   );
 }
@@ -751,10 +848,17 @@ function createWindow() {
   // 'screen-saver' keeps the overlay above borderless-fullscreen games.
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  win.setOpacity(config.opacity);
+  win.setOpacity(opacityFor(config.transparency));
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.webContents.on('did-finish-load', () => win.webContents.setZoomFactor(config.zoom));
-  win.on('blur', () => { if (state === 'open' && config.hideOnBlur && !win.webContents.isDevToolsOpened()) close(); });
+  win.on('focus', () => { if (state === 'open') focusGained = true; });
+  // The first moments after opening are ignored: while focus is being handed over from the game,
+  // Windows can send a blur that would fold the bar straight back.
+  win.on('blur', () => {
+    if (state !== 'open' || !config.hideOnBlur || win.webContents.isDevToolsOpened()) return;
+    if (Date.now() - openedAt < BLUR_GRACE_MS) return keysLog('blur ignored (just opened)');
+    close();
+  });
   win.on('moved', () => {
     if (state === 'open' && !widening) {
       dockFromOpenWindow();
@@ -834,7 +938,7 @@ function snapshotMode(spec) {
 }
 
 ipcMain.handle('db:load', () => fs.promises.readFile(dbFile(), 'utf8'));
-ipcMain.handle('app:config', () => ({ hotkey: config.hotkey, maxHeight: config.height, zoom: config.zoom, dockOpacity: config.dockOpacity, liveGameVersion }));
+ipcMain.handle('app:config', () => ({ language: i18n.getLanguage(), hotkey: config.hotkey, maxHeight: maxHeight(), zoom: config.zoom, dockOpacity: config.dockOpacity, liveGameVersion }));
 ipcMain.on('overlay:hide', () => close());
 ipcMain.on('overlay:closed', () => finishClose());
 ipcMain.on('overlay:geometry', (_e, g) => {
@@ -842,7 +946,7 @@ ipcMain.on('overlay:geometry', (_e, g) => {
 });
 ipcMain.on('overlay:fit', (_e, height, beyondMax) => fitHeight(Number(height), !!beyondMax));
 ipcMain.on('overlay:fit-width', (_e, width) => fitWidth(Number(width)));
-ipcMain.handle('settings:get', () => settingsSnapshot());
+ipcMain.handle('settings:get', async () => { await refreshKeyStats(); return settingsSnapshot(); });
 ipcMain.handle('settings:set', (_e, key, value) => applySetting(String(key), value));
 ipcMain.handle('settings:action', (_e, action) => settingsAction(String(action)));
 ipcMain.on('overlay:grip', (_e, phase) => (phase === 'start' ? startGrip() : endGrip()));
@@ -864,6 +968,8 @@ if (!SNAPSHOT && !UPDATE_TEST && !app.requestSingleInstanceLock()) {
   app.on('second-instance', open);
   app.whenReady().then(() => {
     config = loadConfig();
+    if (process.env.SC_LANG) config.language = process.env.SC_LANG; // dev aid for snapshots
+    applyLanguage();
     setupUpdater();
     if (UPDATE_TEST) return checkForUpdates(false);
     createWindow();

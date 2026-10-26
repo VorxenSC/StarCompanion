@@ -28,7 +28,29 @@ test('every token must match', () => {
 });
 
 test('whole-word match ranks above prefix match', () => {
-  assert.strictEqual(search(idx, 'hawk')[0].id, 'e');
+  assert.deepStrictEqual(search(idx, 'hawk').map((e) => e.id), ['e', 'f']);
+});
+
+test('results are grouped: blueprint, then commodity, then item', () => {
+  const s = buildIndex([
+    { id: 'i', t: 'item', n: 'Laser Rifle', s: '' },
+    { id: 'c', t: 'commodity', n: 'Laser Rifle Parts', s: '' },
+    { id: 'b', t: 'blueprint', n: 'Laser Rifle Mk2', s: '' },
+  ]);
+  assert.deepStrictEqual(search(s, 'laser rifle').map((e) => e.id), ['i', 'b', 'c'], 'the exact name still comes first');
+  assert.deepStrictEqual(search(s, 'laser').map((e) => e.id), ['b', 'c', 'i']);
+});
+
+test('variants collapse to one row per family', () => {
+  const v = buildIndex([
+    { id: '1', t: 'item', n: 'Parallax Energy Assault Rifle', s: '', d: { variants: ['a', 'b', 'c'] } },
+    { id: '2', t: 'item', n: 'Parallax "Sunstone" Energy Assault Rifle', s: '', d: { variants: ['a', 'b', 'c'] } },
+    { id: '3', t: 'item', n: 'Parallax "Sanguine" Energy Assault Rifle', s: '', d: { variants: ['a', 'b', 'c'] } },
+  ]);
+  const r = search(v, 'parallax', { collapseVariants: true });
+  assert.deepStrictEqual(r.map((e) => e.id), ['1']);
+  assert.strictEqual(r[0].variantHits.n, 3);
+  assert.strictEqual(search(v, 'sunstone', { collapseVariants: true })[0].id, '2');
 });
 
 test('type filter', () => {
@@ -46,8 +68,9 @@ test('built database answers real questions', { skip: !fs.existsSync(DB) }, () =
   const real = buildIndex(entries);
   for (const t of ['item', 'ship', 'blueprint', 'mission', 'mineral', 'location']) assert.ok(meta.counts[t] > 0, `no ${t} entries`);
 
-  const quant = search(real, 'quantainium')[0];
-  assert.strictEqual(quant.t, 'mineral');
+  // Grouped order: the commodity comes before the mineral of the same name.
+  assert.deepStrictEqual(search(real, 'quantainium').slice(0, 2).map((e) => e.t), ['commodity', 'mineral']);
+  const quant = search(real, 'quantainium', { type: 'mineral' })[0];
   assert.ok(quant.d.locations.stanton.length > 0);
 
   const ship = search(real, 'cutlass black', { type: 'ship' })[0];

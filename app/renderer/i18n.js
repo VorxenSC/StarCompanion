@@ -119,6 +119,27 @@
     'About Star Companion': 'Sobre o Star Companion',
     "I built Star Companion for players whose PCs struggle to leave Star Citizen: on many machines, a quick Alt+Tab to check a price turns into a long freeze, stutters or even a crash. Here, everything you'd look up sits right on top of the game: press a key, find it, keep flying. And even on a powerful rig, it's simply faster than leaving the cockpit.":
       'Criei o Star Companion para quem joga num PC que sofre para sair do Star Citizen: em muitas máquinas, um simples Alt+Tab para conferir um preço vira um travamento longo, engasgos ou até um crash. Aqui, tudo o que você procuraria fica por cima do jogo: aperte uma tecla, encontre, continue voando. E mesmo num PC potente, é simplesmente mais rápido do que sair do cockpit.',
+    // 0.4.7: factions, weapons, variants, crafting, systems, settings
+    Factions: 'Facções', Faction: 'Facção', Area: 'Área', Focus: 'Foco', Leadership: 'Liderança', Headquarters: 'Sede', Founded: 'Fundação', Ranks: 'Níveis',
+    About: 'Sobre', 'Reputation levels': 'Níveis de reputação', Standing: 'Posição', 'Reputation needed': 'Reputação necessária', 'below 0': 'abaixo de 0',
+    "Reputation is earned by completing this faction's contracts; each standing unlocks better-paid ones.": 'A reputação vem de completar contratos desta facção; cada nível libera contratos mais bem pagos.',
+    'No reputation ladder: this faction does not track standing with players.': 'Sem escada de reputação: esta facção não registra reputação com jogadores.',
+    Damage: 'Dano', DPS: 'DPS', ' per shot': ' por tiro', 'Damage type': 'Tipo de dano', 'Per shot': 'Por tiro', 'Fire mode': 'Modo de tiro', Rate: 'Cadência', continuous: 'contínuo',
+    '{n} rounds per magazine': '{n} tiros por carregador', 'Variants ({n})': 'Variantes ({n})', ' · +{n} variants': ' · +{n} variantes',
+    'Where players find it': 'Onde os jogadores encontram', 'community reports': 'relatos da comunidade',
+    'Crafted quality': 'Qualidade do craft', 'All materials': 'Todos os materiais', Stat: 'Atributo', Base: 'Base', Crafted: 'Craftado', 'Damage per shot': 'Dano por tiro',
+    'Damage per second': 'Dano por segundo', 'Fire Rate': 'Cadência de tiro', 'Impact Force': 'Força de impacto', 'Recoil Smoothness': 'Suavidade do recuo', 'Recoil Handling': 'Controle do recuo',
+    'Recoil Kick': 'Coice do recuo', Integrity: 'Integridade', 'Coolant Rating': 'Capacidade de resfriamento',
+    'Material quality 0–1000, as on sc-craft.tools: each slot moves its stats in a straight line between the lowest and highest quality, and slots on the same stat multiply.':
+      'Qualidade do material de 0 a 1000, como no sc-craft.tools: cada slot muda seus atributos em linha reta entre a qualidade mínima e a máxima, e slots no mesmo atributo se multiplicam.',
+    'System map': 'Mapa do sistema', 'Planets and moons': 'Planetas e luas', Planet: 'Planeta', Moons: 'Luas', 'Landing zone': 'Zona de pouso', 'Jump points': 'Pontos de salto', Star: 'Estrela',
+    'Map of {name}': 'Mapa de {name}',
+    Transparency: 'Transparência', Default: 'Padrão', 'Default is solid; 100% is as see-through as stays readable': 'Padrão é sólido; 100% é o mais transparente que ainda dá para ler',
+    'Key listener': 'Leitor de teclas', 'Active · {n} key presses seen{last}': 'Ativo · {n} teclas recebidas{last}', ' · shortcut last pressed {t}': ' · atalho apertado às {t}',
+    'Not running: the shortcut only works outside the game': 'Parado: o atalho só funciona fora do jogo', 'Show log': 'Ver log',
+    English: 'English', Português: 'Português',
+    "Press one key on its own (no Ctrl, Alt or Shift). It opens and closes Star Companion from anywhere, including in game, and still reaches the game, so pick one you don't use there: numpad keys work well.":
+      'Aperte uma tecla sozinha (sem Ctrl, Alt ou Shift). Ela abre e fecha o Star Companion de qualquer lugar, inclusive no jogo, e continua chegando ao jogo; então escolha uma que você não usa lá: as do teclado numérico funcionam bem.',
     // Tray menu and dialogs (main process)
     'Show / hide ({key})': 'Mostrar / esconder ({key})', 'Settings…': 'Configurações…', 'Check for updates (v{version})': 'Procurar atualizações (v{version})',
     'Updating database…': 'Atualizando a base de dados…', 'Update database': 'Atualizar base de dados', 'Send a suggestion…': 'Enviar uma sugestão…',
@@ -140,10 +161,11 @@
     return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? String(vars[k]) : m)) : s;
   }
 
-  // 'auto' follows the system's languages: Portuguese of any region → pt-BR, everything else → English.
+  // 'auto' follows Windows' display language (the first preferred one): Portuguese of any region →
+  // pt-BR, everything else → English.
   function resolve(setting, systemLanguages) {
     if (setting === 'en' || setting === 'pt-BR') return setting;
-    return (systemLanguages || []).some((l) => /^pt\b/i.test(l)) ? 'pt-BR' : 'en';
+    return /^pt\b/i.test((systemLanguages || [])[0] || '') ? 'pt-BR' : 'en';
   }
 
   const api = { t, resolve, setLanguage: (l) => { lang = STRINGS[l] ? l : 'en'; }, getLanguage: () => lang, languages: ['auto', 'en', 'pt-BR'] };

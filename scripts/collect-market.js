@@ -33,7 +33,7 @@ async function main() {
   // Every UEX item id → name and uuid, so items can be linked even when nobody is selling them.
   const categories = (await getJson(`${UEX}/categories`)).data.filter((c) => c.type === 'item');
   const perCategory = await pool(categories, 3, (c) => getJson(`${UEX}/items?id_category=${c.id}`), { delayMs: 150, onProgress: progress('item categories') });
-  const items = perCategory.flatMap((r) => r.data || []).map((i) => ({ id: i.id, name: i.name, uuid: i.uuid || null }));
+  const items = perCategory.flatMap((r) => r.data || []).map((i) => ({ id: i.id, name: i.name, uuid: i.uuid || null, company: i.company_name || null, image: i.screenshot || null }));
 
   const feed = (await getJson(`${UEX}/marketplace_listings`)).data;
   const listed = [...new Set(feed.map((l) => l.id_item).filter((id) => id > 0))];

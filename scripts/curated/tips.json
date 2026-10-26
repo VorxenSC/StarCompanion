@@ -1,0 +1,11 @@
+{
+  "note": "Where players say they find things, as a short tip per item family. 'names' match an item exactly or by its base name (variants included). Each tip names how widely it is reported.",
+  "tips": [
+    {
+      "names": ["Parallax Energy Assault Rifle"],
+      "notes": [
+        { "text": "Players report it as an easy find in ASD facility missions: the Onyx Facilities on Stanton's moons (Stanton) and the Lazarus Complexes on Pyro I (Pyro). Check weapon racks and the bodies of facility guards.", "seen": "community reports" }
+      ]
+    }
+  ]
+}

@@ -10,7 +10,11 @@
       .trim();
 
   // Small ranking nudges so the most useful kind of entry wins a tie.
-  const TYPE_BONUS = { mineral: 6, commodity: 5, ship: 5, blueprint: 3, item: 2, mission: 1, location: 0 };
+  const TYPE_BONUS = { mineral: 6, commodity: 5, ship: 5, blueprint: 3, item: 2, faction: 2, mission: 1, location: 0 };
+  // Results come grouped by kind, in this order, within each match tier (see search()).
+  const GROUP_ORDER = ['blueprint', 'commodity', 'mineral', 'item', 'ship', 'faction', 'mission', 'location'];
+  // A quoted colour or edition marks a variant: Parallax "Sunstone" Energy Assault Rifle.
+  const baseOf = (name) => String(name || '').replace(/\s*["“][^"”]+["”]\s*/, ' ').replace(/\s+/g, ' ').trim();
 
   // One row per searchable name; ships also get a row for their short name ("Cutlass Black" for "Drake Cutlass Black").
   function buildIndex(entries) {
@@ -39,11 +43,13 @@
     return i === needle.length;
   }
 
+  // tier 0: the name is the query; 1: the query is in the name as whole words; 2: everything else.
   function scoreRow(row, q, tokens) {
     let score = 0;
-    if (row.key === q) score += 1000;
-    else if (row.key.startsWith(q + ' ')) score += 300; // query is the name's leading whole word(s)
-    else if ((' ' + row.key + ' ').includes(' ' + q + ' ')) score += 150; // query is whole words inside the name
+    let tier = 2;
+    if (row.key === q) { score += 1000; tier = 0; }
+    else if (row.key.startsWith(q + ' ')) { score += 300; tier = 1; } // query is the name's leading whole word(s)
+    else if ((' ' + row.key + ' ').includes(' ' + q + ' ')) { score += 150; tier = 1; } // query is whole words inside the name
     else if (row.key.startsWith(q)) score += 60;
     else if (row.key.includes(q)) score += 30;
 
@@ -53,31 +59,48 @@
       else if (row.key.includes(t)) score += 10;
       else if (row.sub.includes(t)) score += 4; // matched the subtitle (category, manufacturer…)
       else if (t.length >= 3 && isSubsequence(t, row.flat)) score += 2;
-      else return 0; // every token must match somewhere
+      else return null; // every token must match somewhere
     }
     score += TYPE_BONUS[row.e.t] || 0;
     if (row.hasShops) score += 3;
     score -= Math.min(row.key.length, 60) / 10; // shorter names are closer matches
-    return score;
+    return { score, tier };
   }
 
-  function search(index, query, { type = 'all', limit = 80 } = {}) {
+  // Ranked, then grouped: within each tier, blueprints first, then commodities, items and the rest
+  // (GROUP_ORDER), best match first inside a group. collapseVariants keeps one row per variant family
+  // (the best-ranked one) and records how many it stands for in variantCount.
+  function search(index, query, { type = 'all', limit = 80, collapseVariants = false } = {}) {
     const q = norm(query);
     if (!q) return [];
     const rows = type === 'all' ? index : index.filter((r) => r.e.t === type);
     const tokens = q.split(' ');
-    const best = new Map(); // entry -> best score across its names
+    const best = new Map(); // entry -> best { score, tier } across its names
     for (const row of rows) {
       const s = scoreRow(row, q, tokens);
-      if (s > 0 && !(best.get(row.e) >= s)) best.set(row.e, s);
+      if (!s || s.score <= 0) continue;
+      const prev = best.get(row.e);
+      if (!prev || s.score > prev.score) best.set(row.e, s);
     }
-    return [...best]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, limit)
+    const group = (t) => { const i = GROUP_ORDER.indexOf(t); return i < 0 ? GROUP_ORDER.length : i; };
+    let hits = [...best]
+      .sort((a, b) => a[1].tier - b[1].tier || group(a[0].t) - group(b[0].t) || b[1].score - a[1].score)
       .map((h) => h[0]);
+    if (collapseVariants) {
+      const families = new Map();
+      hits = hits.filter((e) => {
+        if (!(e.d && e.d.variants && e.d.variants.length > 1)) return true;
+        const k = e.t + '|' + norm(baseOf(e.n));
+        if (families.has(k)) { families.get(k).n++; return false; }
+        families.set(k, { n: 1 });
+        e.variantHits = families.get(k);
+        return true;
+      });
+    }
+    return hits.slice(0, limit);
   }
 
-  const api = { norm, buildIndex, search };
+  const api = { norm, buildIndex, search, baseOf, GROUP_ORDER };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CompanionSearch = api;
 })(typeof window !== 'undefined' ? window : globalThis);

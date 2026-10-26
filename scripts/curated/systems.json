@@ -1,0 +1,8 @@
+{
+  "note": "Planet order from the star outward, for the system overview. Moons and landing zones come from the wiki's location data. The drawn map art will replace the schematic once it is designed.",
+  "systems": [
+    { "name": "Stanton", "star": "Stanton (class-G main sequence)", "planets": ["Hurston", "Crusader", "ArcCorp", "microTech"], "summary": "UEE system leased to four corporations, one planet each. Lawful space with Lagrange-point rest stops; jump points to Pyro, Nyx and Terra." },
+    { "name": "Pyro", "star": "Pyro (K-type flare star)", "planets": ["Pyro I", "Monox", "Bloom", "Pyro IV", "Pyro V", "Terminus"], "summary": "Lawless system run by gangs (Headhunters, XenoThreat, Citizens For Prosperity and others). Stations such as Ruin Station, Checkmate and Orbituary." },
+    { "name": "Nyx", "star": "Nyx", "planets": ["Nyx I", "Nyx II", "Nyx III", "Delamar"], "summary": "Unclaimed system on the edge of UEE space. Levski, the People's Alliance settlement, sits on Delamar in the Glaciem Ring." }
+  ]
+}

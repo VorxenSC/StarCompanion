@@ -30,7 +30,64 @@ const wiki = load('wiki.json');
 const ships = load('ships.json');
 const market = load('market.json');
 const commodities = load('commodities.json');
+const factions = load('factions.json');
+// Hand-written notes (where players find things, systems): scripts/curated/*.json, shipped with the app.
+const CURATED = path.join(__dirname, 'curated');
+const curated = (f) => (fs.existsSync(path.join(CURATED, f)) ? JSON.parse(fs.readFileSync(path.join(CURATED, f), 'utf8')) : null);
+const tips = curated('tips.json');
 const commodityNames = new Set((commodities?.commodities || []).map((c) => norm(c.name)));
+
+// Placeholder text the game files carry where a real value is missing ("<= PLACEHOLDER =>", "[PH] …").
+const isJunk = (v) => typeof v === 'string' && /PLACEHOLDER|UNINITIALIZED|^\s*<=|^\s*\[PH\]/i.test(v);
+const clean = (v) => (isJunk(v) ? undefined : v);
+// Medals come in three conditions; only the Pristine one is worth showing (the others are worn copies).
+const isWornMedal = (name) => /\bmedal\b/i.test(name) && /\((worn|damaged)\)\s*$/i.test(name);
+// A colour or edition in quotes marks a variant: Parallax "Sunstone" Energy Assault Rifle → Parallax Energy Assault Rifle.
+const baseName = (name) => name.replace(/\s*["“][^"”]+["”]\s*/, ' ').replace(/\s+/g, ' ').trim();
+
+// Mission texts keep the game's fill-in tokens ([TargetName], [Location|Address], <EM4>…). In game they
+// become the contract's real target and place; here they read as plain words.
+const MISSION_TOKENS = [
+  [/^(targetname\d*|ambushtarget|target)$/, 'the target'],
+  [/^(location\d*|defendlocationwrapperlocation|location\|target)$/, 'the contract location'],
+  [/^nearbylocation$/, 'a nearby location'],
+  [/^(destination\d*|destination\|target)$/, 'the destination'],
+  [/^dropoff\d*$/, 'the drop-off point'],
+  [/^pickup\d*$/, 'the pickup point'],
+  [/^item\d*$/, 'the item'],
+  [/^system$/, 'the system'],
+  [/^ship$/, 'the ship'],
+  [/^creature$/, 'the creature'],
+  [/^contractor$/, 'the contractor'],
+  [/^scripamount$/, 'the scrip'],
+  [/^approvalcode$/, 'the approval code'],
+  [/^(amounttoscan\d*)$/, 'the required number of'],
+  [/^missingpersonlist$/, 'the missing people'],
+  [/^(hydrogenfuel|qtfuelrate|fuelrate)$/, 'the requested fuel'],
+  [/^hint_(\w+)$/, null],
+];
+function cleanMissionText(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/<\/?EM\d*>|<None>|<= ?UNINITIALIZED ?=>/gi, '')
+    .replace(/~\w+\(([^)]*)\)/g, 'the requester')
+    .replace(/\[([^\]]+)\]/g, (whole, inner) => {
+      const parts = inner.toLowerCase().split('|');
+      const key = parts.length > 2 ? parts.slice(0, 2).join('|') : parts[0];
+      if (parts.includes('serialnumber')) return 'the serial number';
+      if (parts.includes('signoff')) return '';
+      if (parts[0] === 'contractor' && parts[1]) return 'the details in the contract';
+      if (parts.includes('listall')) return 'each listed destination';
+      for (const [re, words] of MISSION_TOKENS) {
+        const m = re.exec(key) || re.exec(parts[0]);
+        if (m) return words ?? m[1].replace(/_/g, ' ').toLowerCase();
+      }
+      return inner.includes('|') || /^[A-Z][A-Za-z0-9_]+$/.test(inner) ? inner.split('|')[0].replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').toLowerCase() : whole;
+    })
+    .replace(/[ \t]+([.,;:!?])/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
 
 const entries = [];
 const add = (e) => { e.id = `${e.t}:${entries.length}`; entries.push(e); return e; };
@@ -62,6 +119,7 @@ const itemFor = (name) => {
 };
 
 for (const c of cstone?.items || []) {
+  if (isWornMedal(c.name)) continue;
   const ship = shipByName.get(norm(c.name));
   if (ship) {
     ship.d.cstoneUrl = `https://finder.cstone.space/Search/${c.id}`;
@@ -74,7 +132,8 @@ for (const c of cstone?.items || []) {
   it.d.sources.push('cstone');
   it.d.cstoneUrl = `https://finder.cstone.space/Search/${c.id}`;
   if (c.category) it.d.category = c.category;
-  if (c.attrs && Object.keys(c.attrs).length) it.d.attrs = c.attrs;
+  const attrs = Object.fromEntries(Object.entries(c.attrs || {}).filter(([, v]) => !isJunk(v)));
+  if (Object.keys(attrs).length) it.d.attrs = attrs;
   if (c.description) it.d.description = c.description;
   for (const s of c.shops || []) it.d.shops.push({ where: s.location, price: s.price, verified: realDate(s.verified), src: 'cstone' });
 }
@@ -82,14 +141,15 @@ for (const c of cstone?.items || []) {
 // Placeholders and raw class names (e.g. "paint_cutlass_black_procyon") are not player-facing items.
 const JUNK_WIKI = /^(<=|PLACEHOLDER|\[)|^[a-z0-9]+(_[a-z0-9]+)+$/i;
 for (const w of wiki?.items || []) {
-  if (!w.name || JUNK_WIKI.test(w.name)) continue;
+  if (!w.name || JUNK_WIKI.test(w.name) || isWornMedal(w.name)) continue;
   const it = itemFor(w.name);
   it.d.sources.push('wiki');
   it.d.wikiUrl = w.url;
   if (w.uuid) it.d.uuid = w.uuid; // game uuid: matches UEX items exactly
   it.d.classification = w.classification;
   it.d.type = [w.type, w.subType].filter(Boolean).join(' / ') || undefined;
-  if (w.manufacturer) it.d.manufacturer = w.manufacturer;
+  if (clean(w.manufacturer)) it.d.manufacturer = w.manufacturer;
+  if (w.weapon) it.d.weapon = w.weapon;
   if (w.size != null) it.d.size = w.size;
   if (w.grade) it.d.grade = w.grade;
   if (w.class) it.d.class = w.class;
@@ -134,6 +194,7 @@ for (const b of craft?.blueprints || []) {
       craftTime: b.craftTime,
       defaultOwned: b.defaultOwned,
       ingredients: b.ingredients,
+      itemStats: b.itemStats || undefined,
       missions: b.missions.sort((a, z) => z.chance - a.chance),
       url: `https://sc-craft.tools/?search=${encodeURIComponent(b.name)}`,
     },
@@ -159,6 +220,12 @@ for (const ship of new Set(shipByName.values())) {
 
 // UEX player marketplace: every item with a UEX id links to its filtered marketplace page; items
 // listed right now also get the approximate asking price. Matched by game uuid, else by name.
+// Community notes on where to find things: matched by exact name, or by the base name for variants.
+const tipsByName = new Map((tips?.tips || []).flatMap((t) => t.names.map((n) => [norm(n), t])));
+const tipFor = (name) => {
+  const t = tipsByName.get(norm(name)) || tipsByName.get(norm(baseName(name)));
+  return t ? t.notes : undefined;
+};
 const uexByUuid = new Map();
 const uexByName = new Map();
 for (const u of market?.items || []) {
@@ -173,9 +240,14 @@ for (const it of items.values()) {
   const uex = (it.d.uuid && uexByUuid.get(it.d.uuid)) || uexByName.get(norm(it.n));
   if (uex) {
     it.d.uexId = uex.id;
+    if (!it.d.manufacturer && clean(uex.company)) it.d.manufacturer = uex.company;
+    if (uex.image) it.d.image = uex.image; // shown when cstone has no picture
     if (market.market[uex.id]) it.d.market = market.market[uex.id];
   }
   delete it.d.uuid;
+  if (isJunk(it.d.manufacturer)) delete it.d.manufacturer;
+  const tip = tipFor(it.n);
+  if (tip) it.d.tips = tip;
   const bp = bpByName.get(norm(it.n));
   if (bp) it.d.blueprint = bp.id;
   // Same shop reported by several sources: keep the first (cstone > wiki > uex > scminer order of insertion).
@@ -202,9 +274,9 @@ for (const m of wiki?.missions || []) {
   seenMission.add(dupKey);
   add({
     t: 'mission',
-    n: m.title,
+    n: cleanMissionText(m.title),
     s: [m.giver || m.faction, (m.systems || []).join(', ')].filter(Boolean).join(' · '),
-    d: { ...m, blueprints: rewards || undefined },
+    d: { ...m, description: cleanMissionText(m.description), faction: clean(m.faction), giver: clean(m.giver), minStanding: clean(m.minStanding), blueprints: rewards || undefined },
   });
 }
 const wikiMissionKeys = new Set((wiki?.missions || []).map((m) => norm(m.title)));
@@ -257,8 +329,54 @@ for (const c of commodities?.commodities || []) {
 
 // ---------- Locations (wiki) ----------
 for (const l of wiki?.locations || []) {
-  if (!l.name) continue;
+  if (!l.name || isJunk(l.name)) continue;
   add({ t: 'location', n: l.name, s: [l.type, l.parent, l.system].filter(Boolean).join(' · '), d: l });
+}
+
+// ---------- Factions (wiki): who they are and their reputation ladder ----------
+for (const f of factions?.factions || []) {
+  add({
+    t: 'faction',
+    n: f.name,
+    s: [f.type, f.area, f.focus].filter(Boolean).join(' · '),
+    d: { ...f, url: `https://starcitizen.tools/${encodeURIComponent(f.name.replace(/ /g, '_'))}` },
+  });
+}
+
+// ---------- Systems: hand-written overviews (the map comes with the overview) ----------
+// Each planet with its moons and landing zones, from the wiki's location tree.
+const childrenOf = (parent, re) => (wiki?.locations || []).filter((l) => l.parent === parent && re.test(l.type || '') && !isJunk(l.name)).map((l) => l.name);
+for (const sys of curated('systems.json')?.systems || []) {
+  const overview = {
+    star: sys.star,
+    summary: sys.summary,
+    bodies: sys.planets.map((name) => ({ name, moons: childrenOf(name, /^Moon$/), zones: childrenOf(name, /^LandingZone$/) })),
+    stations: [...new Set(childrenOf(sys.name, /^Manmade$/))].filter((n) => !/^(Asteroid|RSI Event)/.test(n)),
+    jumpPoints: childrenOf(sys.name, /^Anomaly$/).map((n) => n.replace(new RegExp(`^${sys.name} - `), '').replace(/ ?Jump Point ?/g, ' ').trim()),
+  };
+  const existing = entries.find((e) => e.t === 'location' && norm(e.n) === norm(sys.name));
+  if (existing) {
+    existing.d.overview = overview;
+    existing.s = `Star system · ${sys.planets.length} planets`;
+  } else add({ t: 'location', n: sys.name, s: 'Star system', d: { type: 'Star system', overview } });
+}
+
+// ---------- Variants: items and blueprints that differ only by a quoted colour or edition ----------
+const families = new Map();
+for (const e of entries) {
+  if (e.t !== 'item' && e.t !== 'blueprint') continue;
+  const base = baseName(e.n);
+  const k = `${e.t}|${norm(base)}`;
+  if (!families.has(k)) families.set(k, { base, members: [] });
+  families.get(k).members.push(e);
+}
+for (const { base, members } of families.values()) {
+  if (members.length < 2) continue;
+  const names = members.map((m) => m.n).sort((a, z) => (a === base ? -1 : z === base ? 1 : a.localeCompare(z)));
+  for (const m of members) {
+    m.d.base = base;
+    m.d.variants = names;
+  }
 }
 
 // ---------- Write ----------

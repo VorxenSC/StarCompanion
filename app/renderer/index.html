@@ -34,9 +34,9 @@
         <path d="M12 7 C12.3 10 14 11.7 17 12 C14 12.3 12.3 14 12 17 C11.7 14 10 12.3 7 12 C10 11.7 11.7 10 12 7 Z" fill="#EAFBFF" />
         <path d="M18 18 L26 26" stroke="url(#scTail)" stroke-width="2.4" stroke-linecap="round" />
       </svg>
-      <label for="q" class="sr-only">Search Star Companion</label>
+      <label for="q" class="sr-only" data-i18n="Search Star Companion">Search Star Companion</label>
       <input id="q" type="text" autocomplete="off" spellcheck="false" autofocus placeholder="Search items, ships, blueprints, missions, minerals…" />
-      <div class="bar-key"><kbd id="hotkey">Ctrl+Up</kbd><span>hide</span></div>
+      <div class="bar-key"><kbd id="hotkey">/</kbd><span data-i18n="hide">hide</span></div>
       <button class="icon-btn" id="settings-btn" aria-label="Settings" title="Settings">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       </button>
@@ -50,15 +50,15 @@
     </div>
 
     <div class="hints">
-      <span><b>ENTER</b> open</span>
-      <span><b>↑ ↓</b> navigate</span>
-      <span><b>TAB</b> filter</span>
-      <span><b id="hotkey2">Ctrl+Up</b> hide</span>
+      <span><b>ENTER</b> <i data-i18n="open">open</i></span>
+      <span><b>↑ ↓</b> <i data-i18n="navigate">navigate</i></span>
+      <span><b>TAB</b> <i data-i18n="filter">filter</i></span>
+      <span><b id="hotkey2">/</b> <i data-i18n="hide">hide</i></span>
       <span class="hints-data" id="dbinfo">Loading database…</span>
-      <a class="suggest" id="suggest" href="#" title="Send an idea, a bug or a data fix to the developer">Suggest</a>
+      <a class="suggest" id="suggest" href="#" title="Send an idea, a bug or a data fix to the developer" data-i18n="Suggest">Suggest</a>
       <a class="coffee" id="coffee" href="#" title="Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 6h9v4.5a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V6Z" stroke="currentColor" stroke-width="1.4"/><path d="M11.5 7.5h1a1.75 1.75 0 0 1 0 3.5h-1.2" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 1.8c-.6.7.6 1.3 0 2.2M8.5 1.8c-.6.7.6 1.3 0 2.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        Buy me a coffee
+        <span data-i18n="Buy me a coffee">Buy me a coffee</span>
       </a>
     </div>
     <div class="grip" id="grip" title="Drag to resize">

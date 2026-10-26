@@ -45,7 +45,7 @@ release tagged `v<version>` with `StarCompanion-<version>-setup.exe`, its `.bloc
 | / | open/close (default; click the key in the bar to change it) |
 | ↑ ↓ | move through results |
 | Enter | open the selected result |
-| Tab / Shift+Tab | filter by type (all, items, ships, blueprints, missions, minerals, locations) |
+| Tab / Shift+Tab | filter by type (all, items, ships, blueprints, missions, minerals, commodities, factions, locations) |
 | PgUp / PgDn | scroll the panel |
 | Esc | detail → list → clear search → close |
 | Ctrl + = / Ctrl + - / Ctrl + 0 | larger / smaller / default text |
@@ -64,11 +64,25 @@ hooked or injected and the game process is never touched. Run the game and Star 
 same privilege level (both normal is best): Windows does not deliver an administrator window's keys
 to a normal one.
 
-Settings (gear button in the search bar, or tray → Settings…) has: shortcut, start with Windows,
-close when clicking the game, show icon when closed, icon opacity, window opacity, text size, reset
-position and size, updates, the startup notice and the settings file's folder. Everything is saved in
-`config.json` (`hotkey`, `hideOnBlur`, `opacity`, `zoom`, `dock`, `dockOpacity`, `dockX`/`dockY`,
-`windowWidth`, `height` = maximum window height).
+With the game in front, Windows refuses to hand keyboard focus to a background app, so the helper
+also brings the search bar forward when the shortcut opens it (joining the game window's input for
+that one call, the usual way around the refusal), and the search box is ready to type in. Settings →
+Key listener shows whether the listener runs and how many key presses it has seen, and
+`%APPDATA%\Star Companion\keys.log` records each shortcut press and whether the bar got focus (never
+which other keys were pressed).
+
+Settings (gear button in the search bar, or tray → Settings…) has: shortcut, key listener status,
+start with Windows, close when clicking the game, show icon when closed, icon opacity, transparency
+(Default = solid, 100% = as see-through as stays readable), text size, language (Automatic follows
+Windows' display language: Portuguese → Português (Brasil), anything else → English), reset position
+and size, updates, the startup notice and the settings file's folder. Everything is saved in
+`config.json` (`hotkey`, `hideOnBlur`, `transparency`, `zoom`, `language`, `dock`, `dockOpacity`,
+`dockX`/`dockY`, `windowWidth`, `height` = maximum window height). Once you resize with the grip,
+your width and height are kept from then on.
+
+Results are grouped by kind (blueprints, then commodities, minerals, items, ships, factions, missions,
+locations), with the exact name first. Colour and edition variants (Parallax "Sunstone"…) show as one
+row with "+N variants"; the detail lists them all.
 
 ## Data sources
 
@@ -82,6 +96,18 @@ position and size, updates, the startup notice and the settings file's folder. E
 | UEX Corp (what spviewer.eu uses) | buy/sell/rent prices per terminal | public API `api.uexcorp.uk/2.0` |
 | UEX commodities | 124 commodities at ~2,600 terminal prices: what each terminal pays and charges, demand and stock levels, auto load/unload, and the live PU version | `commodities_prices_all`, `terminals`, `game_versions` |
 | UEX marketplace | approximate player asking price of items listed now; a link to the marketplace filtered for each item | `marketplace_listings` |
+| starcitizen.tools weapons | damage per shot by type, fire modes, rate and DPS for 760 personal and ship weapons; the real manufacturer where the game files have a placeholder | `api.star-citizen.wiki` items |
+| starcitizen.tools factions | 57 factions: summary, area, focus, leadership and reputation ladder (standing names and reputation needed) | `api.star-citizen.wiki` factions |
+| Curated notes | where players report finding things (`scripts/curated/tips.json`) and system overviews (`scripts/curated/systems.json`) | written by hand |
+
+Blueprints include a crafting simulator with the same rules as sc-craft.tools: a quality slider (0–1000)
+for all materials and one per material slot; each slot moves its stats in a straight line between the
+modifier at the lowest and at the highest quality, and slots on the same stat multiply. Base damage and
+fire rate come from the finished weapon.
+
+Mission texts keep the game's fill-in tokens ([TargetName], [Location|Address]…); the database turns
+them into plain words ("the target", "the contract location"), since the real values only exist once a
+contract is generated in game. Medals show only their Pristine condition.
 
 The search bar shows which PU version the data is for (for example **PU 4.10.2**). The app asks UEX
 for the live version at launch and every 6 hours; after a patch the tag turns amber
@@ -119,6 +145,7 @@ npm start          # run from source
 npm test           # search and database tests
 npm run icon       # re-render the app icon from the design
 npm run dist       # build the installer
+npm run dist:portable   # a portable exe for local testing (not published)
 ```
 
 Fonts (Chakra Petch, IBM Plex Sans, IBM Plex Mono) are bundled under `app/renderer/fonts` under the

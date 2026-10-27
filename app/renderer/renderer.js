@@ -1540,9 +1540,14 @@ companion.onOpen((info) => {
   body.classList.remove('unfolding');
   void body.offsetWidth; // restart the animation
   body.classList.add('unfolding');
+  // The unfold takes 0.62 s; if it never reports its end (animations switched off in Windows, a
+  // window that was hidden), "unfolding" still ends, so the icon's copy never stays over the bar.
+  clearTimeout(unfoldTimer);
+  unfoldTimer = setTimeout(() => body.classList.remove('unfolding'), 800);
   qEl.focus();
   qEl.select();
 });
+let unfoldTimer;
 wrapEl.addEventListener('animationend', (ev) => {
   if (ev.target !== wrapEl) return;
   if (ev.animationName === 'unfold') body.classList.remove('unfolding');

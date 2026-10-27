@@ -448,6 +448,7 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 }
 @media (prefers-reduced-motion: reduce) {
   .in, .scan, .rise, body .wrap, body .brand, body .bar > *, body .hints, body .ghost, body .dock { animation: none !important; }
+  body .ghost { display: none !important; } /* no animation to play: the icon must not stay over the open bar */
   .panel { transition: none; }
 }
 

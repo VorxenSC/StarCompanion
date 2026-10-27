@@ -30,12 +30,13 @@ const TYPES = [
 ];
 const TYPE_LABEL = { item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', commodity: 'Commodity', faction: 'Faction', location: 'Location' };
 const GROUP_LABEL = { item: 'Items', ship: 'Ships', blueprint: 'Blueprints', mission: 'Missions', mineral: 'Minerals', commodity: 'Commodities', faction: 'Factions', location: 'Locations' };
-const SRC = { cstone: 'cstone', wiki: 'wiki', uex: 'UEX', scminer: 'scminer' };
 const PANEL_GAP = 6; // .panel.open margin-top
 const SHRINK_DELAY = 440; // let the panel's height transition finish before the window shrinks
 
 let index = [];
 let itemByName = new Map(); // item entries by exact name: blueprints read their weapon's base stats here
+let dbEntries = []; // the loaded database's entries (live commodity data is patched into them)
+let liveAt = null; // when the commodity demand shown was fetched from UEX (null: the database's)
 let type = 'all';
 let results = [];
 let idx = 0;
@@ -104,11 +105,36 @@ function links(pairs) {
 }
 
 // Where to buy or rent, in alphabetical order of the place (cheapest first when two read the same).
+// The sources (cstone, UEX, the wiki) often list the same shop, spelled a little differently
+// ("Area 18 - Astro Armada" / "Area18 - Retail bridges - Astro Armada", "New Deal Lorville" /
+// "Teasa Spaceport - New Deal"). Same price, same city, and one shop name inside the other (spaces
+// ignored): one shop, shown once with its most recent check.
+const flat = (s) => CompanionSearch.norm(s).replace(/ /g, '');
+function shopParts(s) {
+  const parts = String(s.where || '').split(' - ');
+  return { city: flat(parts[2] || parts[1] || ''), shop: flat(parts[parts.length - 1]) };
+}
+const sameShop = (a, z) => {
+  if ((a.price || 0) !== (z.price || 0)) return false;
+  const x = shopParts(a);
+  const y = shopParts(z);
+  return x.city === y.city && x.shop && y.shop && (x.shop.includes(y.shop) || y.shop.includes(x.shop));
+};
+function dedupeShops(shops) {
+  const kept = [];
+  for (const s of shops) {
+    const i = kept.findIndex((k) => sameShop(k, s));
+    if (i === -1) kept.push(s);
+    else if (String(s.verified || '') > String(kept[i].verified || '')) kept[i] = s;
+  }
+  return kept;
+}
 function shopsTable(shops) {
-  const sorted = [...shops].sort((a, z) => alpha((s) => s.where)(a, z) || (a.price || Infinity) - (z.price || Infinity));
+  const sorted = dedupeShops(shops).sort((a, z) => alpha((s) => s.where)(a, z) || (a.price || Infinity) - (z.price || Infinity));
+  const sells = sorted.some((s) => s.sell);
   return table(
-    [['Where', ''], ['Price', 'num'], ['Sells for', 'num'], ['Verified', 'dim'], ['Source', 'dim']],
-    sorted.map((s) => [s.where, auec(s.price), s.sell ? auec(s.sell) : '', s.verified || '', SRC[s.src] || s.src]),
+    [['Where', ''], ['Price', 'num'], ...(sells ? [['Sells for', 'num']] : []), ['Verified', 'dim']],
+    sorted.map((s) => [s.where, auec(s.price), ...(sells ? [s.sell ? auec(s.sell) : ''] : []), s.verified || '']),
   );
 }
 
@@ -680,10 +706,30 @@ function viewCommodity(e) {
           : note('No terminal sells it.'),
       ),
       note('Demand and stock are UEX inventory levels reported by players; they move as people trade. AUTO LOAD: cargo is loaded and unloaded for you; ELEVATOR / DOCK: you move it by hand.'),
+      liveAt && note(tr('Live from UEX: updated at {time}, again every 30 minutes.', { time: new Date(liveAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })),
       links([['UEX', d.url], ['Wiki', d.wikiUrl]]),
     ],
   };
 }
+
+// Fresh demand, stock and prices from UEX (fetched by the main process at launch and every 30 min)
+// replace each commodity's terminal list; an open commodity page is drawn again with them.
+function applyLiveCommodities(data) {
+  if (!data?.commodities?.length || !dbEntries.length) return;
+  const byName = new Map(data.commodities.map((c) => [CompanionSearch.norm(c.name), c.locations]));
+  for (const e of dbEntries) {
+    if (e.t !== 'commodity') continue;
+    const locations = byName.get(CompanionSearch.norm(e.n));
+    if (locations) e.d.locations = locations;
+  }
+  liveAt = data.at;
+  if (detail?.t === 'commodity') {
+    const top = scrollEl.scrollTop;
+    render();
+    scrollEl.scrollTop = top;
+  }
+}
+companion.onCommoditiesLive(applyLiveCommodities);
 
 function viewLocation(e) {
   const d = e.d;
@@ -1643,6 +1689,8 @@ async function load() {
   $('hotkey').textContent = $('hotkey2').textContent = cfg.hotkey;
   const db = JSON.parse(raw);
   index = CompanionSearch.buildIndex(db.entries);
+  dbEntries = db.entries;
+  applyLiveCommodities(await companion.commoditiesLive());
   itemByName = new Map(db.entries.filter((x) => x.t === 'item').map((x) => [x.n, x]));
   // The pinned signature lists: every mineral with its kind, signature and 1×–10× values.
   companion.pinRows(db.entries.filter((x) => x.t === 'mineral').map((x) => ({ n: x.n, tier: x.d.tier, category: x.d.category, sig: x.d.signature || 0, rs: x.d.rs })));

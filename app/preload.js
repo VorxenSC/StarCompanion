@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('companion', {
   dockPointer: (phase) => ipcRenderer.send('dock:pointer', phase),
   openLink: (url) => ipcRenderer.send('link:open', url),
   copyText: (text) => ipcRenderer.send('clipboard:write', text),
+  onCommoditiesLive: (fn) => ipcRenderer.on('commodities:live', (_e, data) => fn(data)),
+  commoditiesLive: () => ipcRenderer.invoke('commodities:live'),
   pinRows: (rows) => ipcRenderer.send('pin:rows', rows), // mineral signatures for the pinned list
   noticeDone: (dontShowAgain) => ipcRenderer.send('notice:done', dontShowAgain),
   hotkeyRecording: (active) => ipcRenderer.send('hotkey:recording', active),

@@ -10,7 +10,7 @@
   --accent: #5fd4e8;
   --accent-soft: rgba(95, 212, 232, 0.12);
   /* Translucent on purpose: the overlay sits on top of the game and should stay discreet. */
-  --glass: rgba(9, 15, 22, 0.82);
+  --glass: rgba(9, 15, 22, 0.91); /* half as see-through as before (0.82) */
   --line: rgba(190, 215, 235, 0.18);
   --shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
   --line-soft: rgba(190, 215, 235, 0.14);

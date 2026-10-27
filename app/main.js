@@ -515,6 +515,32 @@ async function checkGameVersion() {
   }
 }
 
+// ---------- Live commodity demand ----------
+// Demand, stock and prices per terminal move all day as players trade. They are fetched from UEX at
+// launch and every 30 minutes (the same code the database build uses) and replace what the bundled
+// database says, until the app closes.
+const { fetchCommodities, isoDay } = require(path.join(__dirname, '..', 'scripts', 'lib', 'commodities.js'));
+const LIVE_COMMODITIES_MS = 30 * 60 * 1000;
+let liveCommodities = null; // { at, commodities: [{ name, locations }] }
+
+async function refreshCommodities() {
+  try {
+    const getJson = async (url) => {
+      const res = await net.fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    };
+    const { commodities } = await fetchCommodities(getJson);
+    liveCommodities = {
+      at: new Date().toISOString(),
+      commodities: commodities.map((c) => ({ name: c.name, locations: c.locations.map((l) => ({ ...l, updated: isoDay(l.updated) })) })),
+    };
+    win?.webContents.send('commodities:live', liveCommodities);
+  } catch {
+    // offline or UEX down: the database's numbers stay
+  }
+}
+
 // ---------- Suggestions ----------
 let lastFeedbackAt = 0;
 
@@ -694,6 +720,8 @@ function endSplash() {
 function startup() {
   checkGameVersion();
   setInterval(checkGameVersion, 6 * 60 * 60 * 1000);
+  refreshCommodities();
+  setInterval(refreshCommodities, LIVE_COMMODITIES_MS);
   if (config.showNotice) {
     open();
     win.webContents.send('overlay:notice');
@@ -1075,6 +1103,7 @@ function snapshotMode(spec) {
       const [query, type = 'all', view = 'detail'] = step.split(';');
       if (step === '@notice') win.webContents.send('overlay:notice');
       else if (step === '@version') await checkGameVersion();
+      else if (step === '@live') await refreshCommodities(); // live commodity demand from UEX
       else if (step === '@stale') win.webContents.send('game:version', { live: '9.99.0' }); // pretend a newer patch is live
       else if (step === '@feedback') openFeedback();
       else if (step === '@settings') openSettings();
@@ -1126,6 +1155,7 @@ function snapshotMode(spec) {
 }
 
 ipcMain.handle('db:load', () => fs.promises.readFile(dbFile(), 'utf8'));
+ipcMain.handle('commodities:live', () => liveCommodities); // the latest fetch, for a database reloaded later
 ipcMain.handle('app:config', () => ({ language: i18n.getLanguage(), hotkey: config.hotkey, maxHeight: maxHeight(), zoom: config.zoom, dockOpacity: config.dockOpacity, liveGameVersion }));
 ipcMain.on('overlay:hide', () => close());
 ipcMain.on('overlay:closed', () => finishClose());

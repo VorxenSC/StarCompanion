@@ -19,6 +19,17 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 /* A contested zone map, the window's width. */
 .pin-map { display: block; width: 100%; height: auto; border-radius: 2px; }
 .pin-map[hidden] { display: none; }
+.pin { position: relative; }
+/* The map's resize corner, at the bottom corner away from the icon. */
+.pin-grip { position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 0 55%, rgba(205, 218, 230, 0.55) 55% 62%, transparent 62% 72%, rgba(205, 218, 230, 0.55) 72% 79%, transparent 79%); }
+.pin-grip[data-side='left'] { right: auto; left: 2px; cursor: nesw-resize; transform: scaleX(-1); }
+.pin-grip[hidden] { display: none; }
+/* The map's close button, top right. */
+.pin-close { position: absolute; top: 4px; right: 5px; width: 20px; height: 20px; padding: 0; border: 1px solid rgba(205, 218, 230, 0.25); border-radius: 2px;
+  background: rgba(9, 15, 22, 0.85); color: rgba(235, 242, 248, 0.85); font: 15px/18px 'IBM Plex Sans', sans-serif; cursor: pointer; }
+.pin-close:hover { color: #ff8a8f; border-color: #ff8a8f; }
+.pin-close[hidden] { display: none; }
 .pin-credit { margin: -2px 0 5px; font: 10px 'IBM Plex Mono', monospace; color: rgba(205, 218, 230, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pin-credit[hidden] { display: none; }
 

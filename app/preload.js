@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('companion', {
   commoditiesLive: () => ipcRenderer.invoke('commodities:live'),
   pinRows: (rows) => ipcRenderer.send('pin:rows', rows), // mineral signatures for the pinned list
   hangarAnchor: () => ipcRenderer.invoke('hangar:anchor'), // the Executive Hangar cycle's start (s)
+  onPinChanged: (fn) => ipcRenderer.on('pin:changed', () => fn()), // the pinned map was closed with its ×
   onHangarAnchor: (fn) => ipcRenderer.on('hangar:anchor', (_e, anchor) => fn(anchor)),
   noticeDone: (dontShowAgain) => ipcRenderer.send('notice:done', dontShowAgain),
   hotkeyRecording: (active) => ipcRenderer.send('hotkey:recording', active),

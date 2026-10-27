@@ -589,6 +589,11 @@ function copyRsButton(e) {
 // ores). A button already showing on screen reads "Unpin" and takes the list away.
 const PIN_KIND = { ship: 'Pin all ship ores', fps: 'Pin all hand-mined', vehicle: 'Pin all ROC ores' };
 const pinButtons = [];
+// The pinned map closed with its own ×: the buttons on screen read "Pin map" again.
+companion.onPinChanged(async () => {
+  const s = await companion.getSettings();
+  for (const b of pinButtons) if (b.isConnected) b.refresh(s);
+});
 function pinButton(e, mode) {
   const label = mode === 'mineral' ? tr('Pin {name}', { name: e.n }) : tr(PIN_KIND[mode]);
   const btn = h('button', { class: 'set-btn copy-btn', title: tr('A list of radar signatures beside the icon, for scanning') }, label);

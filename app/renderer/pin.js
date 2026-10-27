@@ -28,6 +28,38 @@ function showHangar(anchor, labels, lang) {
   ticker = setInterval(tick, 1000);
 }
 
+// The map's resize corner and close button: while the pointer is on one of them the window takes the
+// mouse (it is click-through otherwise). A drag on the corner sends the pointer's screen position to the
+// main process, which sizes the window; the × unpins the map.
+const grip = $('grip');
+let dragging = false;
+let overHot = false;
+pin.onSide((side) => { grip.dataset.side = side; });
+const onHot = (e) => [...document.querySelectorAll('.pin-hot')].some((el) => {
+  if (el.hidden) return false;
+  const r = el.getBoundingClientRect();
+  return e.clientX >= r.left - 4 && e.clientX <= r.right + 4 && e.clientY >= r.top - 4 && e.clientY <= r.bottom + 4;
+});
+document.addEventListener('mousemove', (e) => {
+  if (dragging) return;
+  const over = onHot(e);
+  if (over !== overHot) { overHot = over; pin.grip(over); }
+});
+document.addEventListener('mouseleave', () => { if (!dragging && overHot) { overHot = false; pin.grip(false); } });
+$('close').addEventListener('click', () => { overHot = false; pin.close(); });
+grip.addEventListener('pointerdown', (e) => {
+  dragging = true;
+  grip.setPointerCapture(e.pointerId);
+  pin.resize('start', e.screenX);
+});
+grip.addEventListener('pointermove', (e) => { if (dragging) pin.resize('move', e.screenX); });
+grip.addEventListener('pointerup', (e) => {
+  dragging = false;
+  grip.releasePointerCapture(e.pointerId);
+  pin.resize('end');
+});
+grip.addEventListener('dblclick', () => pin.resize('reset'));
+
 pin.onData((data) => {
   clearInterval(ticker);
   $('title').textContent = data.title;
@@ -35,6 +67,8 @@ pin.onData((data) => {
   $('hangar').hidden = !data.hangar;
   $('map').hidden = !data.map;
   $('credit').hidden = !data.map;
+  $('grip').hidden = !data.map;
+  $('close').hidden = !data.map;
   if (data.hangar) return showHangar(data.hangar, data.labels, data.lang);
   if (data.map) {
     $('unit').textContent = '';

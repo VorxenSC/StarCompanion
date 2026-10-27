@@ -39,6 +39,7 @@ const DEFAULT_CONFIG = {
   pinSignatures: false, // what sits beside the icon: false, 'ship', 'fps' (hand-mined), 'vehicle' (ROC), 'mineral', 'hangar' (the Executive Hangar timer) or 'map' (a contested zone map)
   pinMineral: null, // with 'mineral': the one mineral pinned, with its 1×–10× rocks
   pinMap: null, // with 'map': { name, url, w, h, by } of the zone map pinned
+  pinMapWidth: 420, // the pinned map's width, set by dragging its corner
   hangarAnchor: null, // the Executive Hangar cycle's start (s) last read online; the built-in one until then
   // dockX, dockY: where the icon sits; the bar unfolds from it. Saved when either is dragged.
   // sizeChosen: true once the player resized with the grip; their width and height are kept from then on.
@@ -619,7 +620,12 @@ function openFeedback() {
 const PIN_WIDTH = 190;
 const PIN_GAP = 6;
 const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral', 'hangar', 'map'];
+// The pinned map: resized by dragging its bottom corner (the one away from the icon), and fainter
+// than the icon so the game shows through.
 const PIN_MAP_WIDTH = 420;
+const PIN_MAP_MIN = 220;
+const PIN_MAP_ALPHA = 0.7;
+const pinMapHeight = (width, m) => Math.round(52 + ((width - 22) * m.h) / m.w);
 const ZONE_MAP_URL = 'https://contestedzonetimers.com/maps/';
 // A zone map sent by the overlay, kept only if it is one of contestedzonetimers.com's maps.
 function cleanMap(m) {
@@ -667,7 +673,9 @@ function createPin() {
     webPreferences: { preload: path.join(__dirname, 'pin-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   pinWin.setAlwaysOnTop(true, 'screen-saver');
-  pinWin.setIgnoreMouseEvents(true);
+  // Click-through, but mouse moves still reach the page so the map's resize corner can take the mouse
+  // while the pointer is on it (pin:grip).
+  pinWin.setIgnoreMouseEvents(true, { forward: true });
   pinWin.loadFile(path.join(__dirname, 'renderer', 'pin.html'));
   pinWin.webContents.once('did-finish-load', () => { sendPinData(); updatePin(); });
   pinWin.on('closed', () => { pinWin = null; });
@@ -689,16 +697,51 @@ function updatePin() {
   if (!pinWin) return createPin();
   const dock = dockPosition();
   const { workArea: a } = screen.getDisplayNearestPoint({ x: dock.x + DOCK_SIZE / 2, y: dock.y + DOCK_SIZE / 2 });
-  pinWin.setOpacity(config.dockOpacity); // the same alpha as the icon it sits beside
-  const width = view.map ? PIN_MAP_WIDTH : PIN_WIDTH;
-  const height = view.map ? Math.min(a.height, Math.round(52 + ((PIN_MAP_WIDTH - 22) * view.map.h) / view.map.w)) : view.hangar ? 84 : Math.min(a.height, 34 + view.rows.length * 17);
+  pinWin.setOpacity(config.dockOpacity * (view.map ? PIN_MAP_ALPHA : 1)); // the icon's alpha; a map fainter
+  // A map keeps its proportions and stays on the screen: as wide as dragged, no taller than the screen.
+  const mapMax = view.map && Math.min(a.width - DOCK_SIZE, Math.floor(((a.height - 52) * view.map.w) / view.map.h + 22));
+  const width = view.map ? Math.max(PIN_MAP_MIN, Math.min(mapMax, config.pinMapWidth || PIN_MAP_WIDTH)) : PIN_WIDTH;
+  const height = view.map ? pinMapHeight(width, view.map) : view.hangar ? 84 : Math.min(a.height, 34 + view.rows.length * 17);
   const iconOnRight = dock.x + DOCK_SIZE / 2 > a.x + a.width / 2;
+  pinWin.webContents.send('pin:side', iconOnRight ? 'left' : 'right'); // the resize corner, away from the icon
   let x = iconOnRight ? dock.x + DOCK_INSET - PIN_GAP - width : dock.x + DOCK_SIZE - DOCK_INSET + PIN_GAP;
   x = Math.max(a.x, Math.min(a.x + a.width - width, x));
   const y = Math.max(a.y, Math.min(a.y + a.height - height, dock.y + DOCK_INSET));
   pinWin.setBounds({ x: Math.round(x), y: Math.round(y), width, height: Math.round(height) });
   if (!pinWin.isVisible()) pinWin.showInactive();
 }
+
+// Dragging the pinned map's corner: the width follows the pointer (growing away from the icon) and is
+// saved when the drag ends; a double click goes back to the default width.
+let pinDrag = null;
+ipcMain.on('pin:grip', (_e, over) => pinWin?.setIgnoreMouseEvents(!over, { forward: true }));
+// The map's close button: unpins it (Settings, the tray or the page's Pin map bring it back).
+ipcMain.on('pin:close', () => {
+  if (config.pinSignatures !== 'map') return;
+  pinWin?.setIgnoreMouseEvents(true, { forward: true });
+  setPinSignatures(false);
+  win?.webContents.send('pin:changed');
+});
+ipcMain.on('pin:resize', (_e, phase, screenX) => {
+  if (!pinWin || config.pinSignatures !== 'map') return;
+  if (phase === 'reset') {
+    config.pinMapWidth = PIN_MAP_WIDTH;
+    saveConfig();
+    return updatePin();
+  }
+  if (phase === 'start' && Number.isFinite(screenX)) {
+    const b = pinWin.getBounds();
+    const dock = dockPosition();
+    pinDrag = { x: screenX, width: b.width, grows: dock.x + DOCK_SIZE / 2 > b.x + b.width / 2 ? -1 : 1 };
+  } else if (phase === 'move' && pinDrag && Number.isFinite(screenX)) {
+    config.pinMapWidth = Math.round(pinDrag.width + (screenX - pinDrag.x) * pinDrag.grows);
+    updatePin();
+  } else if (phase === 'end' && pinDrag) {
+    pinDrag = null;
+    config.pinMapWidth = pinWin.getBounds().width; // what the screen allowed
+    saveConfig();
+  }
+});
 
 // mode: false (off), 'ship', 'fps', 'vehicle', 'hangar', 'mineral' with the mineral's name, or 'map'
 // with the zone map ({ name, url, w, h, by }).

@@ -90,10 +90,12 @@ const section = (title, ...kids) => [h('div', { class: 'sec-title' }, tr(title))
 const note = (text) => h('p', { class: 'note' }, tr(text));
 const pct = (m) => `${m >= 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`;
 
-function table(headers, rows) {
+// tableClass: "t-price" for the place · price · date tables, whose columns line up from one table to
+// the next (the ship's USD price above its in-game shops).
+function table(headers, rows, tableClass) {
   return h(
     'table',
-    null,
+    { class: tableClass },
     h('thead', null, h('tr', null, headers.map(([label, cls]) => h('th', { class: cls }, label && tr(label))))),
     h('tbody', null, rows.map((cells) => h('tr', null, cells.map((c, i) => h('td', { class: headers[i][1] }, c))))),
   );
@@ -135,6 +137,7 @@ function shopsTable(shops) {
   return table(
     [['Where', ''], ['Price', 'num'], ...(sells ? [['Sells for', 'num']] : []), ['Verified', 'dim']],
     sorted.map((s) => [s.where, auec(s.price), ...(sells ? [s.sell ? auec(s.sell) : ''] : []), s.verified || '']),
+    sells ? undefined : 't-price',
   );
 }
 
@@ -258,13 +261,22 @@ function viewShip(e) {
             ? h('p', { class: 'note' }, usd(price.usd), ' ', tr('MSRP — not listed in the store right now.'))
             : [
                 table(
-                  [['Standalone ship', ''], ['USD', 'num'], ['', 'dim'], ['Checked', 'dim']],
+                  // The same columns as "Buy in game" below (place · price · date), so they line up; the
+                  // listing's status sits beside its name.
+                  [['Standalone ship', ''], ['USD', 'num'], ['Checked', 'dim']],
                   [price, warbondNow].filter(Boolean).map((p) => [
-                    p.url ? link(e.d.shortName || e.n, p.url) : e.d.shortName || e.n,
+                    h(
+                      'span',
+                      null,
+                      p.url ? link(e.d.shortName || e.n, p.url) : e.d.shortName || e.n,
+                      ' ',
+                      p.warbond && [warbondBadge.cloneNode(true), ' '],
+                      h('span', { class: 'dim' }, `· ${tr(p.available ? 'on sale' : 'off sale')}`),
+                    ),
                     usd(p.usd),
-                    h('span', null, p.warbond && [warbondBadge.cloneNode(true), ' '], tr(p.available ? 'on sale' : 'off sale')),
                     p.checked || '',
                   ]),
+                  't-price',
                 ),
                 (price.warbond || warbondNow) && note('Warbond: a discounted offer that must be paid with new money (not store credit).'),
               ],

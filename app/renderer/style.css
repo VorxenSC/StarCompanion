@@ -481,6 +481,31 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 .cd-run { color: #ff8a8f; }
 .cd-soon { color: #ffd166; }
 .cd-ready { color: #6fe39a; }
+/* Contested zone mini map: zone tabs, the map, its buttons. Hidden until a zone is picked. */
+.zmap-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.zmap-tab { background: none; border: 1px solid var(--line); border-radius: 2px; color: var(--muted, rgba(205, 218, 230, 0.75)); font: 12px var(--mono); padding: 3px 9px; cursor: pointer; }
+.zmap-tab:hover, .zmap-tab.on { color: var(--accent); border-color: var(--accent); }
+.zmap-img { display: none; width: 100%; height: auto; max-height: 440px; object-fit: contain; border: 1px solid var(--line); border-radius: 3px; background: #0a0f15; cursor: zoom-in; }
+.zmap.shown .zmap-img { display: block; }
+.zmap.shown .zmap-hint { display: none; }
+.zmap-hint { margin: 2px 0 6px; font-size: 12px; }
+.zmap-caption { display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; font-size: 12px; }
+.zmap.shown .zmap-caption { display: flex; }
+.zmap-caption .zmap-credit { margin-right: auto; }
+.zmap-credit b { font-weight: 600; color: var(--text, #eef4f9); }
+.map-link::after { content: ' ⌖'; color: var(--accent); }
+/* Keycards a compboard takes: red, blue, Crypt. */
+.kcs { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+.kc { padding: 0 6px; border: 1px solid currentColor; border-radius: 2px; font: 600 11px/17px var(--mono); white-space: nowrap; }
+.kc-red { color: #ff7a80; }
+.kc-blue { color: #6ab8ff; }
+.kc-crypt { color: #d6b4ff; }
+table.t-boards th:nth-child(4), table.t-boards td:nth-child(4) { width: 150px; }
+
+/* The hangar's route and compboard tables: the same columns, so one lines up under the other. */
+table.t-steps { table-layout: fixed; }
+table.t-steps th:nth-child(1), table.t-steps td:nth-child(1) { width: 52px; }
+table.t-steps th:nth-child(2), table.t-steps td:nth-child(2) { width: 34%; }
 table.t-cd td { vertical-align: middle; padding-top: 3px; padding-bottom: 3px; }
 .cd-btn { min-width: 64px; padding: 2px 10px; }
 

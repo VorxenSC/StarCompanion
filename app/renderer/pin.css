@@ -16,6 +16,12 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .pin-list .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--tier); }
 .pin-list .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .pin-list .rs { font: 12px 'IBM Plex Mono', monospace; color: rgba(235, 242, 248, 0.92); }
+/* A contested zone map, the window's width. */
+.pin-map { display: block; width: 100%; height: auto; border-radius: 2px; }
+.pin-map[hidden] { display: none; }
+.pin-credit { margin: -2px 0 5px; font: 10px 'IBM Plex Mono', monospace; color: rgba(205, 218, 230, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pin-credit[hidden] { display: none; }
+
 /* The Executive Hangar timer: its five lights, the countdown, when it next opens or closes. */
 .pin-hangar[hidden], .pin-list[hidden] { display: none; }
 .ph-row { display: flex; align-items: center; justify-content: space-between; }

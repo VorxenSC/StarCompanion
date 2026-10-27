@@ -500,8 +500,34 @@ for (const { base, members } of families.values()) {
 
 // ---------- Activities ----------
 // The Executive Hangar: the Pyro contested-zone chain that ends in a PYAM Exec ship. Gathered from the
-// starcitizen.tools article, contestedzonetimers.com (cycle, cooldowns, 4.10.2) and undisputednoobs.com's
-// tracker (which keycard opens which compboard); the overlay draws the live timer from the cycle.
+// starcitizen.tools article, contestedzonetimers.com (cycle, cooldowns, 4.10.2), expcarry.com's contested
+// zones guide and The Orbital Ledger (the doors on the way to each compboard, 4.10.2); the overlay draws
+// the live timer from the cycle.
+// The zone maps are the community's (Terada: Checkmate, Orbituary, Ruin Station; u/Kerast: the
+// Executive Hangar and the Supervisor stations), shown from contestedzonetimers.com, never copied here.
+const TERADA = { by: 'Terada (@cmd_Terada)', byUrl: null };
+const KERAST = { by: 'u/Kerast', byUrl: 'https://www.reddit.com/user/Kerast/' };
+const ZONE_MAPS = [
+  { places: ['Checkmate'], file: 'Checkmate', w: 4096, h: 2859, ...TERADA },
+  { places: ['Orbituary'], file: 'Orbituary', w: 4096, h: 2859, ...TERADA },
+  { places: ['Ruin Station'], file: 'Ruin', w: 4096, h: 2859, ...TERADA },
+  { places: ['PYAM-SUPVISR-3-4', 'PYAM-SUPVISR-3-5'], file: 'Supervisor', w: 1080, h: 1033, ...KERAST },
+  { places: ['PYAM-EXHANG-0-1'], file: 'Executive Hangar', w: 1080, h: 1033, ...KERAST },
+].map((m) => ({
+  ...m,
+  name: m.places.length > 1 ? 'PYAM-SUPVISR' : m.places[0],
+  url: `https://contestedzonetimers.com/maps/${encodeURIComponent(m.file + ' Map')}.webp`,
+  source: 'contestedzonetimers.com',
+  sourceUrl: 'https://contestedzonetimers.com/contested-zone-maps',
+}));
+const mapInfo = ({ name, url, w, h, by, byUrl, source, sourceUrl }) => ({ name, url, w, h, by, byUrl, source, sourceUrl });
+// The location pages of those places show their map too.
+for (const m of ZONE_MAPS) {
+  for (const place of m.places) {
+    const loc = entries.find((e) => e.t === 'location' && e.n === place);
+    if (loc) loc.d.zoneMap = mapInfo(m);
+  }
+}
 const shipNamed = (n) => [...shipByName.values()].find((s) => s.n === n)?.n || null;
 add({
   t: 'activity',
@@ -520,15 +546,20 @@ add({
       { where: ['Ruin Station'], what: 'Compboards 5 and 6', near: 'Terminus' },
       { where: ['PYAM-EXHANG-0-1'], what: 'Put compboards 1–7 in their slots while the hangar is open, then claim the ship at the ASOP terminal' },
     ],
+    // The doors on the way to each board and the keycards they take. Boards 2 and 3 share one room
+    // behind Checkmate's hangar blue door, and boards 4 and 7 the red door at Orbituary, so a run takes
+    // 2 red, 3 blue and the Crypt keycard (plus fuses).
     boards: [
-      { n: 1, where: 'Checkmate', key: 'Red keycard' },
-      { n: 2, where: 'Checkmate', key: 'Blue keycard' },
-      { n: 3, where: 'Checkmate', key: 'Blue keycard' },
-      { n: 4, where: 'Orbituary', key: 'Red keycard' },
-      { n: 5, where: 'Ruin Station', key: 'Crypt keycard' },
-      { n: 6, where: 'Ruin Station', key: null },
-      { n: 7, where: 'Orbituary', key: 'Red keycard and 2 blue keycards' },
+      { n: 1, where: 'Checkmate', doors: 'Fuse door, red door', red: 1 },
+      { n: 2, where: 'Checkmate', doors: 'Fuse door, hangar blue door', blue: 1 },
+      { n: 3, where: 'Checkmate', doors: 'Same hangar room as board 2', shared: true },
+      { n: 4, where: 'Orbituary', doors: 'Fuse door, red door, fuse door', red: 1 },
+      { n: 5, where: 'Ruin Station', doors: 'Timed vault door, Crypt door', crypt: 1 },
+      { n: 6, where: 'Ruin Station', doors: 'Timed vault door' },
+      { n: 7, where: 'Orbituary', doors: 'Board 4\'s red door, a fuse door, 2 blue doors', blue: 2, shared: true },
     ],
+    keycards: { red: 2, blue: 3, crypt: 1 },
+    maps: ZONE_MAPS.map((m) => ({ places: m.places, ...mapInfo(m) })),
     // Each spot's cooldown after someone takes its keycard or compboard (minutes).
     cooldowns: [
       ['PYAM-SUPVISR-3-4', 'Red keycard', 30], ['PYAM-SUPVISR-3-5', 'Red keycard', 30],

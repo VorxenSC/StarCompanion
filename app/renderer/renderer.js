@@ -762,6 +762,7 @@ function viewLocation(e) {
         table([['Planet', ''], ['Moons', ''], ['Landing zone', '']], o.bodies.map((b) => [jump(b.name, b.name, 'location'), h('span', null, b.moons.map((m, i) => [i ? ', ' : '', jump(m, m, 'location')])), b.zones.join(', ')])),
       ),
       o?.jumpPoints?.length > 0 && section('Jump points', h('div', null, sortedBy(o.jumpPoints, (j) => j).map((j) => h('span', { class: 'pill' }, j)))),
+      d.zoneMap && section('Zone map', zoneMapPanel([d.zoneMap], { tabs: false, initial: d.zoneMap.name })),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),
       links([['Wiki', d.url]]),
     ],
@@ -914,7 +915,7 @@ function cooldownCell(c) {
   return [everySecond(time, paint), btn];
 }
 
-function hangarRoute(route) {
+function hangarRoute(route, onStop) {
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag, attrs, text) => {
     const x = document.createElementNS(NS, tag);
@@ -934,10 +935,82 @@ function hangarRoute(route) {
     g.append(el('text', { x: r.x, y: 38, 'text-anchor': 'middle', class: 'hroute-n' }, String(i + 1)));
     g.append(el('text', { x: r.x, y: 66, 'text-anchor': 'middle' }, r.where.length > 1 ? 'PYAM-SUPVISR' : r.where[0]));
     g.append(el('text', { x: r.x, y: 82, 'text-anchor': 'middle', class: 'sysmap-zone' }, r.near ? tr('near {body}', { body: r.near }) : r.where.length > 1 ? '3-4 · 3-5' : tr('near the star')));
-    g.addEventListener('click', () => goTo(r.where[0], 'location'));
+    g.addEventListener('click', () => onStop(r.where[0]));
     svg.append(g);
   });
   return svg;
+}
+
+// ---------- Contested zone maps ----------
+// The community's maps of each zone (shown from contestedzonetimers.com, credited to their authors) as a
+// mini map in the page: a tab per zone, the map, a button to pin it beside the icon and one to open it
+// full size. show(name) switches to that zone's map and brings it into view.
+function zoneMapPanel(maps, { tabs = true, initial = null } = {}) {
+  const img = h('img', { class: 'zmap-img', alt: '', referrerpolicy: 'no-referrer' });
+  const caption = h('div', { class: 'zmap-caption' });
+  const tabRow = tabs ? h('div', { class: 'zmap-tabs' }) : null;
+  const panel = h('div', { class: 'zmap' }, tabRow, h('div', { class: 'zmap-hint dim' }, tr('Click a station\'s name to see its map.')), img, caption);
+  let current = null;
+  const show = (name, scroll) => {
+    const m = maps.find((x) => x.name === name);
+    if (!m) return;
+    current = m;
+    panel.classList.add('shown');
+    img.onload = () => fit();
+    img.src = m.url;
+    img.style.aspectRatio = `${m.w} / ${m.h}`;
+    img.title = tr('Open full size');
+    for (const t of tabRow?.children || []) t.classList.toggle('on', t.dataset.name === m.name);
+    const place = m.places?.[0] || m.name;
+    caption.replaceChildren(...[
+      mapCredit(m),
+      mapPinButton(m),
+      h('button', { class: 'set-btn copy-btn', onclick: () => companion.openLink(m.url) }, tr('Full size ↗')),
+      maps.length > 1 && h('button', { class: 'set-btn', onclick: () => goTo(place, 'location') }, tr('Location page')),
+    ].filter(Boolean));
+    fit();
+    if (scroll) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  };
+  img.addEventListener('click', () => current && companion.openLink(current.url));
+  if (tabRow) for (const m of maps) tabRow.append(h('button', { class: 'zmap-tab', 'data-name': m.name, onclick: () => show(m.name) }, m.name));
+  panel.show = show;
+  if (initial) show(initial);
+  return panel;
+}
+
+// "Map by Terada (@cmd_Terada) · from contestedzonetimers.com ↗": who drew it and where it is shown from.
+function mapCredit(m) {
+  return h('span', { class: 'zmap-credit dim' },
+    tr('Map by'), ' ', m.byUrl ? link(m.by, m.byUrl) : h('b', null, m.by),
+    ' · ', tr('from'), ' ', link(`${m.source || 'contestedzonetimers.com'} ↗`, m.sourceUrl || m.url));
+}
+
+function mapPinButton(m) {
+  const btn = h('button', { class: 'set-btn copy-btn', title: tr('This map beside the icon') });
+  btn.refresh = (s) => {
+    const on = s.pinSignatures === 'map' && s.pinMap?.url === m.url;
+    btn.textContent = on ? tr('Unpin') : tr('Pin map');
+    btn.classList.toggle('done', on);
+  };
+  pinButtons.push(btn);
+  companion.getSettings().then(btn.refresh);
+  btn.addEventListener('click', async () => {
+    const s = await companion.getSettings();
+    const on = s.pinSignatures === 'map' && s.pinMap?.url === m.url;
+    const next = await companion.setSetting('pinSignatures', on ? false : { mode: 'map', map: { name: m.name, url: m.url, w: m.w, h: m.h, by: m.by, source: m.source } });
+    for (const b of pinButtons) if (b.isConnected) b.refresh(next);
+  });
+  return btn;
+}
+
+// "1 red", "2 blue", "Crypt" as small coloured tags.
+function keycardTags(k) {
+  const tags = [
+    k.red && h('span', { class: 'kc kc-red' }, tr('Red ×{n}', { n: k.red })),
+    k.blue && h('span', { class: 'kc kc-blue' }, tr('Blue ×{n}', { n: k.blue })),
+    k.crypt && h('span', { class: 'kc kc-crypt' }, 'Crypt'),
+  ].filter(Boolean);
+  return tags.length ? h('span', { class: 'kcs' }, tags) : h('span', { class: 'dim' }, '—');
 }
 
 function hangarPinButton() {
@@ -959,7 +1032,10 @@ function hangarPinButton() {
 
 function viewActivity(e) {
   const d = e.d;
-  const place = (n) => jump(n, n, 'location');
+  // A station's name shows its zone map; places without a map open their page.
+  const maps = zoneMapPanel(d.maps);
+  const mapOf = (n) => d.maps.find((m) => m.places.includes(n));
+  const place = (n) => (mapOf(n) ? h('span', { class: 'link map-link', title: tr('Show the map'), onclick: () => maps.show(mapOf(n).name, true) }, n) : jump(n, n, 'location'));
   return {
     actions: [hangarPinButton()],
     facts: [
@@ -968,19 +1044,22 @@ function viewActivity(e) {
       ['System', jump(d.system, d.system, 'location')],
       ['Cycle', tr('185 min: 2 h closed, 1 h open, 5 min reset')],
       ['Compboards', tr('7 (boards 1–7)')],
+      ['Keycards', keycardTags(d.keycards)],
       ['Reward', tr('One PYAM Exec ship')],
     ],
     body: [
       section('Hangar timer', hangarPanel(),
         table([['Opens', ''], ['Closes', '']], CompanionHangar.state(Date.now(), hangarAnchor).windows.map((w) => [localTime(w.opens), localTime(w.closes)])),
         note('The lights turn green one every 24 minutes while it is closed and go out one every 12 minutes while it is open. The compboards only go in while it is open; at the end an alarm sounds for 5 minutes and anyone still inside dies.')),
-      section('Route', hangarRoute(d.route),
-        table([['Step', 'num'], ['Where', ''], ['What', '']], d.route.map((r, i) => [String(i + 1), h('span', null, r.where.map((w, j) => [j ? ', ' : '', place(w)])), tr(r.what)]))),
+      section('Route', hangarRoute(d.route, (n) => (mapOf(n) ? maps.show(mapOf(n).name, true) : goTo(n, 'location'))),
+        table([['Step', 'num'], ['Where', ''], ['What', '']], d.route.map((r, i) => [String(i + 1), h('span', null, r.where.map((w, j) => [j ? ', ' : '', place(w)])), tr(r.what)]), 't-steps')),
+      section('Zone map', maps),
       section('Compboards',
-        table([['Board', 'num'], ['Where', ''], ['Opened with', '']], d.boards.map((b) => [String(b.n), place(b.where), b.key ? tr(b.key) : h('span', { class: 'dim' }, '—')]))),
+        table([['Board', 'num'], ['Where', ''], ['Doors on the way', ''], ['Keycards', '']], d.boards.map((b) => [String(b.n), place(b.where), tr(b.doors), keycardTags(b)]), 't-steps t-boards'),
+        note('Boards 2 and 3 share one room and boards 4 and 7 one red door, so a full run takes 2 red keycards, 3 blue and the Crypt keycard, plus fuses for the fuse doors. Blue keycards print inside Checkmate and Orbituary (Orbituary\'s behind its red door).')),
       section('Cooldown timers',
         note('Start one when you take a keycard or a compboard: it counts down until that spot gives another.'),
-        table([['Where', ''], ['What', ''], ['Timer', 'num'], ['', '']], d.cooldowns.map((c) => [c.where, trNumbered(c.what), ...cooldownCell(c)]), 't-cd')),
+        table([['Where', ''], ['What', ''], ['Timer', 'num'], ['', '']], d.cooldowns.map((c) => [place(c.where), trNumbered(c.what), ...cooldownCell(c)]), 't-cd')),
       section('Reward ships',
         h('div', null, sortedBy(d.rewards, (r) => r.name).map((r) => h('span', { class: 'pill' }, r.ship ? jump(r.name, r.ship, 'ship') : r.name))),
         note('Each comes in a military or a stealth livery. Rare FPS weapons and grade A ship components can also be found inside.')),
@@ -990,7 +1069,7 @@ function viewActivity(e) {
             'Dark lights while the timer says open: another player has already opened the door. The cycle itself does not change.',
             'After a patch or a server restart the timer can be off for a day or two, until it is checked again in game.',
             'Watch the service entrance when defending: it lets players in behind you.'].map((t) => h('li', null, tr(t))))),
-      note('Timer: contestedzonetimers.com, by Appieman. Zone maps by Terada (Checkmate, Orbituary, Ruin Station) and u/Kerast (Executive Hangar, Supervisor).'),
+      note('Timer: contestedzonetimers.com, by Appieman. Zone maps by Terada (@cmd_Terada: Checkmate, Orbituary, Ruin Station) and u/Kerast on Reddit (Executive Hangar, Supervisor), shown from contestedzonetimers.com.'),
       links([['Zone maps', d.mapsUrl], ['Wiki', d.url], ['Guide', d.guideUrl], ['Timer', d.timerUrl], ['Tracker', d.trackerUrl]]),
     ],
   };
@@ -1267,8 +1346,8 @@ function renderSettings() {
     row('Click into the search box', 'When the shortcut opens it, so you can type at once in game', toggle('autoClick', s.autoClick), i++),
     row(
       'Pin beside the icon',
-      'Radar signatures for scanning, or the Executive Hangar timer',
-      choice('pinSignatures', [[false, tr('Off')], ['ship', tr('Ship ores')], ['fps', tr('Hand-mined')], ['vehicle', tr('ROC ores')], ...(s.pinMineral ? [['mineral', s.pinMineral]] : []), ['hangar', tr('Executive Hangar')]], s.pinSignatures || false),
+      'Radar signatures for scanning, the Executive Hangar timer or a zone map',
+      choice('pinSignatures', [[false, tr('Off')], ['ship', tr('Ship ores')], ['fps', tr('Hand-mined')], ['vehicle', tr('ROC ores')], ...(s.pinMineral ? [['mineral', s.pinMineral]] : []), ['hangar', tr('Executive Hangar')], ...(s.pinMap ? [['map', tr('{name} map', { name: s.pinMap.name })]] : [])], s.pinSignatures || false),
       i++,
     ),
     row('Close when clicking the game', 'Fold back into the icon when the game gets focus', toggle('hideOnBlur', s.hideOnBlur), i++),

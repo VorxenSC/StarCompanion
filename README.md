@@ -101,9 +101,18 @@ ends in a PYAM Exec ship. The page shows the hangar's live timer: its five light
 one every 24 minutes while it is closed for 2 hours, going out one every 12 minutes while it is open
 for 1 hour, then 5 minutes of reset), the countdown and the next openings in your local time. Below:
 the route (red keycards at PYAM-SUPVISR-3-4/3-5, compboards 1–3 at Checkmate, 4 and 7 at Orbituary,
-5 and 6 at Ruin Station, then the hangar), which keycard opens each compboard, a cooldown timer for
-each keycard and compboard spot (Start when you take one; it is kept if you close the app), the reward
-ships, and links to the zone maps, the wiki and the timer sites. **Pin the timer** keeps the lights
+5 and 6 at Ruin Station, then the hangar), the doors on the way to each compboard and the keycards
+they take (2 red, 3 blue and the Crypt keycard for a full run), a cooldown timer for each keycard and
+compboard spot (Start when you take one; it is kept if you close the app), the reward ships, and links
+to the wiki and the timer sites.
+
+Click a station's name (in the route, the tables or the route diagram) to see its contested zone map
+as a mini map in the page, with a tab per zone; click the map for full size. **Pin map** keeps it
+beside the icon, at 420 px wide. The location pages of Checkmate, Orbituary, Ruin Station, the
+Supervisor stations and PYAM-EXHANG-0-1 show their map too. The maps are the community's: Terada
+(@cmd_Terada) drew Checkmate, Orbituary and Ruin Station, and u/Kerast on Reddit the Executive Hangar
+and the Supervisor stations. They are shown from contestedzonetimers.com, credited under each map, and
+not copied into the app. **Pin the timer** keeps the lights
 and the countdown beside the icon, like the signature lists (also Settings → Pin beside the icon →
 Executive Hangar, and the tray menu). The cycle's start is read from contestedzonetimers.com at launch
 and every 3 hours, and kept for starts without a connection.
@@ -122,7 +131,8 @@ row with "+N variants"; the detail lists them all.
 | finder.cstone.space | shops, base price and verification date for ~3,000 items and ships; item pictures | `/GetSearch` index + each item page (cached) |
 | sc-craft.tools | 1,612 blueprints: materials, quality effects, missions that reward them with the drop chance. Each mission is matched to the wiki's missions by title (fill-in tokens such as `~mission(Location)` match any words) for the faction that offers it, the systems and the kind of mission (bounty hunting, defense, attack, recovery, mining…, read from the game's internal mission name); about 90 % of the links match | JSON API `/api/blueprints` |
 | contestedzonetimers.com | the Executive Hangar cycle's start (re-checked in game by its author after each patch), the cycle's phases and each keycard and compboard spot's cooldown | `/lib/cfg.dat`, read by the app at launch and every 3 hours |
-| undisputednoobs.com Exec Hangar Tracker, starcitizen.tools PYAM-EXHANG-0-1 | which keycard opens each compboard, the route, the reward ships | read by hand into `scripts/build-db.js` |
+| expcarry.com contested zones guide, The Orbital Ledger, starcitizen.tools PYAM-EXHANG-0-1 | the doors and keycards on the way to each compboard, the route, the reward ships | read by hand into `scripts/build-db.js` |
+| contestedzonetimers.com/contested-zone-maps | the zone maps by Terada (@cmd_Terada) and u/Kerast, shown in the page and the pin with their credit | loaded from the site when shown |
 | scminer.rocks | 37 minerals as on its mineral directory cards: rarity, server base value (ship ores, aUEC/SCU), radar signature for 1–10 rocks (with a "Copy for chat" button: "Quantainium RS: 3170, 6340, …"), volatile ores (Quantainium, Savrilium), instability, resistance and density, locations and abundance per system, best sale; mining lasers/modules/gadgets and where to buy them | datasets embedded in the site's JS bundles |
 | starcitizen.tools | items (size, grade, class, manufacturer), missions, locations, ships | `api.star-citizen.wiki` |
 | starcitizen.tools ship pages | each ship's full default loadout, as erkul.games and the RSI ship page show it: guns with the turret or mount they sit on, missiles and bombs with their rack, and the components; groups and items in alphabetical order (coolers, jump drive, life support, missiles, power plants, quantum drive, radar, shields, weapons…), with size, grade (A–D) and class (Civilian, Military, Stealth…). Each gun and missile says who fires it: the pilot, a crew member in a manned turret, or one at a remote turret (the Paladin's side turrets also go to the pilot while no gunner sits at them); the pilot's come first. Countermeasures are left out | `api.star-citizen.wiki` vehicle detail, one request per ship |

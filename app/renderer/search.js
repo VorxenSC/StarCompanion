@@ -69,7 +69,7 @@
     score += TYPE_BONUS[row.e.t] || 0;
     if (row.hasShops) score += 3;
     score -= Math.min(row.key.length, 60) / 10; // shorter names are closer matches
-    if (row.e.t === 'ship' && named) tier = -1;
+    if ((row.e.t === 'ship' || row.e.t === 'activity') && named) tier = -1;
     // Matches only through the subtitle or scattered letters ("cutl" in "Field Recon Suit Legs") go
     // last, after every name that really contains the query.
     else if (tier === 2 && !named && !row.key.includes(q)) tier = 3;
@@ -93,12 +93,13 @@
       else best.set(row.e, { score: Math.max(prev.score, s.score), tier: Math.min(prev.tier, s.tier) });
     }
     const group = (t) => { const i = GROUP_ORDER.indexOf(t); return i < 0 ? GROUP_ORDER.length : i; };
-    // Ships named by the query (tier -1): the one whose name is the query first, then alphabetical
-    // by their short name, so variants line up (Cutlass Black, Cutlass Blue, Cutlass Red…).
+    // Activities and ships named by the query (tier -1): an activity first ("executive" finds the
+    // Executive Hangar before the Executive Edition ships), then the one whose name is the query, then
+    // alphabetical by their short name, so variants line up (Cutlass Black, Cutlass Blue, Cutlass Red…).
     const shipLabel = (e) => norm((e.d && e.d.shortName) || e.n);
     let hits = [...best]
       .sort((a, b) => a[1].tier - b[1].tier || (a[1].tier === -1
-        ? (b[1].score >= 1000) - (a[1].score >= 1000) || shipLabel(a[0]).localeCompare(shipLabel(b[0]))
+        ? (a[0].t !== 'activity') - (b[0].t !== 'activity') || (b[1].score >= 1000) - (a[1].score >= 1000) || shipLabel(a[0]).localeCompare(shipLabel(b[0]))
         : group(a[0].t) - group(b[0].t) || b[1].score - a[1].score))
       .map((h) => h[0]);
     if (collapseVariants) {

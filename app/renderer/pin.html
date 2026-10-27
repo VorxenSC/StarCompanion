@@ -2,16 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src https://contestedzonetimers.com; style-src 'self'; font-src 'self'; script-src 'self'" />
 <title>Mineral signatures</title>
 <link rel="stylesheet" href="pin.css" />
 </head>
 <!-- Pinned beside the icon, never focused and click-through: mineral radar signatures to read while
-     scanning, or the Executive Hangar timer. -->
+     scanning, the Executive Hangar timer, or a contested zone map. -->
 <body>
 <div class="pin" id="pin">
   <div class="pin-head"><span id="title"></span><span class="pin-unit" id="unit"></span></div>
   <ol class="pin-list" id="list"></ol>
+  <div class="pin-credit" id="credit" hidden></div>
+  <img class="pin-map" id="map" alt="" referrerpolicy="no-referrer" hidden />
   <div class="pin-hangar" id="hangar" hidden>
     <div class="ph-row"><span class="ph-lights" id="lights"></span><span class="ph-clock" id="clock"></span></div>
     <div class="ph-line" id="line"></div>

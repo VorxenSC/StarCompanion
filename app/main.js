@@ -36,8 +36,9 @@ const DEFAULT_CONFIG = {
   skipVersion: null, // a release the player chose not to be reminded about
   language: 'auto', // 'auto' (Windows' language), 'en' or 'pt-BR'
   autoClick: true, // when the shortcut opens the bar, click into the search box so typing works at once
-  pinSignatures: false, // what sits beside the icon: false, 'ship', 'fps' (hand-mined), 'vehicle' (ROC), 'mineral' or 'hangar' (the Executive Hangar timer)
+  pinSignatures: false, // what sits beside the icon: false, 'ship', 'fps' (hand-mined), 'vehicle' (ROC), 'mineral', 'hangar' (the Executive Hangar timer) or 'map' (a contested zone map)
   pinMineral: null, // with 'mineral': the one mineral pinned, with its 1×–10× rocks
+  pinMap: null, // with 'map': { name, url, w, h, by } of the zone map pinned
   hangarAnchor: null, // the Executive Hangar cycle's start (s) last read online; the built-in one until then
   // dockX, dockY: where the icon sits; the bar unfolds from it. Saved when either is dragged.
   // sizeChosen: true once the player resized with the grip; their width and height are kept from then on.
@@ -617,7 +618,14 @@ function openFeedback() {
 // opacity. It hides while the search bar is open (the bar unfolds from the icon) and comes back.
 const PIN_WIDTH = 190;
 const PIN_GAP = 6;
-const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral', 'hangar'];
+const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral', 'hangar', 'map'];
+const PIN_MAP_WIDTH = 420;
+const ZONE_MAP_URL = 'https://contestedzonetimers.com/maps/';
+// A zone map sent by the overlay, kept only if it is one of contestedzonetimers.com's maps.
+function cleanMap(m) {
+  if (!m || typeof m.url !== 'string' || !m.url.startsWith(ZONE_MAP_URL) || !(m.w > 0 && m.h > 0)) return null;
+  return { name: String(m.name || '').slice(0, 40), url: m.url.slice(0, 200), w: Number(m.w), h: Number(m.h), by: String(m.by || '').slice(0, 40), source: String(m.source || 'contestedzonetimers.com').slice(0, 60) };
+}
 const PIN_TITLES = { ship: 'Ship ores RS', fps: 'Hand-mined RS', vehicle: 'ROC ores RS' };
 let pinWin = null;
 let pinRows = []; // [{ n, tier, category, sig, rs: [1×…10×] }] from the overlay's database
@@ -627,6 +635,10 @@ let pinRows = []; // [{ n, tier, category, sig, rs: [1×…10×] }] from the ove
 function pinView() {
   const mode = config.pinSignatures;
   if (!PIN_MODES.includes(mode)) return null;
+  if (mode === 'map') {
+    const m = config.pinMap;
+    return m ? { map: m, title: T('{name} map', { name: m.name }), credit: T('{author} · {source}', { author: m.by, source: m.source || 'contestedzonetimers.com' }) } : null;
+  }
   if (mode === 'hangar') {
     return {
       hangar: hangarAnchor(),
@@ -678,19 +690,22 @@ function updatePin() {
   const dock = dockPosition();
   const { workArea: a } = screen.getDisplayNearestPoint({ x: dock.x + DOCK_SIZE / 2, y: dock.y + DOCK_SIZE / 2 });
   pinWin.setOpacity(config.dockOpacity); // the same alpha as the icon it sits beside
-  const height = view.hangar ? 84 : Math.min(a.height, 34 + view.rows.length * 17);
+  const width = view.map ? PIN_MAP_WIDTH : PIN_WIDTH;
+  const height = view.map ? Math.min(a.height, Math.round(52 + ((PIN_MAP_WIDTH - 22) * view.map.h) / view.map.w)) : view.hangar ? 84 : Math.min(a.height, 34 + view.rows.length * 17);
   const iconOnRight = dock.x + DOCK_SIZE / 2 > a.x + a.width / 2;
-  let x = iconOnRight ? dock.x + DOCK_INSET - PIN_GAP - PIN_WIDTH : dock.x + DOCK_SIZE - DOCK_INSET + PIN_GAP;
-  x = Math.max(a.x, Math.min(a.x + a.width - PIN_WIDTH, x));
+  let x = iconOnRight ? dock.x + DOCK_INSET - PIN_GAP - width : dock.x + DOCK_SIZE - DOCK_INSET + PIN_GAP;
+  x = Math.max(a.x, Math.min(a.x + a.width - width, x));
   const y = Math.max(a.y, Math.min(a.y + a.height - height, dock.y + DOCK_INSET));
-  pinWin.setBounds({ x: Math.round(x), y: Math.round(y), width: PIN_WIDTH, height: Math.round(height) });
+  pinWin.setBounds({ x: Math.round(x), y: Math.round(y), width, height: Math.round(height) });
   if (!pinWin.isVisible()) pinWin.showInactive();
 }
 
-// mode: false (off), 'ship', 'fps', 'vehicle', 'hangar', or 'mineral' with the mineral's name.
-function setPinSignatures(mode, mineral) {
-  config.pinSignatures = PIN_MODES.includes(mode) ? mode : false;
-  if (mode === 'mineral' && typeof mineral === 'string') config.pinMineral = mineral.slice(0, 80);
+// mode: false (off), 'ship', 'fps', 'vehicle', 'hangar', 'mineral' with the mineral's name, or 'map'
+// with the zone map ({ name, url, w, h, by }).
+function setPinSignatures(mode, detail) {
+  if (mode === 'map' && detail) config.pinMap = cleanMap(detail) || config.pinMap;
+  config.pinSignatures = PIN_MODES.includes(mode) && (mode !== 'map' || config.pinMap) ? mode : false;
+  if (mode === 'mineral' && typeof detail === 'string') config.pinMineral = detail.slice(0, 80);
   saveConfig();
   buildTray();
   sendPinData();
@@ -941,6 +956,7 @@ function settingsSnapshot() {
     autoClick: config.autoClick,
     pinSignatures: config.pinSignatures,
     pinMineral: config.pinMineral,
+    pinMap: config.pinMap,
     checkUpdates: config.checkUpdates,
     language: config.language,
     languageInUse: i18n.getLanguage(),
@@ -960,7 +976,7 @@ function applySetting(key, value) {
     case 'hideOnBlur': config.hideOnBlur = !!value; saveConfig(); break;
     case 'autoClick': config.autoClick = !!value; saveConfig(); break;
     case 'pinSignatures':
-      if (value && typeof value === 'object') setPinSignatures(value.mode, value.mineral);
+      if (value && typeof value === 'object') setPinSignatures(value.mode, value.mode === 'map' ? value.map : value.mineral);
       else setPinSignatures(value);
       break;
     case 'checkUpdates': setCheckUpdates(!!value); break;
@@ -1060,6 +1076,7 @@ function buildTray() {
           { label: T('ROC ores'), type: 'radio', checked: config.pinSignatures === 'vehicle', click: () => setPinSignatures('vehicle') },
           ...(config.pinMineral ? [{ label: T('{name} (1×–10× rocks)', { name: config.pinMineral }), type: 'radio', checked: config.pinSignatures === 'mineral', click: () => setPinSignatures('mineral', config.pinMineral) }] : []),
           { label: T('Executive Hangar timer'), type: 'radio', checked: config.pinSignatures === 'hangar', click: () => setPinSignatures('hangar') },
+          ...(config.pinMap ? [{ label: T('{name} map', { name: config.pinMap.name }), type: 'radio', checked: config.pinSignatures === 'map', click: () => setPinSignatures('map') }] : []),
         ],
       },
       { type: 'separator' },

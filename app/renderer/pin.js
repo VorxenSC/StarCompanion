@@ -1,6 +1,7 @@
 /* global pin, CompanionHangar */
 // The main process sends what to show: { title, unit, rows: [{ label, value, tier }] } for a list of
-// signatures, or { hangar: anchor, title, labels } for the Executive Hangar timer, counted down here.
+// signatures, { hangar: anchor, title, labels } for the Executive Hangar timer, counted down here, or
+// { map: { url, w, h }, title, credit } for a contested zone map.
 const $ = (id) => document.getElementById(id);
 let ticker = null;
 
@@ -30,9 +31,18 @@ function showHangar(anchor, labels, lang) {
 pin.onData((data) => {
   clearInterval(ticker);
   $('title').textContent = data.title;
-  $('list').hidden = !!data.hangar;
+  $('list').hidden = !!(data.hangar || data.map);
   $('hangar').hidden = !data.hangar;
+  $('map').hidden = !data.map;
+  $('credit').hidden = !data.map;
   if (data.hangar) return showHangar(data.hangar, data.labels, data.lang);
+  if (data.map) {
+    $('unit').textContent = '';
+    $('unit').className = 'pin-unit';
+    $('credit').textContent = data.credit;
+    if ($('map').src !== data.map.url) $('map').src = data.map.url;
+    return;
+  }
   const { unit, rows } = data;
   $('unit').textContent = unit || '';
   $('unit').className = 'pin-unit';

@@ -89,6 +89,9 @@ test('built database answers real questions', { skip: !fs.existsSync(DB) }, () =
   assert.ok(ship.d.buy.length > 0, 'Cutlass Black should be buyable in game');
   assert.ok(ship.d.store?.some((s) => s.usd > 0), 'Cutlass Black should have a USD price');
 
+  // An activity named by the query goes before the ships that share the word.
+  for (const q of ['executive', 'exec', 'hangar', 'hangar executivo']) assert.strictEqual(search(real, q)[0].n, 'Executive Hangar', q);
+
   const bp = entries.find((e) => e.t === 'blueprint' && e.d.missions.length);
   assert.ok(bp.d.ingredients.length > 0);
 

@@ -94,7 +94,10 @@ for 1 to 10 rocks as one line to paste in the game chat (`Gold RS: 3585, 7170, 1
 match a scanner reading while mining: one mineral with its signature for 1 to 10 rocks, or every
 mineral of that kind with its signature, in alphabetical order. The same choice is in Settings (Pin
 beside the icon) and the tray menu. The list has the icon's opacity, never takes focus, lets clicks
-through, and hides while the search bar is open.
+through, and hides while the search bar is open. Every pinned window (signature lists, the hangar
+timer, a zone map) has a small opacity slider at its bottom right and a resize corner (the bottom
+corner away from the icon; double-click it for the default size). The text grows with the window, so
+a bigger pin reads more easily. Each kind keeps its own size and opacity.
 
 Search **Executive Hangar** (or "exec hangar", "hangar executivo") for the Pyro contested-zone run that
 ends in a PYAM Exec ship. The page shows the hangar's live timer: its five lights (red turning green
@@ -108,7 +111,7 @@ to the wiki and the timer sites.
 
 Click a station's name (in the route, the tables or the route diagram) to see its contested zone map
 as a mini map in the page, with a tab per zone; click the map for full size. **Pin map** keeps it
-beside the icon, fainter than the icon so the game shows through (the small slider at its bottom right
+beside the icon, fainter than the icon so the game shows through (the small slider at its bottom right,
 sets how faint, and is kept): drag its bottom corner (the one away
 from the icon) to resize it, double-click that corner for the default 420 px, and close it with the ×
 in its top-right corner. The location pages of Checkmate, Orbituary, Ruin Station, the

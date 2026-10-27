@@ -1047,10 +1047,8 @@ function viewActivity(e) {
       ['Hangar', hangarStatus()],
       ['Location', place(d.location)],
       ['System', jump(d.system, d.system, 'location')],
-      ['Cycle', tr('185 min: 2 h closed, 1 h open, 5 min reset')],
       ['Compboards', tr('7 (boards 1–7)')],
-      ['Keycards', keycardTags(d.keycards)],
-      ['Reward', tr('One PYAM Exec ship')],
+      ['Cycle', tr('2 h closed · 1 h open · 5 min reset'), { wide: true }],
     ],
     body: [
       section('Hangar timer', hangarPanel(),

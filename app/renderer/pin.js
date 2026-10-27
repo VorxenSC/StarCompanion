@@ -28,14 +28,15 @@ function showHangar(anchor, labels, lang) {
   ticker = setInterval(tick, 1000);
 }
 
-// The map's resize corner, opacity slider and close button: while the pointer is on one of them the
-// window takes the mouse (it is click-through otherwise). A drag on the corner sends the pointer's
-// screen position to the main process, which sizes the window; the slider sets the map's opacity; the
-// × unpins the map.
+// Every pin's resize corner and opacity slider, and the map's close button: while the pointer is on one
+// of them the window takes the mouse (it is click-through otherwise). A drag on the corner sends the
+// pointer's screen position to the main process, which sizes the window (the content scales with it);
+// the slider sets the pin's opacity; the × unpins the map.
 const grip = $('grip');
 let dragging = false;
 let overHot = false;
 pin.onSide((side) => { grip.dataset.side = side; $('alpha').dataset.side = side; });
+pin.onScale((scale) => { if (Number.isFinite(scale) && scale > 0) $('pin').style.setProperty('--s', String(scale)); });
 const onHot = (e) => [...document.querySelectorAll('.pin-hot')].some((el) => {
   if (el.hidden) return false;
   const r = el.getBoundingClientRect();
@@ -75,13 +76,11 @@ pin.onData((data) => {
   $('hangar').hidden = !data.hangar;
   $('map').hidden = !data.map;
   $('credit').hidden = !data.map;
-  $('grip').hidden = !data.map;
   $('close').hidden = !data.map;
-  $('alpha').hidden = !data.map;
-  if (data.map) {
-    alpha.value = String(data.alpha);
-    alpha.title = data.alphaLabel;
-  }
+  $('pin').classList.toggle('is-map', !!data.map);
+  $('pin').classList.toggle('is-hangar', !!data.hangar);
+  alpha.value = String(data.alpha ?? 1);
+  alpha.title = data.alphaLabel || '';
   if (data.hangar) return showHangar(data.hangar, data.labels, data.lang);
   if (data.map) {
     $('unit').textContent = '';

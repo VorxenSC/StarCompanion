@@ -493,6 +493,7 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 .zmap.shown .zmap-caption { display: flex; }
 .zmap-caption .zmap-credit { margin-right: auto; }
 .zmap-credit b { font-weight: 600; color: var(--text, #eef4f9); }
+.map-link { white-space: nowrap; }
 .map-link::after { content: ' ⌖'; color: var(--accent); }
 /* Keycards a compboard takes: red, blue, Crypt. */
 .kcs { display: inline-flex; gap: 5px; flex-wrap: wrap; }

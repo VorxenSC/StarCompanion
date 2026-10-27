@@ -10,6 +10,10 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
   color: #eef4f9; font: 12px/1.3 'IBM Plex Sans', sans-serif;
 }
 .pin-head { display: flex; justify-content: space-between; margin-bottom: 4px; font: 500 10px 'IBM Plex Mono', monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.pin-head #title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-head .pin-unit { flex: none; margin-left: 8px; }
+.is-map .pin-head { padding-right: 24px; } /* clear of the map's × */
+.is-hangar .pin-head { letter-spacing: 0.05em; } /* "Hangar Executivo" and its status on one line */
 .pin-unit { color: rgba(205, 218, 230, 0.6); }
 .pin-list { list-style: none; margin: 0; padding: 0; }
 .pin-list li { display: flex; align-items: center; gap: 6px; height: 17px; white-space: nowrap; }
@@ -19,15 +23,17 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 /* A contested zone map, the window's width. */
 .pin-map { display: block; width: 100%; height: auto; border-radius: 2px; }
 .pin-map[hidden] { display: none; }
-.pin { position: relative; }
+/* Laid out at the base width and scaled to the window's (--s), so the text grows with the pin. */
+.pin { position: relative; zoom: var(--s, 1); }
 /* The map's resize corner, at the bottom corner away from the icon. */
 .pin-grip { position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; cursor: nwse-resize;
   background: linear-gradient(135deg, transparent 0 55%, rgba(205, 218, 230, 0.55) 55% 62%, transparent 62% 72%, rgba(205, 218, 230, 0.55) 72% 79%, transparent 79%); }
 .pin-grip[data-side='left'] { right: auto; left: 2px; cursor: nesw-resize; transform: scaleX(-1); }
 .pin-grip[hidden] { display: none; }
-/* The map's opacity slider: small, bottom right (left of the resize corner when that is on the right). */
+/* The opacity slider on every pin: small, bottom right (left of the map's resize corner when that is on the right). */
 .pin-alpha { position: absolute; bottom: 5px; right: 8px; width: 64px; height: 12px; margin: 0; padding: 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; }
 .pin-alpha[data-side='right'] { right: 24px; }
+.pin:not(.is-map) { padding-bottom: 20px; } /* room under the list or the timer for the slider and corner */
 .pin-alpha[hidden] { display: none; }
 .pin-alpha::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: rgba(205, 218, 230, 0.35); }
 .pin-alpha::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; margin-top: -3px; border-radius: 50%; background: #5fd4e8; border: 0; }

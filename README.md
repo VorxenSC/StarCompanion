@@ -108,7 +108,8 @@ to the wiki and the timer sites.
 
 Click a station's name (in the route, the tables or the route diagram) to see its contested zone map
 as a mini map in the page, with a tab per zone; click the map for full size. **Pin map** keeps it
-beside the icon, fainter than the icon so the game shows through: drag its bottom corner (the one away
+beside the icon, fainter than the icon so the game shows through (the small slider at its bottom right
+sets how faint, and is kept): drag its bottom corner (the one away
 from the icon) to resize it, double-click that corner for the default 420 px, and close it with the ×
 in its top-right corner. The location pages of Checkmate, Orbituary, Ruin Station, the
 Supervisor stations and PYAM-EXHANG-0-1 show their map too. The maps are the community's: Terada

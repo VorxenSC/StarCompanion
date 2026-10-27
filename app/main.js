@@ -40,6 +40,7 @@ const DEFAULT_CONFIG = {
   pinMineral: null, // with 'mineral': the one mineral pinned, with its 1×–10× rocks
   pinMap: null, // with 'map': { name, url, w, h, by } of the zone map pinned
   pinMapWidth: 420, // the pinned map's width, set by dragging its corner
+  pinMapAlpha: 0.7, // the pinned map's opacity relative to the icon's, set with its small slider
   hangarAnchor: null, // the Executive Hangar cycle's start (s) last read online; the built-in one until then
   // dockX, dockY: where the icon sits; the bar unfolds from it. Saved when either is dragged.
   // sizeChosen: true once the player resized with the grip; their width and height are kept from then on.
@@ -625,6 +626,8 @@ const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral', 'hangar', 'map'];
 const PIN_MAP_WIDTH = 420;
 const PIN_MAP_MIN = 220;
 const PIN_MAP_ALPHA = 0.7;
+const PIN_MAP_ALPHA_MIN = 0.15;
+const mapAlpha = () => Math.max(PIN_MAP_ALPHA_MIN, Math.min(1, Number(config.pinMapAlpha) || PIN_MAP_ALPHA));
 const pinMapHeight = (width, m) => Math.round(52 + ((width - 22) * m.h) / m.w);
 const ZONE_MAP_URL = 'https://contestedzonetimers.com/maps/';
 // A zone map sent by the overlay, kept only if it is one of contestedzonetimers.com's maps.
@@ -643,7 +646,7 @@ function pinView() {
   if (!PIN_MODES.includes(mode)) return null;
   if (mode === 'map') {
     const m = config.pinMap;
-    return m ? { map: m, title: T('{name} map', { name: m.name }), credit: T('{author} · {source}', { author: m.by, source: m.source || 'contestedzonetimers.com' }) } : null;
+    return m ? { map: m, alpha: mapAlpha(), title: T('{name} map', { name: m.name }), credit: T('{author} · {source}', { author: m.by, source: m.source || 'contestedzonetimers.com' }), alphaLabel: T('Map opacity') } : null;
   }
   if (mode === 'hangar') {
     return {
@@ -697,7 +700,7 @@ function updatePin() {
   if (!pinWin) return createPin();
   const dock = dockPosition();
   const { workArea: a } = screen.getDisplayNearestPoint({ x: dock.x + DOCK_SIZE / 2, y: dock.y + DOCK_SIZE / 2 });
-  pinWin.setOpacity(config.dockOpacity * (view.map ? PIN_MAP_ALPHA : 1)); // the icon's alpha; a map fainter
+  pinWin.setOpacity(config.dockOpacity * (view.map ? mapAlpha() : 1)); // the icon's alpha; a map as its slider says
   // A map keeps its proportions and stays on the screen: as wide as dragged, no taller than the screen.
   const mapMax = view.map && Math.min(a.width - DOCK_SIZE, Math.floor(((a.height - 52) * view.map.w) / view.map.h + 22));
   const width = view.map ? Math.max(PIN_MAP_MIN, Math.min(mapMax, config.pinMapWidth || PIN_MAP_WIDTH)) : PIN_WIDTH;
@@ -715,6 +718,13 @@ function updatePin() {
 // saved when the drag ends; a double click goes back to the default width.
 let pinDrag = null;
 ipcMain.on('pin:grip', (_e, over) => pinWin?.setIgnoreMouseEvents(!over, { forward: true }));
+// The map's opacity slider: applied while it moves, saved when it is let go.
+ipcMain.on('pin:alpha', (_e, value, done) => {
+  if (!pinWin || config.pinSignatures !== 'map' || !Number.isFinite(value)) return;
+  config.pinMapAlpha = Math.max(PIN_MAP_ALPHA_MIN, Math.min(1, value));
+  pinWin.setOpacity(config.dockOpacity * config.pinMapAlpha);
+  if (done) saveConfig();
+});
 // The map's close button: unpins it (Settings, the tray or the page's Pin map bring it back).
 ipcMain.on('pin:close', () => {
   if (config.pinSignatures !== 'map') return;

@@ -28,13 +28,14 @@ function showHangar(anchor, labels, lang) {
   ticker = setInterval(tick, 1000);
 }
 
-// The map's resize corner and close button: while the pointer is on one of them the window takes the
-// mouse (it is click-through otherwise). A drag on the corner sends the pointer's screen position to the
-// main process, which sizes the window; the × unpins the map.
+// The map's resize corner, opacity slider and close button: while the pointer is on one of them the
+// window takes the mouse (it is click-through otherwise). A drag on the corner sends the pointer's
+// screen position to the main process, which sizes the window; the slider sets the map's opacity; the
+// × unpins the map.
 const grip = $('grip');
 let dragging = false;
 let overHot = false;
-pin.onSide((side) => { grip.dataset.side = side; });
+pin.onSide((side) => { grip.dataset.side = side; $('alpha').dataset.side = side; });
 const onHot = (e) => [...document.querySelectorAll('.pin-hot')].some((el) => {
   if (el.hidden) return false;
   const r = el.getBoundingClientRect();
@@ -59,6 +60,13 @@ grip.addEventListener('pointerup', (e) => {
   pin.resize('end');
 });
 grip.addEventListener('dblclick', () => pin.resize('reset'));
+// While the slider is held the mouse stays with the window, even if the pointer drifts off it.
+const alpha = $('alpha');
+let sliding = false;
+alpha.addEventListener('pointerdown', () => { sliding = true; dragging = true; });
+alpha.addEventListener('input', () => pin.alpha(alpha.value, false));
+alpha.addEventListener('change', () => pin.alpha(alpha.value, true));
+document.addEventListener('pointerup', () => { if (sliding) { sliding = false; dragging = false; } });
 
 pin.onData((data) => {
   clearInterval(ticker);
@@ -69,6 +77,11 @@ pin.onData((data) => {
   $('credit').hidden = !data.map;
   $('grip').hidden = !data.map;
   $('close').hidden = !data.map;
+  $('alpha').hidden = !data.map;
+  if (data.map) {
+    alpha.value = String(data.alpha);
+    alpha.title = data.alphaLabel;
+  }
   if (data.hangar) return showHangar(data.hangar, data.labels, data.lang);
   if (data.map) {
     $('unit').textContent = '';

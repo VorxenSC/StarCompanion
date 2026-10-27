@@ -462,6 +462,28 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 /* Component grade letters (A best … D), as in game */
 .grade { display: inline-block; min-width: 20px; padding: 0 5px; border: 1px solid currentColor; border-radius: 2px; font: 600 11px/16px var(--mono); text-align: center; }
 .grade-a { color: #8fe3a4; }
+/* Executive Hangar: its five lights, the live status and the cooldown timers. */
+.hlights { display: inline-flex; gap: 8px; }
+.hlight { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(205, 218, 230, 0.25); background: #10181f; }
+.hlight-red { background: #e5484d; box-shadow: 0 0 8px rgba(229, 72, 77, 0.6); border-color: #e5484d; }
+.hlight-green { background: #46d07a; box-shadow: 0 0 8px rgba(70, 208, 122, 0.6); border-color: #46d07a; }
+.hpanel { display: flex; align-items: center; gap: 22px; margin: 6px 0 10px; }
+.hpanel-big { font: 600 30px/1.1 var(--mono); }
+.hstatus-closed, .hstatus-closed b { color: #ff8a8f; }
+.hstatus-open, .hstatus-open b { color: #6fe39a; }
+.hstatus-reset, .hstatus-reset b { color: #ffd166; }
+.hclock { font-family: var(--mono); color: var(--text, #eef4f9); }
+.hroute .hroute-n { font: 600 10px var(--mono); fill: #0b1218; pointer-events: none; }
+.hroute .hroute-end { fill: #ffd166; }
+.hnotes { margin: 4px 0 8px; padding-left: 18px; }
+.hnotes li { margin: 3px 0; }
+.cd-time { font-family: var(--mono); }
+.cd-run { color: #ff8a8f; }
+.cd-soon { color: #ffd166; }
+.cd-ready { color: #6fe39a; }
+table.t-cd td { vertical-align: middle; padding-top: 3px; padding-bottom: 3px; }
+.cd-btn { min-width: 64px; padding: 2px 10px; }
+
 /* Who fires a weapon: pilot, crew in a manned turret, crew at a remote turret. */
 .control { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid currentColor; border-radius: 2px; font: 600 10px/15px var(--mono); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; vertical-align: 1px; }
 .control-pilot { color: #ffd166; }

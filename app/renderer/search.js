@@ -10,18 +10,20 @@
       .trim();
 
   // Small ranking nudges so the most useful kind of entry wins a tie.
-  const TYPE_BONUS = { mineral: 6, commodity: 5, ship: 5, blueprint: 3, item: 2, faction: 2, mission: 1, location: 0 };
+  const TYPE_BONUS = { activity: 6, mineral: 6, commodity: 5, ship: 5, blueprint: 3, item: 2, faction: 2, mission: 1, location: 0 };
   // Results come grouped by kind, in this order, within each match tier (see search()).
-  const GROUP_ORDER = ['blueprint', 'commodity', 'mineral', 'item', 'ship', 'faction', 'mission', 'location'];
+  const GROUP_ORDER = ['activity', 'blueprint', 'commodity', 'mineral', 'item', 'ship', 'faction', 'mission', 'location'];
   // A quoted colour or edition marks a variant: Parallax "Sunstone" Energy Assault Rifle.
   const baseOf = (name) => String(name || '').replace(/\s*["“][^"”]+["”]\s*/, ' ').replace(/\s+/g, ' ').trim();
 
-  // One row per searchable name; ships also get a row for their short name ("Cutlass Black" for "Drake Cutlass Black").
+  // One row per searchable name; ships also get a row for their short name ("Cutlass Black" for "Drake Cutlass Black"),
+  // and an entry its other names ("Exec Hangar" for the Executive Hangar).
   function buildIndex(entries) {
     const rows = [];
     for (const e of entries) {
       const names = [e.n];
       if (e.d && e.d.shortName && norm(e.d.shortName) !== norm(e.n)) names.push(e.d.shortName);
+      for (const alias of (e.d && e.d.aliases) || []) names.push(alias);
       for (const name of names) {
         const key = norm(name);
         rows.push({

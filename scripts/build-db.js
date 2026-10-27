@@ -498,6 +498,58 @@ for (const { base, members } of families.values()) {
   }
 }
 
+// ---------- Activities ----------
+// The Executive Hangar: the Pyro contested-zone chain that ends in a PYAM Exec ship. Gathered from the
+// starcitizen.tools article, contestedzonetimers.com (cycle, cooldowns, 4.10.2) and undisputednoobs.com's
+// tracker (which keycard opens which compboard); the overlay draws the live timer from the cycle.
+const shipNamed = (n) => [...shipByName.values()].find((s) => s.n === n)?.n || null;
+add({
+  t: 'activity',
+  n: 'Executive Hangar',
+  s: 'Pyro · PYAM-EXHANG-0-1 · contested zones',
+  d: {
+    kind: 'hangar',
+    aliases: ['Exec Hangar', 'Hangar Executivo', 'Executive Hangar timer', 'PYAM Exec'],
+    location: 'PYAM-EXHANG-0-1',
+    system: 'Pyro',
+    // In the order of a run: red keycards first, the compboards next, the hangar last.
+    route: [
+      { where: ['PYAM-SUPVISR-3-4', 'PYAM-SUPVISR-3-5'], what: 'Red keycards (2): they open compboard rooms at Checkmate and Orbituary' },
+      { where: ['Checkmate'], what: 'Compboards 1, 2 and 3', near: 'Monox' },
+      { where: ['Orbituary'], what: 'Compboards 4 and 7', near: 'Bloom' },
+      { where: ['Ruin Station'], what: 'Compboards 5 and 6', near: 'Terminus' },
+      { where: ['PYAM-EXHANG-0-1'], what: 'Put compboards 1–7 in their slots while the hangar is open, then claim the ship at the ASOP terminal' },
+    ],
+    boards: [
+      { n: 1, where: 'Checkmate', key: 'Red keycard' },
+      { n: 2, where: 'Checkmate', key: 'Blue keycard' },
+      { n: 3, where: 'Checkmate', key: 'Blue keycard' },
+      { n: 4, where: 'Orbituary', key: 'Red keycard' },
+      { n: 5, where: 'Ruin Station', key: 'Crypt keycard' },
+      { n: 6, where: 'Ruin Station', key: null },
+      { n: 7, where: 'Orbituary', key: 'Red keycard and 2 blue keycards' },
+    ],
+    // Each spot's cooldown after someone takes its keycard or compboard (minutes).
+    cooldowns: [
+      ['PYAM-SUPVISR-3-4', 'Red keycard', 30], ['PYAM-SUPVISR-3-5', 'Red keycard', 30],
+      ['Checkmate', 'Blue keycard terminal 1', 15], ['Checkmate', 'Blue keycard terminal 2', 15], ['Checkmate', 'Blue keycard terminal 3', 15],
+      ['Checkmate', 'Compboard 1', 30], ['Checkmate', 'Compboard 2', 30], ['Checkmate', 'Compboard 3', 30],
+      ['Orbituary', 'Blue keycard terminal 1', 15], ['Orbituary', 'Blue keycard terminal 2', 15],
+      ['Orbituary', 'Compboard 4', 30], ['Orbituary', 'Compboard 7', 30],
+      ['Ruin Station', 'The Crypt keycard', 15], ['Ruin Station', 'The Last Resort keycard', 15], ['Ruin Station', 'The Wasteland keycard', 15],
+      ['Ruin Station', 'Compboard 5', 30], ['Ruin Station', 'Compboard 6', 30],
+    ].map(([where, what, minutes]) => ({ where, what, minutes })),
+    // Each in a military or a stealth livery; the names the database knows link to the ship.
+    rewards: ['Corsair PYAM Exec', 'Cutlass Black PYAM Exec', 'F8C Lightning PYAM Exec', 'Hornet F7A Mk II PYAM Exec', 'RSI Meteor PYAM Exec', 'Syulen PYAM Exec', 'Scorpius', 'Guardian MX']
+      .map((n) => ({ name: n, ship: shipNamed(n) })),
+    url: 'https://starcitizen.tools/PYAM-EXHANG-0-1',
+    guideUrl: 'https://starcitizen.tools/Guide:Executive_Hangars',
+    timerUrl: 'https://contestedzonetimers.com',
+    mapsUrl: 'https://contestedzonetimers.com/contested-zone-maps',
+    trackerUrl: 'https://undisputednoobs.com/exec-hangar-tracker/',
+  },
+});
+
 // ---------- Write ----------
 const meta = {
   builtAt: new Date().toISOString(),

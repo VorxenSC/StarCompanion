@@ -16,6 +16,18 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .pin-list .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--tier); }
 .pin-list .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .pin-list .rs { font: 12px 'IBM Plex Mono', monospace; color: rgba(235, 242, 248, 0.92); }
+/* The Executive Hangar timer: its five lights, the countdown, when it next opens or closes. */
+.pin-hangar[hidden], .pin-list[hidden] { display: none; }
+.ph-row { display: flex; align-items: center; justify-content: space-between; }
+.ph-lights { display: inline-flex; gap: 5px; }
+.ph-light { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(205, 218, 230, 0.25); background: #10181f; }
+.ph-light.ph-red { background: #e5484d; border-color: #e5484d; }
+.ph-light.ph-green { background: #46d07a; border-color: #46d07a; }
+.ph-clock { font: 600 20px/1.2 'IBM Plex Mono', monospace; }
+.ph-line { margin-top: 2px; font: 11px 'IBM Plex Mono', monospace; color: rgba(205, 218, 230, 0.7); }
+.ph-closed { color: #ff8a8f; }
+.ph-open { color: #6fe39a; }
+.ph-reset { color: #ffd166; }
 .tier-common { --tier: rgba(205, 218, 230, 0.55); }
 .tier-uncommon { --tier: #8fe3a4; }
 .tier-rare { --tier: #5fd4e8; }

@@ -28,8 +28,8 @@ const TYPES = [
   ['faction', 'Factions'],
   ['location', 'Locations'],
 ];
-const TYPE_LABEL = { item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', commodity: 'Commodity', faction: 'Faction', location: 'Location' };
-const GROUP_LABEL = { item: 'Items', ship: 'Ships', blueprint: 'Blueprints', mission: 'Missions', mineral: 'Minerals', commodity: 'Commodities', faction: 'Factions', location: 'Locations' };
+const TYPE_LABEL = { activity: 'Activity', item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', commodity: 'Commodity', faction: 'Faction', location: 'Location' };
+const GROUP_LABEL = { activity: 'Activities', item: 'Items', ship: 'Ships', blueprint: 'Blueprints', mission: 'Missions', mineral: 'Minerals', commodity: 'Commodities', faction: 'Factions', location: 'Locations' };
 const PANEL_GAP = 6; // .panel.open margin-top
 const SHRINK_DELAY = 440; // let the panel's height transition finish before the window shrinks
 
@@ -828,7 +828,175 @@ function viewFaction(e) {
   };
 }
 
-const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, commodity: viewCommodity, faction: viewFaction, location: viewLocation };
+// ---------- Executive Hangar ----------
+// The hangar's live timer (its five lights, the countdown, the next openings in local time), the run
+// from the red keycards to the hangar, which keycard opens each compboard, a cooldown timer for each
+// spot, the reward ships, and a pin that keeps the timer beside the icon.
+let hangarAnchor = CompanionHangar.DEFAULT_ANCHOR;
+companion.hangarAnchor().then((a) => { if (a) hangarAnchor = a; });
+companion.onHangarAnchor((a) => { hangarAnchor = a; });
+
+const HANGAR_PHASE = { closed: 'Closed', open: 'Open', reset: 'Resetting' };
+const HANGAR_UNTIL = { closed: 'opens in {time}', open: 'closes in {time}', reset: 'reopens in {time}' };
+const localTime = (s) => {
+  const d = new Date(s * 1000);
+  const time = d.toLocaleTimeString(CompanionI18n.getLanguage(), { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString(CompanionI18n.getLanguage(), { weekday: 'short' })} ${time}`;
+};
+
+// Runs fn every second while el is on screen; stops once the page is left.
+function everySecond(el, fn) {
+  fn();
+  const id = setInterval(() => (el.isConnected ? fn() : clearInterval(id)), 1000);
+  return el;
+}
+
+// "Compboard 4" and "Blue keycard terminal 2" translate as "Compboard {n}" and so on.
+const trNumbered = (text) => {
+  const m = /^(.*\D)(\d+)$/.exec(text);
+  return m ? tr(`${m[1]}{n}`, { n: m[2] }) : tr(text);
+};
+
+function hangarLights(lights) {
+  return h('span', { class: 'hlights' }, lights.map((l) => h('i', { class: `hlight hlight-${l}` })));
+}
+
+// "Closed · opens in 1:04:12", kept current.
+function hangarStatus() {
+  const el = h('span', { class: 'hstatus' });
+  return everySecond(el, () => {
+    const s = CompanionHangar.state(Date.now(), hangarAnchor);
+    el.className = `hstatus hstatus-${s.phase}`;
+    el.replaceChildren(h('b', null, tr(HANGAR_PHASE[s.phase])), h('span', { class: 'hclock' }, ` · ${tr(HANGAR_UNTIL[s.phase], { time: CompanionHangar.clock(s.left) })}`));
+  });
+}
+
+function hangarPanel() {
+  const el = h('div', { class: 'hpanel' });
+  return everySecond(el, () => {
+    const s = CompanionHangar.state(Date.now(), hangarAnchor);
+    const next = s.windows[0];
+    el.replaceChildren(
+      hangarLights(s.lights),
+      h('div', { class: 'hpanel-text' },
+        h('div', { class: `hpanel-big hstatus-${s.phase}` }, CompanionHangar.clock(s.left)),
+        h('div', { class: 'dim' },
+          s.phase === 'open'
+            ? tr('Open until {time} (your time)', { time: localTime(s.openEnds) })
+            : tr('Opens at {time} (your time), for 1 hour', { time: localTime(next.opens) }))),
+    );
+  });
+}
+
+// One countdown per keycard or compboard spot, started when you take one: its end time is kept, so it
+// survives closing the overlay and restarting the app.
+const COOLDOWN_KEY = 'hangar-cooldowns';
+const loadCooldowns = () => { try { return JSON.parse(localStorage.getItem(COOLDOWN_KEY)) || {}; } catch { return {}; } };
+const saveCooldowns = (c) => { try { localStorage.setItem(COOLDOWN_KEY, JSON.stringify(c)); } catch { /* the timers just won't outlive the app */ } };
+function cooldownCell(c) {
+  const id = `${c.where}|${c.what}`;
+  const time = h('span', { class: 'cd-time' });
+  const btn = h('button', { class: 'set-btn copy-btn cd-btn' });
+  const paint = () => {
+    const end = loadCooldowns()[id];
+    const left = end ? Math.ceil((end - Date.now()) / 1000) : null;
+    time.textContent = left > 0 ? CompanionHangar.clock(left) : left != null ? tr('Ready') : CompanionHangar.clock(c.minutes * 60);
+    time.className = `cd-time${left > 180 ? ' cd-run' : left > 0 ? ' cd-soon' : left != null ? ' cd-ready' : ''}`;
+    btn.textContent = end ? tr('Clear') : tr('Start');
+  };
+  btn.addEventListener('click', () => {
+    const all = loadCooldowns();
+    if (all[id]) delete all[id];
+    else all[id] = Date.now() + c.minutes * 60000;
+    saveCooldowns(all);
+    paint();
+  });
+  return [everySecond(time, paint), btn];
+}
+
+function hangarRoute(route) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, text) => {
+    const x = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) x.setAttribute(k, v);
+    if (text != null) x.textContent = text;
+    return x;
+  };
+  // The run as a line of stops, from the Supervisor stations to the hangar, each under the body it
+  // orbits; a click opens that place.
+  const W = 640;
+  const svg = el('svg', { class: 'sysmap hroute', viewBox: `0 0 ${W} 92`, role: 'img', 'aria-label': tr('Executive Hangar route') });
+  const stops = route.map((r, i) => ({ ...r, x: 60 + (i * (W - 120)) / (route.length - 1) }));
+  svg.append(el('path', { d: `M ${stops[0].x} 34 H ${stops[stops.length - 1].x}`, class: 'sysmap-orbit' }));
+  stops.forEach((r, i) => {
+    const g = el('g', { class: 'sysmap-body' });
+    g.append(el('circle', { cx: r.x, cy: 34, r: i === stops.length - 1 ? 11 : 8, class: i === stops.length - 1 ? 'hroute-end' : '' }));
+    g.append(el('text', { x: r.x, y: 38, 'text-anchor': 'middle', class: 'hroute-n' }, String(i + 1)));
+    g.append(el('text', { x: r.x, y: 66, 'text-anchor': 'middle' }, r.where.length > 1 ? 'PYAM-SUPVISR' : r.where[0]));
+    g.append(el('text', { x: r.x, y: 82, 'text-anchor': 'middle', class: 'sysmap-zone' }, r.near ? tr('near {body}', { body: r.near }) : r.where.length > 1 ? '3-4 · 3-5' : tr('near the star')));
+    g.addEventListener('click', () => goTo(r.where[0], 'location'));
+    svg.append(g);
+  });
+  return svg;
+}
+
+function hangarPinButton() {
+  const btn = h('button', { class: 'set-btn copy-btn', title: tr('The hangar timer beside the icon') });
+  btn.refresh = (s) => {
+    const on = s.pinSignatures === 'hangar';
+    btn.textContent = on ? tr('Unpin') : tr('Pin the timer');
+    btn.classList.toggle('done', on);
+  };
+  pinButtons.push(btn);
+  companion.getSettings().then(btn.refresh);
+  btn.addEventListener('click', async () => {
+    const s = await companion.getSettings();
+    const next = await companion.setSetting('pinSignatures', s.pinSignatures === 'hangar' ? false : 'hangar');
+    for (const b of pinButtons) if (b.isConnected) b.refresh(next);
+  });
+  return btn;
+}
+
+function viewActivity(e) {
+  const d = e.d;
+  const place = (n) => jump(n, n, 'location');
+  return {
+    actions: [hangarPinButton()],
+    facts: [
+      ['Hangar', hangarStatus()],
+      ['Location', place(d.location)],
+      ['System', jump(d.system, d.system, 'location')],
+      ['Cycle', tr('185 min: 2 h closed, 1 h open, 5 min reset')],
+      ['Compboards', tr('7 (boards 1–7)')],
+      ['Reward', tr('One PYAM Exec ship')],
+    ],
+    body: [
+      section('Hangar timer', hangarPanel(),
+        table([['Opens', ''], ['Closes', '']], CompanionHangar.state(Date.now(), hangarAnchor).windows.map((w) => [localTime(w.opens), localTime(w.closes)])),
+        note('The lights turn green one every 24 minutes while it is closed and go out one every 12 minutes while it is open. The compboards only go in while it is open; at the end an alarm sounds for 5 minutes and anyone still inside dies.')),
+      section('Route', hangarRoute(d.route),
+        table([['Step', 'num'], ['Where', ''], ['What', '']], d.route.map((r, i) => [String(i + 1), h('span', null, r.where.map((w, j) => [j ? ', ' : '', place(w)])), tr(r.what)]))),
+      section('Compboards',
+        table([['Board', 'num'], ['Where', ''], ['Opened with', '']], d.boards.map((b) => [String(b.n), place(b.where), b.key ? tr(b.key) : h('span', { class: 'dim' }, '—')]))),
+      section('Cooldown timers',
+        note('Start one when you take a keycard or a compboard: it counts down until that spot gives another.'),
+        table([['Where', ''], ['What', ''], ['Timer', 'num'], ['', '']], d.cooldowns.map((c) => [c.where, trNumbered(c.what), ...cooldownCell(c)]), 't-cd')),
+      section('Reward ships',
+        h('div', null, sortedBy(d.rewards, (r) => r.name).map((r) => h('span', { class: 'pill' }, r.ship ? jump(r.name, r.ship, 'ship') : r.name))),
+        note('Each comes in a military or a stealth livery. Rare FPS weapons and grade A ship components can also be found inside.')),
+      section('Good to know',
+        h('ul', { class: 'hnotes' },
+          ['The cycle is the same on every server and region.',
+            'Dark lights while the timer says open: another player has already opened the door. The cycle itself does not change.',
+            'After a patch or a server restart the timer can be off for a day or two, until it is checked again in game.',
+            'Watch the service entrance when defending: it lets players in behind you.'].map((t) => h('li', null, tr(t))))),
+      note('Timer: contestedzonetimers.com, by Appieman. Zone maps by Terada (Checkmate, Orbituary, Ruin Station) and u/Kerast (Executive Hangar, Supervisor).'),
+      links([['Zone maps', d.mapsUrl], ['Wiki', d.url], ['Guide', d.guideUrl], ['Timer', d.timerUrl], ['Tracker', d.trackerUrl]]),
+    ],
+  };
+}
+
+const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, commodity: viewCommodity, faction: viewFaction, location: viewLocation, activity: viewActivity };
 
 // The item's picture, by preference: cstone's render, the wiki page's picture, then a player's photo
 // from a UEX offer. All are tried at once (a missing cstone picture can take a while to fail): the
@@ -870,6 +1038,7 @@ const HEADLINE = {
   commodity: ['Best sale', 'Cheapest buy'],
   faction: ['Type', 'Area'],
   location: ['System', 'Star'],
+  activity: ['Hangar'],
 };
 
 function renderDetail(e) {
@@ -1097,9 +1266,9 @@ function renderSettings() {
     row('Start with Windows', s.canStartWithWindows ? 'Launch quietly when you sign in' : 'Available in the installed app', toggle('startWithWindows', s.startWithWindows, !s.canStartWithWindows), i++),
     row('Click into the search box', 'When the shortcut opens it, so you can type at once in game', toggle('autoClick', s.autoClick), i++),
     row(
-      'Pin mineral signatures',
-      'A list of radar signatures beside the icon, for scanning',
-      choice('pinSignatures', [[false, tr('Off')], ['ship', tr('Ship ores')], ['fps', tr('Hand-mined')], ['vehicle', tr('ROC ores')], ...(s.pinMineral ? [['mineral', s.pinMineral]] : [])], s.pinSignatures || false),
+      'Pin beside the icon',
+      'Radar signatures for scanning, or the Executive Hangar timer',
+      choice('pinSignatures', [[false, tr('Off')], ['ship', tr('Ship ores')], ['fps', tr('Hand-mined')], ['vehicle', tr('ROC ores')], ...(s.pinMineral ? [['mineral', s.pinMineral]] : []), ['hangar', tr('Executive Hangar')]], s.pinSignatures || false),
       i++,
     ),
     row('Close when clicking the game', 'Fold back into the icon when the game gets focus', toggle('hideOnBlur', s.hideOnBlur), i++),

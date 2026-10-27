@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const i18n = require('./renderer/i18n.js');
+const hangar = require('./renderer/hangar.js');
 const T = i18n.t;
 
 const REPO = { owner: 'VorxenSC', repo: 'StarCompanion' };
@@ -35,8 +36,9 @@ const DEFAULT_CONFIG = {
   skipVersion: null, // a release the player chose not to be reminded about
   language: 'auto', // 'auto' (Windows' language), 'en' or 'pt-BR'
   autoClick: true, // when the shortcut opens the bar, click into the search box so typing works at once
-  pinSignatures: false, // the signature list beside the icon: false, 'ship', 'fps' (hand-mined), 'vehicle' (ROC) or 'mineral'
+  pinSignatures: false, // what sits beside the icon: false, 'ship', 'fps' (hand-mined), 'vehicle' (ROC), 'mineral' or 'hangar' (the Executive Hangar timer)
   pinMineral: null, // with 'mineral': the one mineral pinned, with its 1×–10× rocks
+  hangarAnchor: null, // the Executive Hangar cycle's start (s) last read online; the built-in one until then
   // dockX, dockY: where the icon sits; the bar unfolds from it. Saved when either is dragged.
   // sizeChosen: true once the player resized with the grip; their width and height are kept from then on.
 };
@@ -547,6 +549,27 @@ async function refreshCommodities() {
   }
 }
 
+// ---------- Executive Hangar timer ----------
+// The cycle's start as contestedzonetimers.com keeps it (re-checked in game after each patch): read at
+// start-up and every 3 hours, kept in the config for the next start without a connection.
+const HANGAR_ANCHOR_URL = 'https://contestedzonetimers.com/lib/cfg.dat';
+const HANGAR_ANCHOR_MS = 3 * 60 * 60 * 1000;
+const hangarAnchor = () => config.hangarAnchor || hangar.DEFAULT_ANCHOR;
+
+async function refreshHangarAnchor() {
+  try {
+    const res = await net.fetch(HANGAR_ANCHOR_URL, { signal: AbortSignal.timeout(15000) });
+    const anchor = res.ok ? hangar.validAnchor(await res.text()) : null;
+    if (!anchor || anchor === config.hangarAnchor) return;
+    config.hangarAnchor = anchor;
+    saveConfig();
+    win?.webContents.send('hangar:anchor', anchor);
+    sendPinData();
+  } catch {
+    // offline: the last start read stays
+  }
+}
+
 // ---------- Suggestions ----------
 let lastFeedbackAt = 0;
 
@@ -594,15 +617,24 @@ function openFeedback() {
 // opacity. It hides while the search bar is open (the bar unfolds from the icon) and comes back.
 const PIN_WIDTH = 190;
 const PIN_GAP = 6;
-const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral'];
+const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral', 'hangar'];
 const PIN_TITLES = { ship: 'Ship ores RS', fps: 'Hand-mined RS', vehicle: 'ROC ores RS' };
 let pinWin = null;
 let pinRows = []; // [{ n, tier, category, sig, rs: [1×…10×] }] from the overlay's database
 
-// What the list shows now: { title, unit, rows: [{ label, value, tier }] }, or null.
+// What the list shows now: { title, unit, rows: [{ label, value, tier }] }, the hangar timer
+// ({ hangar: anchor, title, labels }, which the pin counts down itself), or null.
 function pinView() {
   const mode = config.pinSignatures;
   if (!PIN_MODES.includes(mode)) return null;
+  if (mode === 'hangar') {
+    return {
+      hangar: hangarAnchor(),
+      title: T('Executive Hangar'),
+      lang: i18n.getLanguage(),
+      labels: { closed: T('Closed'), open: T('Open'), reset: T('Resetting'), opensIn: T('opens in'), closesIn: T('closes in'), backIn: T('reopens in'), opensAt: T('Opens at {time}'), closesAt: T('Closes at {time}') },
+    };
+  }
   if (mode === 'mineral') {
     const m = pinRows.find((r) => r.n === config.pinMineral);
     if (!m) return null;
@@ -646,7 +678,7 @@ function updatePin() {
   const dock = dockPosition();
   const { workArea: a } = screen.getDisplayNearestPoint({ x: dock.x + DOCK_SIZE / 2, y: dock.y + DOCK_SIZE / 2 });
   pinWin.setOpacity(config.dockOpacity); // the same alpha as the icon it sits beside
-  const height = Math.min(a.height, 34 + view.rows.length * 17);
+  const height = view.hangar ? 84 : Math.min(a.height, 34 + view.rows.length * 17);
   const iconOnRight = dock.x + DOCK_SIZE / 2 > a.x + a.width / 2;
   let x = iconOnRight ? dock.x + DOCK_INSET - PIN_GAP - PIN_WIDTH : dock.x + DOCK_SIZE - DOCK_INSET + PIN_GAP;
   x = Math.max(a.x, Math.min(a.x + a.width - PIN_WIDTH, x));
@@ -655,7 +687,7 @@ function updatePin() {
   if (!pinWin.isVisible()) pinWin.showInactive();
 }
 
-// mode: false (off), 'ship', 'fps', 'vehicle', or 'mineral' with the mineral's name.
+// mode: false (off), 'ship', 'fps', 'vehicle', 'hangar', or 'mineral' with the mineral's name.
 function setPinSignatures(mode, mineral) {
   config.pinSignatures = PIN_MODES.includes(mode) ? mode : false;
   if (mode === 'mineral' && typeof mineral === 'string') config.pinMineral = mineral.slice(0, 80);
@@ -728,6 +760,8 @@ function startup() {
   setInterval(checkGameVersion, 6 * 60 * 60 * 1000);
   refreshCommodities();
   setInterval(refreshCommodities, LIVE_COMMODITIES_MS);
+  refreshHangarAnchor();
+  setInterval(refreshHangarAnchor, HANGAR_ANCHOR_MS);
   if (config.showNotice) {
     open();
     win.webContents.send('overlay:notice');
@@ -1018,13 +1052,14 @@ function buildTray() {
       { label: T('Show / hide ({key})', { key: config.hotkey }), click: toggle },
       { label: T('Settings…'), click: openSettings },
       {
-        label: T('Pin mineral signatures'),
+        label: T('Pin beside the icon'),
         submenu: [
           { label: T('Off'), type: 'radio', checked: !config.pinSignatures, click: () => setPinSignatures(false) },
           { label: T('Ship ores'), type: 'radio', checked: config.pinSignatures === 'ship', click: () => setPinSignatures('ship') },
           { label: T('Hand-mined'), type: 'radio', checked: config.pinSignatures === 'fps', click: () => setPinSignatures('fps') },
           { label: T('ROC ores'), type: 'radio', checked: config.pinSignatures === 'vehicle', click: () => setPinSignatures('vehicle') },
           ...(config.pinMineral ? [{ label: T('{name} (1×–10× rocks)', { name: config.pinMineral }), type: 'radio', checked: config.pinSignatures === 'mineral', click: () => setPinSignatures('mineral', config.pinMineral) }] : []),
+          { label: T('Executive Hangar timer'), type: 'radio', checked: config.pinSignatures === 'hangar', click: () => setPinSignatures('hangar') },
         ],
       },
       { type: 'separator' },
@@ -1163,6 +1198,7 @@ function snapshotMode(spec) {
 
 ipcMain.handle('db:load', () => fs.promises.readFile(dbFile(), 'utf8'));
 ipcMain.handle('commodities:live', () => liveCommodities); // the latest fetch, for a database reloaded later
+ipcMain.handle('hangar:anchor', () => hangarAnchor());
 ipcMain.handle('app:config', () => ({ language: i18n.getLanguage(), hotkey: config.hotkey, maxHeight: maxHeight(), zoom: config.zoom, dockOpacity: config.dockOpacity, liveGameVersion }));
 ipcMain.on('overlay:hide', () => close());
 ipcMain.on('overlay:closed', () => finishClose());

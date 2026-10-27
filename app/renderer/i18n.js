@@ -138,7 +138,7 @@
     'Click into the search box': 'Clicar na caixa de busca', 'When the shortcut opens it, so you can type at once in game': 'Quando o atalho abre a barra, para você digitar na hora dentro do jogo',
     Weapons: 'Armas', Bombs: 'Bombas', Shields: 'Escudos', 'Power plants': 'Geradores', Coolers: 'Resfriadores', 'Quantum drive': 'Motor quântico',
     'Jump drive': 'Motor de salto', Radar: 'Radar', 'Life support': 'Suporte de vida', 'Mining lasers': 'Lasers de mineração', 'Salvage heads': 'Cabeças de salvage',
-    'Tractor beams': 'Raios trator', 'Quantum interdiction': 'Interdição quântica', Countermeasures: 'Contramedidas', 'on {mount}': 'em {mount}',
+    'Tractor beams': 'Raios trator', 'Quantum interdiction': 'Interdição quântica', Countermeasures: 'Contramedidas', 'on {mount}': 'em {mount}', Pilot: 'Piloto', 'Crew turret': 'Torre tripulada', 'Remote turret': 'Torre remota', 'Remote turret · pilot if unmanned': 'Torre remota · piloto se vazia',
     Civilian: 'Civil', Military: 'Militar', Industrial: 'Industrial', Stealth: 'Furtivo', Competition: 'Competição',
     'Initializing overlay': 'Iniciando o overlay', 'Loading item database': 'Carregando a base de itens', Ready: 'Pronto', 'toggle overlay': 'abre e fecha',
     Rarity: 'Raridade', 'Mined with': 'Minerado com', 'Mining ship': 'Nave de mineração', 'ROC / ground vehicle': 'ROC / veículo terrestre',

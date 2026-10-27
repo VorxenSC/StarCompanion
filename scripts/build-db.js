@@ -268,9 +268,14 @@ const wikiItemByName = new Map((wiki?.items || []).map((w) => [norm(w.name), w])
 const matrixByName = new Map();
 for (const r of ships?.rsiMatrix || []) for (const k of [r.name, `${r.manufacturer} ${r.name}`]) matrixByName.set(norm(k), r);
 const GENERIC_PART = /^(radar|power plants?|coolers?|shield generators?|quantum drives?|jump modules?|life support|tbd)$/;
+// Remote turrets the pilot takes over (locked to the forward arc) while no gunner sits at them. The wiki
+// does not record it, so these come from the ship's own Q&A and guides: ship name → turret mount.
+const PILOT_WHEN_UNMANNED = { 'Anvil Paladin': /VariPuck S4/ };
 for (const ship of new Set(shipByName.values())) {
   // The game's internal names ("radr_wlop_s03_lephari") are not equipment a player would recognise.
   if (ship.d.loadout) ship.d.loadout = ship.d.loadout.filter((l) => !JUNK_WIKI.test(l.item));
+  const slaved = PILOT_WHEN_UNMANNED[ship.n];
+  for (const l of slaved ? ship.d.loadout || [] : []) if (l.control === 'remote' && slaved.test(l.mount || '')) l.control = 'remote-pilot';
   const m = matrixByName.get(norm(ship.d.shortName)) || matrixByName.get(norm(ship.n));
   if (!m) continue;
   const have = new Set((ship.d.loadout || []).map((l) => `${l.type}|${norm(l.item)}`));

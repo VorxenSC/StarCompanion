@@ -462,6 +462,12 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 /* Component grade letters (A best … D), as in game */
 .grade { display: inline-block; min-width: 20px; padding: 0 5px; border: 1px solid currentColor; border-radius: 2px; font: 600 11px/16px var(--mono); text-align: center; }
 .grade-a { color: #8fe3a4; }
+/* Who fires a weapon: pilot, crew in a manned turret, crew at a remote turret. */
+.control { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid currentColor; border-radius: 2px; font: 600 10px/15px var(--mono); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; vertical-align: 1px; }
+.control-pilot { color: #ffd166; }
+.control-manned { color: #7cc4ff; }
+.control-remote { color: #c3a6ff; }
+.control-remote-pilot { color: #ffd166; }
 .grade-b { color: #5fd4e8; }
 .grade-c { color: #ffd27a; }
 .grade-d { color: rgba(205, 218, 230, 0.72); }

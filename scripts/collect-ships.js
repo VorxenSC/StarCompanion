@@ -45,11 +45,25 @@ const LOADOUT_KEEP = /^(WeaponGun|Missile|Bomb|Shield|PowerPlant|Cooler|QuantumD
 const MOUNTS = /^(Turret|TurretBase|MissileLauncher|BombLauncher|ToolArm|UtilityTurret)$/;
 const junkName = (n) => !n || /PLACEHOLDER|^<=|^\[|_subitem_/.test(n);
 
-function loadoutOf(ports, mount = null, out = []) {
+// Who fires a weapon, from the ship's top-level port it hangs under: the pilot's guns and missile racks
+// ("Turrets", "Weapons", "Missile & Bomb Racks"), a crew member in a manned turret, or a crew member
+// operating a remote turret from a seat inside. Ports the wiki files under "Other" fall back on the
+// hardpoint's name: wing and nose guns are the pilot's, turrets and door guns ("weapon") a crew member's.
+function controlOf(category, port) {
+  if (/manned turret/i.test(category || '')) return 'manned';
+  if (/remote turret/i.test(category || '')) return 'remote';
+  if (/turret|weapon|gun|missile|bomb/i.test(category || '')) return 'pilot';
+  if (/turret/i.test(port || '') || port === 'weapon') return 'manned';
+  if (/^hardpoint_(weapon|gun|missile)/i.test(port || '')) return 'pilot';
+  return null;
+}
+
+function loadoutOf(ports, mount = null, out = [], control = undefined) {
   for (const p of ports || []) {
     const it = p.equipped_item;
     if (!it) continue;
     const named = !junkName(it.name);
+    const by = control === undefined ? controlOf(p.category_label, p.name) : control; // null: let inner ports decide
     if (named && LOADOUT_KEEP.test(it.type || '')) {
       out.push({
         type: it.type,
@@ -61,9 +75,10 @@ function loadoutOf(ports, mount = null, out = []) {
         class: it.class || null,
         manufacturer: junkName(it.manufacturer?.name) || it.manufacturer?.name === 'Unknown' ? null : it.manufacturer.name,
         mount,
+        control: /WeaponGun|Missile|Bomb|EMP/.test(it.type || '') ? by : undefined,
       });
     }
-    loadoutOf(p.ports || it.ports, named && MOUNTS.test(it.type || '') ? it.name : mount, out);
+    loadoutOf(p.ports || it.ports, named && MOUNTS.test(it.type || '') ? it.name : mount, out, by ?? undefined);
   }
   return out;
 }

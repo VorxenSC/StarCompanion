@@ -299,17 +299,23 @@ const LOADOUT_GROUPS = [
   ['WeaponMining', 'Mining lasers'], ['SalvageHead', 'Salvage heads'], ['TractorBeam', 'Tractor beams'], ['QuantumInterdictionGenerator', 'Quantum interdiction'],
   ['EMP', 'EMP'],
 ];
+// Who fires a weapon: the pilot, a crew member in a manned turret, or one at a remote turret's seat.
+// Within a group the pilot's weapons come first.
+const CONTROLS = { pilot: 'Pilot', 'remote-pilot': 'Remote turret · pilot if unmanned', manned: 'Crew turret', remote: 'Remote turret' };
+const CONTROL_ORDER = ['pilot', 'remote-pilot', 'manned', 'remote'];
 function groupLoadout(loadout) {
   const m = new Map();
   for (const l of loadout) {
-    const k = `${l.type}|${l.item}|${l.mount || ''}`;
+    const k = `${l.type}|${l.item}|${l.mount || ''}|${l.control || ''}`;
     if (m.has(k)) m.get(k).count++;
     else m.set(k, { ...l, count: 1 });
   }
   const lang = CompanionI18n.getLanguage();
   const groupName = (t) => tr((LOADOUT_GROUPS.find(([g]) => g === t) || [t, t])[1]);
+  const rank = (l) => (CONTROL_ORDER.indexOf(l.control) + 5) % 5;
   return [...m.values()].sort((a, z) =>
     groupName(a.type).localeCompare(groupName(z.type), lang) ||
+    rank(a) - rank(z) ||
     a.item.localeCompare(z.item, lang) ||
     (a.mount || '').localeCompare(z.mount || '', lang));
 }
@@ -323,7 +329,8 @@ function loadoutTable(loadout) {
     [['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'num'], ['Class', 'dim']],
     rows.map((l, i) => [
       i === 0 || rows[i - 1].type !== l.type ? label(l.type) : '',
-      h('span', null, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : '', l.mount && h('span', { class: 'dim' }, ` · ${tr('on {mount}', { mount: l.mount })}`)),
+      h('span', null, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : '', l.mount && h('span', { class: 'dim' }, ` · ${tr('on {mount}', { mount: l.mount })}`),
+        CONTROLS[l.control] && h('span', { class: `control control-${l.control}` }, tr(CONTROLS[l.control]))),
       l.size != null ? `S${l.size}` : '',
       l.grade ? h('span', { class: `grade grade-${l.grade.toLowerCase()}` }, l.grade) : '',
       l.class ? tr(l.class) : '',

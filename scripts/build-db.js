@@ -32,6 +32,7 @@ const market = load('market.json');
 const commodities = load('commodities.json');
 const factions = load('factions.json');
 const wikiImages = load('images.json')?.images || {};
+const rsiPrices = load('rsi-prices.json');
 // Hand-written notes (where players find things, systems): scripts/curated/*.json, shipped with the app.
 const CURATED = path.join(__dirname, 'curated');
 const curated = (f) => (fs.existsSync(path.join(CURATED, f)) ? JSON.parse(fs.readFileSync(path.join(CURATED, f), 'utf8')) : null);
@@ -268,6 +269,8 @@ const matrixByName = new Map();
 for (const r of ships?.rsiMatrix || []) for (const k of [r.name, `${r.manufacturer} ${r.name}`]) matrixByName.set(norm(k), r);
 const GENERIC_PART = /^(radar|power plants?|coolers?|shield generators?|quantum drives?|jump modules?|life support|tbd)$/;
 for (const ship of new Set(shipByName.values())) {
+  // The game's internal names ("radr_wlop_s03_lephari") are not equipment a player would recognise.
+  if (ship.d.loadout) ship.d.loadout = ship.d.loadout.filter((l) => !JUNK_WIKI.test(l.item));
   const m = matrixByName.get(norm(ship.d.shortName)) || matrixByName.get(norm(ship.n));
   if (!m) continue;
   const have = new Set((ship.d.loadout || []).map((l) => `${l.type}|${norm(l.item)}`));
@@ -279,6 +282,14 @@ for (const ship of new Set(shipByName.values())) {
     }
     have.add(`${c.type}|${norm(c.name)}`);
   }
+}
+
+// RSI store prices read from the store pages: the standalone listing and its warbond twin.
+const rsiByName = new Map((rsiPrices?.prices || []).map((p) => [norm(p.name), p]));
+const rsiChecked = rsiPrices?.fetchedAt?.slice(0, 10);
+for (const ship of new Set(shipByName.values())) {
+  const p = rsiByName.get(norm(ship.n));
+  if (p) ship.d.rsi = { usd: p.usd, available: p.available, url: p.url, warbond: p.warbond, checked: rsiChecked };
 }
 
 for (const ship of new Set(shipByName.values())) {
@@ -494,6 +505,7 @@ const meta = {
     'starcitizen.tools': wiki && { fetchedAt: wiki.fetchedAt },
     'uexcorp.space (prices, as used by spviewer)': ships && { fetchedAt: ships.fetchedAt },
     'robertsspaceindustries.com ship matrix': ships?.rsiMatrix?.length ? { fetchedAt: ships.fetchedAt } : undefined,
+    'robertsspaceindustries.com store prices': rsiPrices && { fetchedAt: rsiPrices.fetchedAt },
     'uexcorp.space marketplace': market && { fetchedAt: market.fetchedAt },
   },
   counts: entries.reduce((acc, e) => ((acc[e.t] = (acc[e.t] || 0) + 1), acc), {}),

@@ -473,6 +473,7 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 .rs-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
 .rs-chip { display: inline-flex; gap: 6px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 3px; font: 13px var(--mono); }
 .copy-btn { flex: none; }
+.copy-btn { color: #ffd166; } /* action buttons: yellow text */
 .copy-btn.done { border-color: var(--accent); color: var(--accent); }
 .detail-actions { display: flex; gap: 8px; margin-top: 10px; }
 .rs-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

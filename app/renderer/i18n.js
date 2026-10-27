@@ -154,6 +154,7 @@
     'Bounty hunting': 'Caça de recompensa', Attack: 'Ataque', Patrol: 'Patrulha', Recovery: 'Recuperação', 'Facility raid': 'Invasão de instalação',
     Salvage: 'Salvage', Delivery: 'Entrega', Investigation: 'Investigação', Hunting: 'Caça',
     'Click to type a quality (0–1000)': 'Clique para digitar uma qualidade (0–1000)', Quality: 'Qualidade',
+    'Standalone ship': 'Nave avulsa', 'MSRP — not listed in the store right now.': 'MSRP — fora da loja no momento.',
     'Key listener': 'Leitor de teclas', 'Active · {n} key presses seen{last}': 'Ativo · {n} teclas recebidas{last}', ' · shortcut last pressed {t}': ' · atalho apertado às {t}',
     'Not running: the shortcut only works outside the game': 'Parado: o atalho só funciona fora do jogo', 'Show log': 'Ver log',
     English: 'Inglês', Portuguese: 'Português',

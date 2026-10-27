@@ -194,13 +194,20 @@ function tipsSection(tips) {
 
 function viewShip(e) {
   const d = e.d;
-  const store = d.store || [];
-  // The ship's own price: its standalone listing (never a package), else the RSI MSRP.
-  const standalone = store.find((s) => s.standalone && !s.warbond && s.available) || store.find((s) => s.standalone && !s.warbond);
-  const storePrice = standalone ? standalone.discountedUsd || standalone.usd : d.msrp;
-  // Warbond: a discounted offer payable only with new money, shown only while it is on sale.
-  const warbond = store.find((s) => s.warbond && s.available && !s.pack);
-  const lastWarbond = !warbond && store.filter((s) => s.warbond && !s.pack).sort((a, z) => (z.checked || '').localeCompare(a.checked || ''))[0];
+  // The ship's price in the RSI store, one line: read from its store page when that worked (d.rsi),
+  // else the wiki's most recent standalone listing (never a package), else the RSI MSRP.
+  const listings = (d.store || []).filter((s) => s.standalone && !s.pack).sort((a, z) => (z.checked || '').localeCompare(a.checked || ''));
+  const wikiListing = listings.find((s) => s.available) || listings[0];
+  const fromRsi = d.rsi && (d.rsi.usd != null
+    ? { usd: d.rsi.usd, available: d.rsi.available, url: d.rsi.url, checked: d.rsi.checked }
+    : d.rsi.warbond && { usd: d.rsi.warbond.usd, available: d.rsi.warbond.available, warbond: true, url: d.rsi.warbond.url, checked: d.rsi.checked });
+  // A warbond on sale now is a current store price too: shown beside the standalone one.
+  const warbondNow = d.rsi?.usd != null && d.rsi.warbond?.available ? { usd: d.rsi.warbond.usd, available: true, warbond: true, url: d.rsi.warbond.url, checked: d.rsi.checked } : null;
+  const price = fromRsi
+    || (wikiListing
+      ? { usd: wikiListing.discountedUsd || wikiListing.usd, available: wikiListing.available, warbond: wikiListing.warbond, url: wikiListing.url, checked: wikiListing.checked }
+      : d.msrp ? { usd: d.msrp, msrp: true } : null);
+  const warbondBadge = h('span', { class: 'badge-warbond' }, 'WARBOND');
   return {
     facts: [
       ['Size', [d.size, d.sizeClass && `class ${d.sizeClass}`].filter(Boolean).join(' · ')],
@@ -210,36 +217,34 @@ function viewShip(e) {
       ['Hull', d.health && fmt(Math.round(d.health))],
       ['Shield', d.shieldHp && fmt(Math.round(d.shieldHp))],
       ['Pilot DPS', d.pilotDps && fmt(Math.round(d.pilotDps))],
-      ['Store price', storePrice && usd(storePrice)],
-      ['Warbond', warbond && h('span', null, usd(warbond.discountedUsd || warbond.usd), ' ', h('span', { class: 'badge-warbond' }, 'WARBOND'))],
+      ['Store price', price && h('span', null, usd(price.usd), price.warbond && [' ', warbondBadge.cloneNode(true)])],
       ['In-game price', d.buy?.[0]?.price && auec(d.buy[0].price)],
-      ['Last warbond', lastWarbond && `$${lastWarbond.discountedUsd || lastWarbond.usd} · ended`],
       ['Status', d.status],
     ],
     body: [
       // What the ship flies with comes first, right after the overview; prices follow.
-      d.loadout?.length && section('Default components', loadoutTable(d.loadout)),
+      d.loadout?.length > 0 && section('Default components', loadoutTable(d.loadout)),
       section(
         'Price in USD (RSI store)',
-        store.length
-          ? [
-              table(
-                [['Offer', ''], ['USD', 'num'], ['', 'dim'], ['Checked', 'dim']],
-                [...store].sort((a, z) => alpha((s) => s.title)(a, z) || (a.discountedUsd || a.usd) - (z.discountedUsd || z.usd)).map((s) => [
-                  link(s.title, s.url),
-                  s.discountedUsd ? h('span', null, usd(s.discountedUsd), ' ', h('s', { class: 'dim' }, `$${s.usd}`)) : usd(s.usd),
-                  h('span', null, s.warbond ? h('span', { class: 'badge-warbond' }, 'WARBOND') : null, ' ', [s.pack && 'package', s.available ? 'on sale' : 'off sale'].filter(Boolean).join(', ')),
-                  s.checked || '',
-                ]),
-              ),
-              store.some((s) => s.warbond) && note('Warbond: a discounted offer that must be paid with new money (not store credit).'),
-            ]
-          : d.msrp
-            ? h('p', { class: 'note' }, usd(d.msrp), ' MSRP — not listed in the store right now.')
-            : note('No USD price (not sold in the RSI store).'),
+        !price
+          ? note('No USD price (not sold in the RSI store).')
+          : price.msrp
+            ? h('p', { class: 'note' }, usd(price.usd), ' ', tr('MSRP — not listed in the store right now.'))
+            : [
+                table(
+                  [['Standalone ship', ''], ['USD', 'num'], ['', 'dim'], ['Checked', 'dim']],
+                  [price, warbondNow].filter(Boolean).map((p) => [
+                    p.url ? link(e.d.shortName || e.n, p.url) : e.d.shortName || e.n,
+                    usd(p.usd),
+                    h('span', null, p.warbond && [warbondBadge.cloneNode(true), ' '], tr(p.available ? 'on sale' : 'off sale')),
+                    p.checked || '',
+                  ]),
+                ),
+                (price.warbond || warbondNow) && note('Warbond: a discounted offer that must be paid with new money (not store credit).'),
+              ],
       ),
       section('Buy in game (aUEC)', d.buy?.length ? shopsTable(d.buy) : note('Not sold in any in-game shop.')),
-      d.rent?.length && section('Rent in game', shopsTable(d.rent)),
+      d.rent?.length > 0 && section('Rent in game', shopsTable(d.rent)),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),
       links([['Wiki', d.wikiUrl], ['RSI store', d.pledgeUrl], ['cstone', d.cstoneUrl]]),
     ],
@@ -498,7 +503,7 @@ function viewMission(e) {
       ['One-time only', d.onceOnly],
     ],
     body: [
-      d.blueprints?.length &&
+      d.blueprints?.length > 0 &&
         section(
           'Blueprints it can reward',
           table([['Blueprint', ''], ['Chance', 'num']], sortedBy(d.blueprints, (b) => b.name).map((b) => [jump(b.name, b.name, 'blueprint'), `${Math.round(b.chance * 100)}%`])),
@@ -609,7 +614,7 @@ function viewMineral(e) {
             ])
           : note('No known locations.'),
       ),
-      d.usedIn?.length &&
+      d.usedIn?.length > 0 &&
         section(`Used in ${d.usedInCount} blueprints`, h('div', null, sortedBy(d.usedIn, (n) => n).map((n) => h('span', { class: 'pill' }, jump(n, n, 'blueprint'))))),
       links([['scminer', d.url]]),
     ],

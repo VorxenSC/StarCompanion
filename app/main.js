@@ -420,6 +420,11 @@ function setupUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.logger = { info: (m) => updateLog('info', m), warn: (m) => updateLog('warn', m), error: (m) => updateLog('error', m), debug: () => {} };
+  // The portable build ships without app-update.yml (only the installer gets one), so it is told where
+  // the releases are; it still only checks, and offers the download page.
+  if (app.isPackaged && !fs.existsSync(path.join(process.resourcesPath, 'app-update.yml'))) {
+    autoUpdater.setFeedURL({ provider: 'github', ...REPO });
+  }
   if (UPDATE_TEST) {
     autoUpdater.forceDevUpdateConfig = true;
     autoUpdater.setFeedURL({ provider: 'github', ...REPO });
@@ -430,6 +435,7 @@ function setupUpdater() {
   autoUpdater.on('update-available', (info) => {
     updateLog('available', info.version);
     if (UPDATE_TEST) return app.quit();
+    if (SNAPSHOT) return; // dev check: the log says enough, no dialog on the desktop
     askToUpdate(info);
   });
   autoUpdater.on('update-not-available', (info) => {
@@ -1104,6 +1110,7 @@ function snapshotMode(spec) {
       if (step === '@notice') win.webContents.send('overlay:notice');
       else if (step === '@version') await checkGameVersion();
       else if (step === '@live') await refreshCommodities(); // live commodity demand from UEX
+      else if (step === '@update') { checkForUpdates(false); await new Promise((r) => setTimeout(r, 6000)); } // result in update.log
       else if (step === '@stale') win.webContents.send('game:version', { live: '9.99.0' }); // pretend a newer patch is live
       else if (step === '@feedback') openFeedback();
       else if (step === '@settings') openSettings();

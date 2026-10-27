@@ -1,6 +1,6 @@
 # Star Companion by Vorxen
 
-An in-game search overlay for Star Citizen. Press **/**, type, and see where to buy an item, how to
+An in-game search overlay for Star Citizen. Press **PageDown**, type, and see where to buy an item, how to
 craft it, which missions reward a blueprint, where to mine an ore, where each commodity sells best
 and what each ship costs, in aUEC and in USD.
 
@@ -25,7 +25,7 @@ loads: the panel opens, the name is revealed behind a scan line, the o7 icon dra
 statuses run to Ready. It fades after about four and a half seconds (later only if the database is
 still loading), never takes focus and lets clicks through.
 
-When closed, Star Companion is a small, faint icon that stays on screen. Click it (or press **/**)
+When closed, Star Companion is a small, faint icon that stays on screen. Click it (or press **PageDown**)
 and the search bar unfolds out of it toward the middle of the screen: right-to-left when the icon is
 on the right half, left-to-right when it is on the left. Closing folds the bar back into the icon.
 Drag the icon to place it anywhere; the tray menu can turn it off, in which case the shortcut alone opens it.
@@ -47,11 +47,11 @@ release tagged `v<version>` with `StarCompanion-<version>-setup.exe`, its `.bloc
 
 | Key / action | What it does |
 |---|---|
-| / | open/close (default; click the key in the bar to change it) |
+| PageDown | open/close (default; click the key in the bar to change it) |
 | ↑ ↓ | move through results |
 | Enter | open the selected result |
 | Tab / Shift+Tab | filter by type (all, items, ships, blueprints, missions, minerals, commodities, factions, locations) |
-| PgUp / PgDn | scroll the panel |
+| PgUp / mouse wheel | scroll the panel (PgDn too, if you change the shortcut away from it) |
 | Esc | detail → list → clear search → close |
 | Ctrl + = / Ctrl + - / Ctrl + 0 | larger / smaller / default text |
 | drag "Star Companion" or the bar | move the overlay (the icon follows) |

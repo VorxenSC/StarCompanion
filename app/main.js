@@ -22,7 +22,7 @@ const USER_DB = path.join(DATA_DIR, 'db.json');
 const dbFile = () => (fs.existsSync(USER_DB) ? USER_DB : BUNDLED_DB);
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 const DEFAULT_CONFIG = {
-  hotkey: '/', // the single key that shows/hides the overlay (Electron Accelerator format)
+  hotkey: 'PageDown', // the single key that shows/hides the overlay (Electron Accelerator format)
   hideOnBlur: true, // close when you click back into the game
   transparency: 0, // 0 = solid ("Default"); 1 = the most see-through that still reads well
   height: 1520, // maximum height (capped to the screen); the window shrinks to fit shorter results

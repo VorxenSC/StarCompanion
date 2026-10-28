@@ -102,6 +102,47 @@ async function rsiMatrix() {
   }
 }
 
+// The wiki's vehicle detail beyond the loadout, kept compact and without empty values: size and mass, crew and
+// seats, speed and turn rates, fuel, the quantum drive, insurance, signatures, armour and shield. Units as the
+// wiki's own pages give them: metres, kg, m/s, °/s, minutes for the insurance, Mm/s and Gm for quantum.
+const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 10 ** d) / 10 ** d : null);
+const prune = (o) => {
+  for (const k of Object.keys(o)) if (o[k] == null || (typeof o[k] === 'object' && !Array.isArray(o[k]) && !Object.keys(o[k]).length) || (Array.isArray(o[k]) && !o[k].length)) delete o[k];
+  return Object.keys(o).length ? o : undefined;
+};
+function shipSpecs(d) {
+  const sz = d.sizes || d.dimension || {};
+  const s = d.speed || {};
+  const a = d.agility || {};
+  const q = d.quantum || {};
+  const f = d.fuel || {};
+  const ins = d.insurance || {};
+  const ar = d.armor || {};
+  const sh = d.shield || {};
+  const em = d.emission || {};
+  // The wiki shows the signatures with the armour's multiplier applied.
+  const times = (v, m) => num(typeof v === 'number' ? v * (typeof m === 'number' ? m : 1) : null);
+  const cut = (m) => (typeof m === 'number' ? num((1 - m) * 100) : null); // damage multiplier → % taken off
+  return prune({
+    dims: prune({ length: num(sz.length, 1), beam: num(sz.beam ?? sz.width, 1), height: num(sz.height, 1) }),
+    mass: prune({ hull: num(d.mass_hull ?? d.mass), loadout: num(d.mass_loadout), total: num(d.mass_total) }),
+    crew: prune({ min: d.crew?.min, max: d.crew?.max, weapon: d.crew?.weapon, operation: d.crew?.operation }),
+    seats: prune({ ejection: d.seating?.ejection_seats || null, pods: d.seating?.escape_pods || null, jump: d.seating?.jump_seats || null, beds: d.seating?.beds || null, medBeds: d.seating?.medical_beds || null }),
+    medTier: d.max_medical_tier || null,
+    ore: num(d.ore_capacity, 1) || null,
+    storage: num((d.vehicle_inventory || 0) / 1e6, 2) || null, // µSCU → SCU
+    speed: prune({ scm: num(s.scm), max: num(s.max), boostFwd: num(s.boost_forward), boostBack: num(s.boost_backward), toScm: num(s.zero_to_scm, 1), toMax: num(s.zero_to_max, 1), stopScm: num(s.scm_to_zero, 1), stopMax: num(s.max_to_zero, 1) }),
+    turn: prune({ pitch: num(a.pitch), yaw: num(a.yaw), roll: num(a.roll), pitchBoost: num(a.pitch_boosted), yawBoost: num(a.yaw_boosted), rollBoost: num(a.roll_boosted) }),
+    fuel: prune({ hydrogen: num(f.capacity, 1) || null, quantum: num(q.quantum_fuel_capacity, 2) || null }),
+    quantum: prune({ speed: num(q.quantum_speed), range: num(q.quantum_range), spool: num(q.quantum_spool_time, 1), trip: prune({ time: num(q.port_olisar_to_arccorp_time), fuel: num(q.port_olisar_to_arccorp_fuel) }) }),
+    insurance: prune({ claim: num(ins.claim_time, 1), expedite: num(ins.expedite_time, 1), fee: num(ins.expedite_cost) }),
+    signature: prune({ ir: times(em.ir, ar.signal_infrared), emIdle: times(em.em_idle, ar.signal_electromagnetic), emMax: times(em.em_max, ar.signal_electromagnetic), cross: times(d.cross_section_max, ar.signal_cross_section) }),
+    armor: prune({ health: num(ar.health), physical: cut(ar.damage_physical), energy: cut(ar.damage_energy), distortion: cut(ar.damage_distortion), thermal: cut(ar.damage_thermal) }),
+    shield: prune({ hp: num(sh.hp), regen: num(sh.regeneration), regenTime: num(sh.regeneration_time, 1), face: sh.face_type || null }),
+    loaner: Array.isArray(d.loaner) ? d.loaner.map((l) => (typeof l === 'string' ? l : l?.name || l?.shortName || l?.vehicle?.name)).filter(Boolean) : undefined,
+  });
+}
+
 async function wikiVehicleDetails(vehicles) {
   const results = await pool(vehicles, 3, (v) => getJson(`${WIKI}/vehicles/${encodeURIComponent(v.slug || v.uuid)}`), { delayMs: 150, onProgress: progress('ship loadouts') });
   const byUuid = new Map();
@@ -158,6 +199,7 @@ async function main() {
       isVehicle: v.is_vehicle,
       description: en(v.description) || en(v.game_description),
       loadout: loadoutOf((details.get(v.uuid) || v).ports),
+      specs: shipSpecs(details.get(v.uuid) || v),
     }));
 
   const shipBuy = buyPrices.data.map((p) => ({ name: p.vehicle_name, where: where(p.id_terminal, p.terminal_name), price: p.price_buy, updated: p.date_modified }));

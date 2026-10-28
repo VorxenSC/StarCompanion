@@ -311,6 +311,16 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .best-drop-name { font: 500 20px var(--display); margin-bottom: 8px; }
 .best-drop-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px 20px; }
 .best-drop-chance { color: #8fe3a4; }
+/* Mission pages: the cargo sets and a game-data known-issue note. */
+.cargo-set { margin: 3px 0; padding: 6px 10px; border-left: 2px solid var(--line); }
+.known-issue { color: #ffd166; }
+/* Ship specifications: small cards in a grid, each a few label / value rows. */
+.spec-grid { column-width: 250px; column-gap: 22px; margin: 4px 0 8px; } /* cards flow into columns of equal width, none split */
+.spec-card { border-top: 1px solid var(--line); padding-top: 8px; margin-bottom: 16px; break-inside: avoid; }
+.spec-title { font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); margin-bottom: 4px; }
+.spec-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.spec-label { color: var(--muted, rgba(205, 218, 230, 0.75)); }
+.spec-value { font-family: var(--mono); text-align: right; color: var(--text); }
 .sec-title { margin: 22px 0 6px; font: 500 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
 .desc { margin: 0; color: rgba(205, 218, 230, 0.82); white-space: pre-line; text-align: justify; hyphens: auto; }
 .note { margin: 0; color: var(--faint); }

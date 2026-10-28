@@ -33,7 +33,9 @@ const commodities = load('commodities.json');
 const factions = load('factions.json');
 // scmdb.net: who offers each mission by the game's own contract name (debugName). Used to fill the contractor
 // the wiki leaves out; where both have one, they agree on every mission that could be compared.
-const scmdbByDebug = new Map((load('scmdb.json')?.contracts || []).map((c) => [c.debugName, c]));
+const scmdbRaw = load('scmdb.json');
+const scmdbContracts = scmdbRaw?.contracts || [];
+const scmdbByDebug = new Map(scmdbContracts.map((c) => [c.debugName, c]));
 const factionLogos = load('faction-logos.json')?.logos || {}; // hand-picked real logos (scripts/faction-logos.json)
 const wikiImages = load('images.json')?.images || {};
 const rsiPrices = load('rsi-prices.json');
@@ -394,6 +396,7 @@ for (const it of items.values()) {
 
 // ---------- Missions: wiki missions + blueprint rewards from sc-craft ----------
 const seenMission = new Set();
+const missionTitleKey = new Map(); // mission entry -> the key of the contract title it stands for
 for (const m of wiki?.missions || []) {
   if (m.title.startsWith('[')) continue; // fill-in title: only used to place blueprint missions
   const k = norm(m.title);
@@ -404,18 +407,166 @@ for (const m of wiki?.missions || []) {
   const sc = scmdbByDebug.get(m.debugName);
   const giver = cleanGiver(m.giver) || cleanGiver(sc?.contractor) || undefined;
   const faction = clean(m.faction) || (giver ? undefined : clean(sc?.faction)) || undefined;
-  add({
+  const entry = add({
     t: 'mission',
     n: cleanMissionText(m.title),
     s: [giver || faction, (m.systems || []).join(', ')].filter(Boolean).join(' · '),
     d: { ...m, description: cleanMissionText(m.description), faction, giver, minStanding: clean(m.minStanding), blueprints: rewards || undefined },
   });
+  missionTitleKey.set(entry, { exact: m.debugName });
 }
 const wikiMissionKeys = new Set((wiki?.missions || []).filter((m) => !m.title.startsWith('[')).map((m) => norm(m.title)));
 for (const [k, v] of bpByMission) {
   if (wikiMissionKeys.has(k)) continue;
-  add({ t: 'mission', n: missionDisplay(v.name), s: 'Blueprint reward', d: { blueprints: v.bps, ...missionInfo(v.name) } });
+  const entry = add({ t: 'mission', n: missionDisplay(v.name), s: 'Blueprint reward', d: { blueprints: v.bps, ...missionInfo(v.name) } });
+  missionTitleKey.set(entry, { key: titleKey(v.name) });
 }
+
+// ---------- Missions: what scmdb.net adds (cooldown, limits, rank, reputation, where, enemies, cargo) ----------
+// A mission page is one contract (a wiki mission: found by the game's own contract name) or a title with its
+// variants for the other systems and difficulties (a blueprint mission, or one only scmdb.net has): ranges.
+const versionNum = (v) => String(v || '0').split('.').map((n) => parseInt(n, 10) || 0).reduce((a, n) => a * 1000 + n, 0);
+const lowest = (list, pick) => list.filter(Boolean).sort((a, z) => pick(a) - pick(z))[0] || null;
+const range = (list) => {
+  const v = list.filter((n) => Number.isFinite(n) && n > 0);
+  return v.length ? { min: Math.min(...v), max: Math.max(...v) } : null;
+};
+const latestSeen = scmdbContracts.map((c) => c.firstSeen).filter(Boolean).sort((a, z) => versionNum(z) - versionNum(a))[0] || null;
+function scmGroup(list) {
+  const rep = (key) => {
+    const by = new Map();
+    for (const c of list) for (const r of c[key] || []) {
+      const k = `${r.faction}|${r.track}`;
+      if (!by.has(k)) by.set(k, { faction: r.faction, track: r.track, amounts: [] });
+      by.get(k).amounts.push(r.amount);
+    }
+    return [...by.values()].map((r) => ({ faction: r.faction, track: r.track, ...range(r.amounts) }));
+  };
+  const enemies = new Map();
+  for (const c of list) for (const g of c.enemies || []) {
+    const k = `${g.role}|${g.kind}`;
+    if (!enemies.has(k)) enemies.set(k, { role: g.role, kind: g.kind, min: g.min, max: g.max, ships: new Set() });
+    const x = enemies.get(k);
+    x.min = Math.min(x.min, g.min);
+    x.max = Math.max(x.max, g.max);
+    for (const s of g.ships) if (!/^\+\d+$/.test(s)) x.ships.add(s);
+  }
+  const places = (key) => ({ names: uniq(list.flatMap((c) => c[key] || [])).slice(0, 10), count: Math.max(0, ...list.map((c) => c[`${key}Count`] || 0)) });
+  const cargo = list.map((c) => c.cargo).find(Boolean) || null;
+  const items = new Map();
+  for (const c of list) for (const i of c.items || []) items.set(i.name, Math.max(items.get(i.name) || 0, i.amount || 0));
+  const first = lowest(list.filter((c) => c.firstSeen), (c) => versionNum(c.firstSeen))?.firstSeen || null;
+  return {
+    contracts: list.length,
+    reward: range(list.map((c) => c.reward)),
+    timeLimit: range(list.map((c) => c.timeLimit)),
+    cooldown: range(list.map((c) => c.cooldown)),
+    abandonCooldown: range(list.map((c) => c.abandonCooldown)),
+    reacceptAfterFail: list.every((c) => c.reacceptAfterFail === true) ? true : list.every((c) => c.reacceptAfterFail === false) ? false : undefined,
+    maxPlayers: Math.max(0, ...list.map((c) => c.maxPlayers || 0)) || null,
+    minRank: lowest(list.map((c) => c.minRank), (r) => r.min),
+    maxRank: list.map((c) => c.maxRank).filter(Boolean).sort((a, z) => z.min - a.min)[0] || null,
+    rep: rep('rep'),
+    repFail: rep('repFail'),
+    lockout: uniq(list.flatMap((c) => c.lockout || [])),
+    from: places('from'),
+    to: places('to'),
+    enemies: [...enemies.values()].map((g) => ({ ...g, ships: [...g.ships].slice(0, 8), shipCount: g.ships.size })),
+    cargo,
+    items: [...items].map(([name, amount]) => ({ name, amount })),
+    next: uniq(list.flatMap((c) => c.next || [])).slice(0, 8),
+    after: uniq(list.flatMap((c) => c.after || [])).slice(0, 8),
+    firstSeen: first,
+    isNew: !!first && first === latestSeen && versionNum(first) > versionNum('4.9.0'),
+    knownIssue: list.map((c) => c.knownIssue).find(Boolean) || null,
+    types: uniq(list.map((c) => c.type)),
+  };
+}
+const normC = (s) => norm(String(s || ''));
+const scmByTitle = new Map();
+for (const c of scmdbContracts) {
+  const k = titleKey(c.title);
+  if (!scmByTitle.has(k)) scmByTitle.set(k, []);
+  scmByTitle.get(k).push(c);
+}
+const coveredKeys = new Set();
+let scmEnriched = 0;
+for (const e of entries) {
+  const ref = missionTitleKey.get(e);
+  if (e.t !== 'mission' || !ref) continue;
+  let list = [];
+  if (ref.exact) {
+    const seed = scmdbByDebug.get(ref.exact);
+    if (seed) { list = [seed]; coveredKeys.add(titleKey(seed.title)); }
+  } else {
+    list = scmByTitle.get(ref.key) || [];
+    coveredKeys.add(ref.key);
+    // A title with fill-in tokens also stands for the filled-in ones ("Defend ~mission(Objects) and Escort
+    // Employees" is "Defend Fuel Tanks and Escort Employees"): the token matches any words.
+    if (!list.length && ref.key.includes('qqslotqq') && ref.key.replace(/qqslotqq/g, '').replace(/s+/g, '').length >= 12) { // enough fixed words that it is not any title
+      const re = new RegExp(`^${ref.key.split('qqslotqq').map((p) => p.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.+')}$`);
+      for (const [k, contracts] of scmByTitle) if (re.test(k)) { list = list.concat(contracts); coveredKeys.add(k); }
+    }
+  }
+  if (!list.length) continue;
+  e.d.scm = scmGroup(list);
+  scmEnriched++;
+  const givers = uniq(list.map((c) => c.contractor));
+  if (!e.d.giver && givers.length === 1) e.d.giver = cleanGiver(givers[0]);
+  if (!e.d.faction && !e.d.giver) e.d.faction = clean(uniq(list.map((c) => c.faction))[0]);
+  if (!e.d.systems?.length) e.d.systems = uniq(list.flatMap((c) => c.systems));
+  // A blueprint mission is known by its blueprints only; the contracts add what it pays, what kind of job
+  // it is and where.
+  if (!e.d.rewardMin && e.d.scm.reward) {
+    e.d.rewardMin = e.d.scm.reward.min;
+    e.d.rewardMax = e.d.scm.reward.max;
+    e.d.currency = 'UEC';
+  }
+  if (!e.d.kinds?.length && e.d.scm.types.length) e.d.kinds = e.d.scm.types;
+  if (e.s === 'Blueprint reward' && (e.d.giver || e.d.faction)) e.s = [e.d.giver || e.d.faction, (e.d.systems || []).join(', ')].filter(Boolean).join(' · ');
+  if (e.d.legal == null) e.d.legal = list.every((c) => c.illegal) ? 'Illegal' : list.every((c) => c.illegal === false) ? 'Legal' : undefined;
+}
+// Contracts scmdb.net lists that have no page yet (their title is not among the ones above): one page per
+// title and contractor. Retired ("legacy") contracts are left out.
+const scmNew = new Map();
+for (const c of scmdbContracts) {
+  if (c.legacy || coveredKeys.has(titleKey(c.title))) continue;
+  const k = `${titleKey(c.title)}|${normC(c.contractor)}`;
+  if (!scmNew.has(k)) scmNew.set(k, []);
+  scmNew.get(k).push(c);
+}
+for (const list of scmNew.values()) {
+  const c = list[0];
+  const giver = cleanGiver(c.contractor) || undefined;
+  const faction = clean(c.faction) || undefined;
+  const systems = uniq(list.flatMap((x) => x.systems));
+  const reward = range(list.map((x) => x.reward));
+  add({
+    t: 'mission',
+    n: cleanMissionText(c.title),
+    s: [giver || faction, systems.join(', ')].filter(Boolean).join(' · '),
+    d: {
+      title: c.title,
+      debugName: c.debugName,
+      description: cleanMissionText(String(c.description || '').replace(/\\n/g, '\n')),
+      giver,
+      faction: giver ? undefined : faction,
+      legal: c.illegal ? 'Illegal' : 'Legal',
+      rewardMin: reward?.min,
+      rewardMax: reward?.max,
+      currency: reward ? 'UEC' : undefined,
+      systems,
+      combat: list.some((x) => x.enemies.length) || undefined,
+      hauling: list.some((x) => x.cargo) || undefined,
+      shareable: list.some((x) => x.shareable) || undefined,
+      onceOnly: list.every((x) => x.onceOnly) || undefined,
+      kinds: uniq(list.map((x) => missionKind(x.debugName))),
+      scmdbOnly: true,
+      scm: scmGroup(list),
+    },
+  });
+}
+console.log(`missions: ${scmEnriched} enriched from scmdb.net, ${scmNew.size} added that only scmdb.net has`);
 
 // ---------- Minerals (scminer.rocks) ----------
 // scminer lists some minerals twice in its price data (ore and refined); the entry with a price wins.

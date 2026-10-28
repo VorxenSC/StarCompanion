@@ -245,6 +245,62 @@ function tipsSection(tips) {
   return section('Where players find it', tips.map((t) => h('p', { class: 'tip' }, t.text, t.seen && h('span', { class: 'tip-src' }, ` — ${tr(t.seen)}`))));
 }
 
+// ---------- Ship specifications ----------
+// Grouped in small cards (size and mass, flight, quantum and fuel, defence, signatures, crew and storage,
+// insurance), each with only the values the wiki has for that ship: a ground vehicle has no quantum drive.
+const metres = (v) => `${fmt(v)} m`;
+const kg = (v) => `${fmt(v)} kg`;
+const secs = (v) => (v >= 120 ? `${Math.floor(v / 60)} min ${Math.round(v % 60)} s` : `${fmt(v)} s`);
+const mins = (v) => (v >= 60 ? `${Math.floor(v / 60)} h ${Math.round(v % 60)} min` : `${fmt(v)} min`);
+const per = (v, unit) => `${fmt(v)} ${unit}`;
+const withBoost = (v, boost, unit) => `${fmt(v)} ${unit}${boost ? ` (${fmt(boost)} ${tr('boosted')})` : ''}`;
+const minus = (v) => (v == null ? null : v === 0 ? '0%' : `−${v}%`);
+
+function shipSpecCards(sp) {
+  if (!sp) return [];
+  const card = (title, rows) => {
+    const shown = rows.filter(([, v]) => v != null && v !== false && v !== '');
+    return shown.length ? h('div', { class: 'spec-card' }, h('div', { class: 'spec-title' }, tr(title)), shown.map(([label, value]) => h('div', { class: 'spec-row' }, h('span', { class: 'spec-label' }, tr(label)), h('span', { class: 'spec-value' }, value)))) : null;
+  };
+  const s = sp.speed || {};
+  const t = sp.turn || {};
+  const q = sp.quantum || {};
+  const a = sp.armor || {};
+  const sh = sp.shield || {};
+  const sg = sp.signature || {};
+  const c = sp.crew || {};
+  const st = sp.seats || {};
+  const ins = sp.insurance || {};
+  const dm = sp.dims || {};
+  const ms = sp.mass || {};
+  const cards = [
+    card('Size and mass', [['Length', dm.length && metres(dm.length)], ['Beam', dm.beam && metres(dm.beam)], ['Height', dm.height && metres(dm.height)], ['Hull mass', ms.hull && kg(ms.hull)], ['Loadout mass', ms.loadout && kg(ms.loadout)], ['Total mass', ms.total && kg(ms.total)]]),
+    card('Flight', [
+      ['SCM speed', s.scm && per(s.scm, 'm/s')], ['Max speed', s.max && per(s.max, 'm/s')],
+      ['Boost forward', s.boostFwd && per(s.boostFwd, 'm/s')], ['Boost backward', s.boostBack && per(s.boostBack, 'm/s')],
+      ['0 to SCM', s.toScm && secs(s.toScm)], ['0 to max', s.toMax && secs(s.toMax)], ['SCM to 0', s.stopScm && secs(s.stopScm)], ['Max to 0', s.stopMax && secs(s.stopMax)],
+      ['Pitch', t.pitch && withBoost(t.pitch, t.pitchBoost, '°/s')], ['Yaw', t.yaw && withBoost(t.yaw, t.yawBoost, '°/s')], ['Roll', t.roll && withBoost(t.roll, t.rollBoost, '°/s')],
+    ]),
+    card('Quantum and fuel', [
+      ['Quantum speed', q.speed && `${(q.speed / 1e6).toLocaleString('en-US', { maximumFractionDigits: 1 })} Mm/s`], ['Quantum range', q.range && `${(q.range / 1e9).toLocaleString('en-US', { maximumFractionDigits: 1 })} Gm`], ['Spool time', q.spool && secs(q.spool)],
+      ['Quantum fuel', sp.fuel?.quantum && fmt(sp.fuel.quantum)], ['Hydrogen fuel', sp.fuel?.hydrogen && fmt(sp.fuel.hydrogen)],
+      ['Port Olisar to ArcCorp', q.trip?.time && secs(q.trip.time)],
+    ]),
+    card('Defence', [
+      ['Armour hull', a.health && fmt(a.health)], ['Physical', minus(a.physical)], ['Energy', minus(a.energy)], ['Distortion', minus(a.distortion)], ['Thermal', minus(a.thermal)],
+      ['Shield', sh.hp && fmt(sh.hp)], ['Shield regen', sh.regen && `${fmt(sh.regen)} /s`], ['Regen time', sh.regenTime && secs(sh.regenTime)], ['Shield faces', sh.face],
+    ]),
+    card('Signatures', [['Infrared', sg.ir && fmt(sg.ir)], ['EM idle', sg.emIdle && fmt(sg.emIdle)], ['EM maximum', sg.emMax && fmt(sg.emMax)], ['Cross section', sg.cross && fmt(sg.cross)]]),
+    card('Crew and storage', [
+      ['Crew', c.max && (c.min === c.max ? String(c.max) : `${c.min}–${c.max}`)], ['Gunners', c.weapon], ['Operators', c.operation],
+      ['Ejection seats', st.ejection], ['Escape pods', st.pods], ['Jump seats', st.jump], ['Beds', st.beds], ['Medical beds', st.medBeds], ['Medical tier', sp.medTier],
+      ['Personal storage', sp.storage && `${fmt(sp.storage)} SCU`], ['Ore capacity', sp.ore && `${fmt(sp.ore)} SCU`],
+    ]),
+    card('Insurance', [['Claim time', ins.claim && mins(ins.claim)], ['Expedited claim', ins.expedite && mins(ins.expedite)], ['Expedite fee', ins.fee && `${fmt(ins.fee)} aUEC`]]),
+  ].filter(Boolean);
+  return cards.length ? [section('Specifications', h('div', { class: 'spec-grid' }, cards)), sp.loaner?.length > 0 && note(`${tr('Loaner ships')}: ${sp.loaner.join(', ')}`)] : [];
+}
+
 function viewShip(e) {
   const d = e.d;
   // The ship's price in the RSI store, one line: read from its store page when that worked (d.rsi),
@@ -277,6 +333,7 @@ function viewShip(e) {
     body: [
       // What the ship flies with comes first, right after the overview; prices follow.
       d.loadout?.length > 0 && section('Default components', loadoutTable(d.loadout)),
+      ...shipSpecCards(d.specs),
       section(
         'Price in USD (RSI store)',
         !price
@@ -562,8 +619,61 @@ function craftSimulator(e) {
   );
 }
 
+// Minutes as a player reads them: "45 min", "1 h 30 min", "2 days"; a range of them.
+function minutesText(n) {
+  if (n >= 1440 && n % 1440 === 0) return `${n / 1440} ${tr(n === 1440 ? 'day' : 'days')}`;
+  if (n >= 60) return `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}`;
+  return `${n} min`;
+}
+const rangeText = (r, f = minutesText) => (!r ? null : r.min === r.max ? f(r.min) : `${f(r.min)} – ${f(r.max)}`);
+const ENEMY_ROLE = { Reinforcments: 'Reinforcements' }; // the game's own spelling
+// "SalvageSpawnDescription" → "Salvage": the game's internal group names, as words.
+const enemyRole = (role) => ENEMY_ROLE[role] || String(role || 'Enemies').replace(/SpawnDescription$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').trim() || 'Enemies';
+const rankText = (min, max) => (!min ? null : !max || max.name === min.name ? min.name : `${min.name} – ${max.name}`);
+
+// What scmdb.net adds to a mission, from the game's contract files (see scripts/collect-scmdb.js): its
+// reputation, where it starts and ends, the enemies, the cargo, the item rewards and the missions around it.
+function scmSections(d) {
+  const s = d.scm;
+  if (!s) return [];
+  const none = (list) => !list || !list.length;
+  const places = (p) => (p?.names?.length ? `${p.names.join(', ')}${p.count > p.names.length ? ` ${tr('+{n} more', { n: p.count - p.names.length })}` : ''}` : null);
+  const repRows = s.rep.map((r) => {
+    const fail = s.repFail.find((f) => f.faction === r.faction);
+    return [r.faction, r.track, `+${rangeText(r, fmt)}`, fail ? `−${rangeText(fail, fmt)}` : ''];
+  });
+  const where = [[tr('Starts at'), places(s.from)], [tr('Delivers to'), places(s.to)]].filter(([, v]) => v);
+  const cargoLine = (orders) => orders.map((o) => `${o.what}${o.max || o.min ? ` (${o.min === o.max || !o.max ? o.min : `${o.min}–${o.max}`} ${o.unit === 'SCU' ? 'SCU' : '×'})` : ''}`).join(', ');
+  return [
+    !none(s.items) && section('Rewards', h('div', null, s.items.map((i) => h('span', { class: 'pill' }, `${i.name}${i.amount > 1 ? ` ×${fmt(i.amount)}` : ''}`)))),
+    !none(repRows) && section('Reputation', table([['Faction', ''], ['Track', 'dim'], ['On completion', 'num'], ['On failure', 'num']], repRows)),
+    !none(where) && section('Where', table([['', 'dim'], ['', '']], where)),
+    !none(s.enemies) && section(
+      'Enemies',
+      table(
+        [['Group', ''], ['Ships', 'num'], ['Which ships', '']],
+        s.enemies.map((g) => [
+          `${tr(enemyRole(g.role))}${g.kind ? ` · ${g.kind}` : ''}`,
+          g.min === g.max ? String(g.max) : `${g.min}–${g.max}`,
+          `${g.ships.join(', ')}${g.shipCount > g.ships.length ? ` ${tr('+{n} more', { n: g.shipCount - g.ships.length })}` : ''}`,
+        ]),
+      ),
+    ),
+    s.cargo && section(
+      'Cargo',
+      s.cargo.either
+        ? h('div', null, h('p', { class: 'note' }, tr('One of these sets:')), s.cargo.either.map((set) => h('div', { class: 'cargo-set' }, cargoLine(set))))
+        : h('div', { class: 'cargo-set' }, cargoLine(s.cargo.all)),
+    ),
+    (!none(s.after) || !none(s.next)) && section('Mission chain', table([['', 'dim'], ['', '']], [[tr('Comes after'), s.after.join(', ')], [tr('Leads to'), s.next.join(', ')]].filter(([, v]) => v))),
+    s.knownIssue && h('p', { class: 'note known-issue' }, `${tr('Known issue')}: ${s.knownIssue}`),
+    s.contracts > 1 && note('Some values are ranges: this mission comes in several variants (systems and difficulties).'),
+  ];
+}
+
 function viewMission(e) {
   const d = e.d;
+  const s = d.scm;
   const reward = d.rewardMin ? `${fmt(d.rewardMin)}${d.rewardMax > d.rewardMin ? ` – ${fmt(d.rewardMax)}` : ''} ${d.currency === 'UEC' ? 'aUEC' : d.currency || ''}` : null;
   return {
     facts: [
@@ -573,21 +683,31 @@ function viewMission(e) {
       ['Systems', d.systems?.join(', ')],
       ['Legality', d.legal],
       ['Reward', reward],
-      ['Minimum reputation', d.minStanding],
+      // From scmdb.net when it has the mission: the wait before taking it again, the time it gives you, the
+      // group it takes and the ranks that can do it; else the wiki's minimum.
+      ['Cooldown', s?.cooldown && h('span', null, rangeText(s.cooldown), s.abandonCooldown && h('span', { class: 'headline-where' }, `${tr('after abandoning')}: ${rangeText(s.abandonCooldown)}`))],
+      ['Time limit', rangeText(s?.timeLimit)],
+      ['Group size', s?.maxPlayers ? (s.maxPlayers > 1 ? tr('Up to {n} players', { n: s.maxPlayers }) : tr('Solo')) : null],
+      ['Rank needed', rankText(s?.minRank, s?.maxRank) || d.minStanding],
+      ['New in patch', s?.isNew ? s.firstSeen : null],
       ['Blueprints', d.blueprints?.length],
       ['Combat', d.combat],
       ['Cargo hauling', d.hauling],
-      ['Shareable', d.shareable],
+      ['Shareable', s?.maxPlayers ? null : d.shareable],
       ['One-time only', d.onceOnly],
     ],
     body: [
+      // How the mission is done first (reputation, where, enemies, cargo), then the blueprints it can give:
+      // their list is long.
+      ...scmSections(d),
       d.blueprints?.length > 0 &&
         section(
           'Blueprints it can reward',
           table([['Blueprint', ''], ['Chance', 'num']], sortedBy(d.blueprints, (b) => b.name).map((b) => [jump(b.name, b.name, 'blueprint'), `${Math.round(b.chance * 100)}%`])),
         ),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),
-      links([['Wiki', d.url]]),
+      s && note('Mission details from scmdb.net, which reads the game\'s own contract files.'),
+      links([['Wiki', d.url], ['SCMDB', s ? 'https://scmdb.net' : null]]),
     ],
   };
 }
@@ -1163,7 +1283,7 @@ const HEADLINE = {
   item: ['Lowest price', 'UEX market price', 'DPS'],
   ship: ['Store price', 'Warbond', 'In-game price'],
   blueprint: ['Craft time'],
-  mission: ['Reward'],
+  mission: ['Reward', 'Cooldown'],
   mineral: ['Server base', 'Radar signature', 'Volatile'],
   commodity: ['Best sale', 'Cheapest buy'],
   faction: ['Type', 'Area', 'Founded', 'Ranks'], // the short facts; Focus, Leadership and Headquarters get a row of their own

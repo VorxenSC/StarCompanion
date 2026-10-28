@@ -85,6 +85,10 @@ The icon shakes like a ringing alarm clock so it is noticed: after every launch 
 until you open the bar yourself (the startup notice does not count), and a new player, who has never opened it,
 also sees a soft glow. With Windows animations off, only that glow stays.
 
+Every result page ends with **Report a bug on this page**: it opens the suggestion form already set to Bug and
+showing which page it is about; the email the developer receives has that page (its kind, name, ids and the data's
+version) in its subject and body, besides what you write.
+
 Settings (gear button in the search bar, or tray → Settings…) has: shortcut, key listener status,
 start with Windows, close when clicking the game, show icon when closed, icon transparency, transparency
 (0% solid to 100% in 20% steps; the bar and the icon start at 40%, the pins at 0%), text size, language (Automatic follows
@@ -142,6 +146,7 @@ row with "+N variants"; the detail lists them all.
 |---|---|---|
 | finder.cstone.space | shops, base price and verification date for ~3,000 items and ships; item pictures | `/GetSearch` index + each item page (cached) |
 | sc-craft.tools | 1,612 blueprints: materials, quality effects, missions that reward them with the drop chance. Each mission is matched to the wiki's missions by title (fill-in tokens such as `~mission(Location)` match any words) for the faction that offers it, the systems and the kind of mission (bounty hunting, defense, attack, recovery, mining…, read from the game's internal mission name); about 90 % of the links match | JSON API `/api/blueprints` |
+| scmdb.net | who offers each mission, by the game's own contract name (all 1,856 contracts of the live patch): used to check our missions (they agree on every mission both have) and to fill the contractor the wiki leaves out; the wiki's internal contractor names (`NorthRock_Bounty`, `HurstonBountyDepartment`…) and unresolved `~mission(…)` tokens are shown as real names | `/data/merged-<live version>.json`, the public file the site's page loads, read at each data update |
 | contestedzonetimers.com | the Executive Hangar cycle's start (re-checked in game by its author after each patch), the cycle's phases and each keycard and compboard spot's cooldown | `/lib/cfg.dat`, read by the app at launch and every 3 hours |
 | expcarry.com contested zones guide, The Orbital Ledger, starcitizen.tools PYAM-EXHANG-0-1 | the doors and keycards on the way to each compboard, the route, the reward ships | read by hand into `scripts/build-db.js` |
 | contestedzonetimers.com/contested-zone-maps | the zone maps by Terada (@cmd_Terada) and u/Kerast, shown in the page and the pin with their credit | loaded from the site when shown |

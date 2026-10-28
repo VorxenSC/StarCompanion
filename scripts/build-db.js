@@ -31,6 +31,9 @@ const ships = load('ships.json');
 const market = load('market.json');
 const commodities = load('commodities.json');
 const factions = load('factions.json');
+// scmdb.net: who offers each mission by the game's own contract name (debugName). Used to fill the contractor
+// the wiki leaves out; where both have one, they agree on every mission that could be compared.
+const scmdbByDebug = new Map((load('scmdb.json')?.contracts || []).map((c) => [c.debugName, c]));
 const factionLogos = load('faction-logos.json')?.logos || {}; // hand-picked real logos (scripts/faction-logos.json)
 const wikiImages = load('images.json')?.images || {};
 const rsiPrices = load('rsi-prices.json');
@@ -42,7 +45,26 @@ const commodityNames = new Set((commodities?.commodities || []).map((c) => norm(
 
 // Placeholder text the game files carry where a real value is missing ("<= PLACEHOLDER =>", "[PH] …").
 const isJunk = (v) => typeof v === 'string' && /PLACEHOLDER|UNINITIALIZED|^\s*<=|^\s*\[PH\]/i.test(v);
-const clean = (v) => (isJunk(v) ? undefined : v);
+// Contractors the wiki gives as the game's internal names, with what a player calls them; "SENDER NOT FOUND" and
+// "N/A" say there is none.
+const GIVER_NAMES = {
+  NorthRock_Bounty: 'Northrock Service Group',
+  HurstonBountyDepartment: 'Hurston Bounty Department',
+  CrusaderBountyDepartment: 'Crusader Bounty Department',
+  MicroTechBountyDepartment: 'microTech Bounty Department',
+  BlacJacBountyDepartment: 'BlacJac Bounty Department',
+  MissionGiver_CovalexIndependentContractors: 'Covalex Independent Contractors',
+  MissionGiver_LingFamilyHauling: 'Ling Family Hauling',
+  MissionGiver_RedWindLinehaul: 'Red Wind Linehaul',
+};
+const NO_GIVER = /^(sender not found|n\/a)$/i;
+const cleanGiver = (v) => {
+  const g = clean(v);
+  if (typeof g !== 'string') return g;
+  return GIVER_NAMES[g.trim()] || (NO_GIVER.test(g.trim()) ? undefined : g);
+};
+// A localisation token the wiki did not resolve ("~mission(Contractor|BountyFrom)") is no name either.
+const clean = (v) => (isJunk(v) || (typeof v === 'string' && /^~mission\(/.test(v)) ? undefined : v);
 // Medals come in three conditions; only the Pristine one is worth showing (the others are worn copies).
 const isWornMedal = (name) => /\bmedal\b/i.test(name) && /\((worn|damaged)\)\s*$/i.test(name);
 // A colour or edition in quotes marks a variant: Parallax "Sunstone" Energy Assault Rifle → Parallax Energy Assault Rifle.
@@ -379,11 +401,14 @@ for (const m of wiki?.missions || []) {
   const dupKey = `${k}|${m.giver}|${m.rewardMin}`;
   if (seenMission.has(dupKey)) continue;
   seenMission.add(dupKey);
+  const sc = scmdbByDebug.get(m.debugName);
+  const giver = cleanGiver(m.giver) || cleanGiver(sc?.contractor) || undefined;
+  const faction = clean(m.faction) || (giver ? undefined : clean(sc?.faction)) || undefined;
   add({
     t: 'mission',
     n: cleanMissionText(m.title),
-    s: [m.giver || m.faction, (m.systems || []).join(', ')].filter(Boolean).join(' · '),
-    d: { ...m, description: cleanMissionText(m.description), faction: clean(m.faction), giver: clean(m.giver), minStanding: clean(m.minStanding), blueprints: rewards || undefined },
+    s: [giver || faction, (m.systems || []).join(', ')].filter(Boolean).join(' · '),
+    d: { ...m, description: cleanMissionText(m.description), faction, giver, minStanding: clean(m.minStanding), blueprints: rewards || undefined },
   });
 }
 const wikiMissionKeys = new Set((wiki?.missions || []).filter((m) => !m.title.startsWith('[')).map((m) => norm(m.title)));

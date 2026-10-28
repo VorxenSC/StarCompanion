@@ -162,7 +162,14 @@ function dockFromOpenWindow() {
   config.dockY = Math.round(y + geo.barTop + geo.barHeight / 2 - DOCK_SIZE / 2);
 }
 
+// Making the window resizable for a moment, to resize it, makes Windows add a thin frame: the window then reads
+// a couple of pixels bigger than asked. Sizes within SIZE_SLACK of the wanted one count as reached; without
+// that, the window's own resize made the page ask again, and every answer grew it a little more (a
+// blueprint or a ship page, which needs a wider window, resized itself without end).
+const SIZE_SLACK = 3;
+let appliedWidth = 0; // the width last asked for, as the frame makes the window read a little more
 function setBounds(bounds) {
+  appliedWidth = bounds.width;
   win.setResizable(true);
   win.setBounds(bounds);
   win.setResizable(false);
@@ -316,9 +323,10 @@ function fitHeight(wanted, beyondMax) {
   const target = Math.round(Math.max(MIN_HEIGHT, Math.min(limit, wanted)));
   openHeight = target;
   const [w, current] = win.getSize();
-  if (current === target) return;
+  // Already tall enough (the frame can add a couple of pixels): nothing to do, and no resize to answer.
+  if (current >= target && current - target <= SIZE_SLACK) return;
   win.setResizable(true);
-  win.setSize(w, target);
+  win.setSize(Math.abs(w - appliedWidth) <= SIZE_SLACK ? appliedWidth : w, target); // the width is not read back with the frame
   win.setResizable(false);
 }
 
@@ -332,7 +340,7 @@ function fitWidth(wanted) {
   const { workArea: a } = screen.getDisplayMatching(b);
   const base = Math.max(MIN_WIDTH, Math.min(a.width, config.windowWidth));
   const width = Math.round(Math.max(base, Math.min(Math.floor(a.width * 0.5), wanted)));
-  if (width === b.width) return;
+  if (Math.abs(width - b.width) <= SIZE_SLACK) return;
   let x = side === 'right' ? b.x + b.width - width : b.x;
   x = Math.max(a.x, Math.min(a.x + a.width - width, x));
   widening = true;
@@ -617,21 +625,36 @@ async function refreshHangarAnchor() {
 // ---------- Suggestions ----------
 let lastFeedbackAt = 0;
 
-async function sendFeedback(f) {
-  if (!f || typeof f.message !== 'string' || f.message.trim().length < 10) return { ok: false, error: 'Please write at least a sentence.' };
-  if (Date.now() - lastFeedbackAt < FEEDBACK_MIN_INTERVAL_MS) return { ok: false, error: 'Thanks! Please wait a minute before sending another one.' };
-  if (!WEB3FORMS_KEY) return { ok: false, error: 'Suggestions are not set up in this build yet.' };
+// The email's fields for a message (the access key included: never log or write it as is).
+function feedbackBody(f) {
   const clip = (s, n) => String(s || '').trim().slice(0, n);
+  // A bug report from a result page says which page: its kind, name and the source's own ids, in the
+  // subject and the body, so the email is about that page specifically.
+  const page = f.page && typeof f.page === 'object' && f.page.name
+    ? { type: clip(f.page.type, 30), name: clip(f.page.name, 120), sub: clip(f.page.sub, 160), id: clip(f.page.id, 60), ref: clip(f.page.ref, 120), data: clip(f.page.data, 80) }
+    : null;
+  const pageText = page
+    ? `\n\n— Page —\nType: ${page.type}\nName: ${page.name}\n${page.sub ? `Subtitle: ${page.sub}\n` : ''}Entry id: ${page.id || '-'}\n${page.ref ? `Source id: ${page.ref}\n` : ''}Data: ${page.data || '-'}`
+    : '';
   const body = {
     access_key: WEB3FORMS_KEY,
-    subject: `Star Companion · ${clip(f.kind, 40) || 'Suggestion'}`,
+    subject: clip(`Star Companion · ${clip(f.kind, 40) || 'Suggestion'}${page ? ` · ${page.type}: ${page.name}` : ''}`, 140),
     from_name: clip(f.name, 80) || 'Star Companion user',
     type: clip(f.kind, 40),
-    message: clip(f.message, 4000),
+    ...(page ? { page: `${page.type} · ${page.name}`, page_id: page.id, page_source_id: page.ref } : {}),
+    message: clip(clip(f.message, 4000) + pageText, 5000),
     name: clip(f.name, 80) || 'Anonymous',
     ...(clip(f.email, 120) ? { email: clip(f.email, 120), replyto: clip(f.email, 120) } : {}),
     ...(f.includeInfo ? { app: `Star Companion ${app.getVersion()} · PU ${clip(f.gameVersion, 20) || '?'} · ${process.platform} ${require('os').release()}` } : {}),
   };
+  return body;
+}
+
+async function sendFeedback(f) {
+  if (!f || typeof f.message !== 'string' || f.message.trim().length < 10) return { ok: false, error: 'Please write at least a sentence.' };
+  if (Date.now() - lastFeedbackAt < FEEDBACK_MIN_INTERVAL_MS) return { ok: false, error: 'Thanks! Please wait a minute before sending another one.' };
+  if (!WEB3FORMS_KEY) return { ok: false, error: 'Suggestions are not set up in this build yet.' };
+  const body = feedbackBody(f);
   try {
     // net.fetch (Chromium's network stack): Web3Forms' free plan only accepts browser requests.
     const res = await net.fetch(FEEDBACK_ENDPOINT, {
@@ -1381,7 +1404,12 @@ ipcMain.on('dock:pointer', (_e, phase) => dockPointer(phase));
 ipcMain.on('notice:done', (_e, dontShowAgain) => noticeDone(!!dontShowAgain));
 ipcMain.on('hotkey:recording', (_e, active) => setHotkeyRecording(active));
 ipcMain.handle('hotkey:set', (_e, accelerator) => setHotkey(accelerator));
-ipcMain.handle('feedback:send', (_e, f) => (SNAPSHOT ? { ok: true } : sendFeedback(f))); // a test copy never mails
+ipcMain.handle('feedback:send', (_e, f) => {
+  if (!SNAPSHOT) return sendFeedback(f);
+  // A test copy never mails; it writes what would have been sent (without the key) next to the screenshots.
+  try { fs.writeFileSync(path.join(process.env.SC_SNAPSHOT.split('|')[0], 'feedback-body.json'), JSON.stringify({ ...feedbackBody(f), access_key: '(hidden)' }, null, 1)); } catch { /* a dev aid only */ }
+  return { ok: true };
+});
 ipcMain.on('clipboard:write', (_e, text) => {
   if (typeof text === 'string' && text.length <= 2000) clipboard.writeText(text);
 });

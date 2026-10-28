@@ -49,6 +49,7 @@ let notice = false; // the "Before you start" notice is in the panel
 let recorder = null; // { current, pending, partial, error } while the shortcut recorder is in the panel
 let dataDate = '';
 let gameVersion = null; // the PU version the database was built for
+let dataBuiltAt = null; // when that database was built (ISO), sent with a bug report
 
 // "PU 4.10.2" beside the brand; turns amber with a hint when UEX reports a newer live version.
 function renderPu(live) {
@@ -1223,7 +1224,14 @@ function renderDetail(e) {
     rest.length > 0 && h('div', { class: e.t === 'faction' ? 'facts facts-fit' : 'facts' }, rest.map(fact)),
     barRow.length > 0 && h('div', { class: 'facts facts-bars' }, barRow.map((b, i) => fact(b, rest.length + i))),
     h('div', { class: 'rise', delay: 420 }, body),
+    // At the foot of every page: a bug report about this very page.
+    h('div', { class: 'report-foot rise', delay: 460 }, h('button', { class: 'report-btn', title: tr('Tell the developer what is wrong on this page'), onclick: () => openFeedback(pageRef(e)) }, tr('Report a bug on this page'))),
   );
+}
+
+// What identifies a result page in a bug report: its kind, name and the source's own id.
+function pageRef(e) {
+  return { type: TYPE_LABEL[e.t] || e.t, name: e.n, sub: e.s || '', id: e.id || '', ref: e.d?.debugName || e.d?.uuid || e.d?.id || '' };
 }
 
 function renderList() {
@@ -1429,9 +1437,13 @@ function renderSettings() {
 const FEEDBACK_KINDS = ['Idea', 'Bug', 'Wrong or missing data', 'Other'];
 let feedback = null; // { open, kind, message, name, email, includeInfo, status: '' | 'sending' | 'sent', error }
 
-function openFeedback() {
-  feedback = { ...(feedback?.status === 'sent' ? {} : feedback), open: true, status: '', error: '' };
+// page: from a result page's bug button (its kind, name and ids, which go with the message); none for the
+// general suggestion form.
+function openFeedback(page) {
+  const about = page && typeof page === 'object' && page.name ? page : null;
+  feedback = { ...(feedback?.status === 'sent' ? {} : feedback), open: true, status: '', error: '', page: about };
   feedback.kind ||= 'Idea';
+  if (about) feedback.kind = 'Bug';
   feedback.includeInfo ??= true;
   recorder = null;
   notice = false;
@@ -1456,7 +1468,7 @@ async function submitFeedback() {
   f.status = 'sending';
   f.error = '';
   refreshFeedbackStatus();
-  const res = await companion.sendFeedback({ kind: f.kind, message: f.message, name: f.name, email: f.email, includeInfo: f.includeInfo, gameVersion });
+  const res = await companion.sendFeedback({ kind: f.kind, message: f.message, name: f.name, email: f.email, includeInfo: f.includeInfo, gameVersion, page: f.page ? { ...f.page, data: `PU ${gameVersion || '?'} · data built ${(dataBuiltAt || '').slice(0, 10) || '?'}` } : null });
   if (res.ok) {
     feedback = { open: true, status: 'sent' };
     render();
@@ -1493,7 +1505,7 @@ function renderFeedback() {
   }
   const field = (id, label, input) => h('label', { class: 'fb-field', for: id }, h('span', { class: 'fact-label' }, label), input);
   const bind = (key) => (ev) => { f[key] = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value; if (key === 'message') $('fb-count').textContent = `${f.message.length}/4000`; };
-  const message = h('textarea', { id: 'fb-message', class: 'fb-input fb-message', maxlength: '4000', rows: '5', placeholder: 'What would make Star Companion better? What broke, or what did you not find?', oninput: bind('message') });
+  const message = h('textarea', { id: 'fb-message', class: 'fb-input fb-message', maxlength: '4000', rows: '5', placeholder: f.page ? tr('What is wrong on this page? What did you expect to see?') : 'What would make Star Companion better? What broke, or what did you not find?', oninput: bind('message') });
   message.value = f.message || '';
   const name = h('input', { id: 'fb-name', class: 'fb-input', maxlength: '80', placeholder: 'e.g. Vorxen#1234', oninput: bind('name') });
   name.value = f.name || '';
@@ -1504,9 +1516,11 @@ function renderFeedback() {
   return h(
     'div',
     { class: 'notice feedback' },
-    h('div', { class: 'detail-type in' }, 'Suggestions'),
-    h('div', { class: 'detail-name in', delay: 40 }, 'Help shape Star Companion'),
-    h('p', { class: 'notice-text rise', delay: 100 }, 'Ideas, bugs, wrong prices or missing items: it goes straight to the developer.'),
+    h('div', { class: 'detail-type in' }, f.page ? tr('Bug report') : 'Suggestions'),
+    h('div', { class: 'detail-name in', delay: 40 }, f.page ? tr('Report a bug') : 'Help shape Star Companion'),
+    f.page
+      ? h('div', { class: 'fb-page rise', delay: 100 }, h('span', { class: 'fact-label' }, tr('About this page')), h('span', { class: 'fb-page-name' }, `${tr(f.page.type)} · ${f.page.name}`), h('span', { class: 'dim' }, tr('The page is sent with your message, so the developer knows which one it is.')))
+      : h('p', { class: 'notice-text rise', delay: 100 }, 'Ideas, bugs, wrong prices or missing items: it goes straight to the developer.'),
     h(
       'div',
       { class: 'fb-kinds rise', delay: 140, role: 'group', 'aria-label': 'Kind of suggestion' },
@@ -2038,6 +2052,7 @@ async function load() {
   $('dbinfo').textContent = tr('{records} records · data {date}', { records: fmt(total), date: oldest });
   dataDate = oldest;
   gameVersion = db.meta.gameVersion || null;
+  dataBuiltAt = db.meta.builtAt || null;
   renderPu(cfg.liveGameVersion);
   $('dbinfo').title = sources.map(([k, s]) => `${k}: ${s.fetchedAt.slice(0, 10)}`).join('\n');
   search();

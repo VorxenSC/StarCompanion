@@ -1257,7 +1257,7 @@ function renderNotice() {
       'p',
       { class: 'notice-support rise', delay: 480 },
       'Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7',
-      h('a', { class: 'coffee', onclick: () => companion.openLink(COFFEE_URL) }, 'Buy me a coffee ↗'),
+      h('a', { class: 'coffee', onclick: () => companion.openLink(COFFEE_URL) }, 'Buy me a coffee =) ↗'),
     ),
     h(
       'div',

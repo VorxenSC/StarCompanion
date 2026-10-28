@@ -12,7 +12,7 @@
     'Search Star Companion': 'Buscar no Star Companion',
     hide: 'esconder', open: 'abrir', navigate: 'navegar', filter: 'filtrar',
     'Clear search': 'Limpar busca', Settings: 'Configurações', 'Drag to resize': 'Arraste para redimensionar',
-    Suggest: 'Sugerir', 'Buy me a coffee': 'Me pague um café',
+    Suggest: 'Sugerir', 'Buy me a coffee =)': 'Me pague um café =)',
     'Send an idea, a bug or a data fix to the developer': 'Envie uma ideia, um bug ou uma correção de dados ao desenvolvedor',
     'Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7':
       'O Star Companion é gratuito e feito no meu tempo livre. Se ele te poupou uma viagem, uma caçada ou alguns milhões de aUEC, um café ajuda a mantê-lo atualizado a cada patch. Obrigado, cidadão — o7',
@@ -83,7 +83,7 @@
     'Prices, shops, locations and drop chances come from community sites (cstone, sc-craft.tools, scminer.rocks, starcitizen.tools, UEX) and can lag behind a new patch. Data for PU {pu}, collected {date}; the PU tag turns amber when a new patch is live. Check in game before a long trip.':
       'Preços, lojas, locais e chances de drop vêm de sites da comunidade (cstone, sc-craft.tools, scminer.rocks, starcitizen.tools, UEX) e podem atrasar em relação a um patch novo. Dados da PU {pu}, coletados em {date}; o selo da PU fica âmbar quando sai um patch novo. Confira no jogo antes de uma viagem longa.',
     Unofficial: 'Não oficial', 'A fan-made tool, not affiliated with Cloud Imperium Games or Roberts Space Industries.': 'Uma ferramenta feita por fã, sem ligação com a Cloud Imperium Games ou a Roberts Space Industries.',
-    'Buy me a coffee ↗': 'Me pague um café ↗', 'Don’t show this again': 'Não mostrar de novo', 'Got it ': 'Entendi ',
+    'Buy me a coffee =) ↗': 'Me pague um café =) ↗', 'Don’t show this again': 'Não mostrar de novo', 'Got it ': 'Entendi ',
     // Shortcut recorder
     'Keyboard shortcut': 'Atalho de teclado', 'Press the new shortcut': 'Aperte o novo atalho',
     'Press one key on its own (no Ctrl, Alt or Shift). It opens and closes Star Companion from anywhere, including in game. That key is reserved for Star Companion while it runs, so pick one you don’t type elsewhere; the numpad keys work well.':

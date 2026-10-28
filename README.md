@@ -85,7 +85,7 @@ With Windows animations off, only the glow stays.
 
 Settings (gear button in the search bar, or tray → Settings…) has: shortcut, key listener status,
 start with Windows, close when clicking the game, show icon when closed, icon transparency, transparency
-(every window is solid at 0%, the default, and goes to 100% in 20% steps), text size, language (Automatic follows
+(0% solid to 100% in 20% steps; the bar and the icon start at 40%, the pins at 0%), text size, language (Automatic follows
 Windows' display language: Portuguese → Português (Brasil), anything else → English), reset position
 and size, updates, the startup notice and the settings file's folder. Everything is saved in
 `config.json` (`hotkey`, `hideOnBlur`, `transparency`, `zoom`, `language`, `dock`, `dockTransparency`,
@@ -97,7 +97,7 @@ for 1 to 10 rocks as one line to paste in the game chat (`Gold RS: 3585, 7170, 1
 **Pin {mineral}** and **Pin all ship ores / hand-mined / ROC ores** keep a small list beside the icon to
 match a scanner reading while mining: one mineral with its signature for 1 to 10 rocks, or every
 mineral of that kind with its signature, in alphabetical order. The same choice is in Settings (Pin
-beside the icon) and the tray menu. The list never takes focus, lets clicks
+beside the icon) and the tray menu (Pin to Screen, which lists everything that can be pinned in alphabetical order, the zone maps and the minerals in submenus). The list never takes focus, lets clicks
 through, and hides while the search bar is open. Every pinned window (signature lists, the hangar
 timer, a zone map) has a small transparency slider (0% solid to 100%, in 20% steps) at its bottom right and a resize corner (the bottom
 corner away from the icon; double-click it for the default size). The text grows with the window, so

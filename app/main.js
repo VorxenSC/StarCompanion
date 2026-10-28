@@ -25,15 +25,15 @@ const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 const DEFAULT_CONFIG = {
   hotkey: 'PageDown', // the single key that shows/hides the overlay (Electron Accelerator format)
   hideOnBlur: true, // close when you click back into the game
-  // Every window is solid unless the player makes it see-through: each transparency goes from 0 (solid,
-  // the default) to 1 (as see-through as stays usable) in 20% steps.
-  transparency: 0, // the search bar and its results
+  // Each window's transparency goes from 0 (solid) to 1 (as see-through as stays usable) in 20% steps.
+  // The search bar and the icon start at 40%; the pins start solid.
+  transparency: 0.4, // the search bar and its results
   height: 1520, // maximum height (capped to the screen); the window shrinks to fit shorter results
   windowWidth: 720, // the design's 680px column plus room for its glow; changed with the resize grip
   zoom: 1, // text size: Ctrl+= / Ctrl+- / Ctrl+0 in the overlay, or the tray menu
   dock: true, // keep a discreet icon on screen while the overlay is closed
   iconSeen: false, // true once the player has opened the bar themselves; until then the icon shakes to be noticed
-  dockTransparency: 0, // that icon, when the mouse is not over it
+  dockTransparency: 0.4, // that icon, when the mouse is not over it
   showNotice: true, // the "Before you start" notice at launch, until "Don't show this again"
   checkUpdates: true, // look for a new release on GitHub at launch and ask before installing it
   skipVersion: null, // a release the player chose not to be reminded about
@@ -97,10 +97,12 @@ function loadConfig() {
     delete saved.opacity;
     // 0.4.41: a config from an earlier version belongs to someone who already knows where the icon is.
     if (saved.iconSeen === undefined) saved.iconSeen = true;
-    // 0.4.40: one transparency scale for every window, solid by default; earlier choices start over.
-    if (saved.alphaScale !== 2) {
+    // One transparency scale for every window. 0.4.42: the bar and the icon start at 40% (the default of
+    // 0.4.40 and 0.4.41 was solid); the pins keep theirs.
+    if (saved.alphaScale !== 3) {
       delete saved.transparency;
-      saved.alphaScale = 2;
+      delete saved.dockTransparency;
+      saved.alphaScale = 3;
     }
     for (const old of ['dockOpacity', 'pinMapAlpha', 'pinAlpha']) delete saved[old];
     if (saved.pinSignatures === true) saved.pinSignatures = 'ship'; // 0.4.18 had only the ship list
@@ -665,6 +667,35 @@ function cleanMap(m) {
   return { name: String(m.name || '').slice(0, 40), url: m.url.slice(0, 200), w: Number(m.w), h: Number(m.h), by: String(m.by || '').slice(0, 40), source: String(m.source || 'contestedzonetimers.com').slice(0, 60) };
 }
 const PIN_TITLES = { ship: 'Ship ores RS', fps: 'Hand-mined RS', vehicle: 'ROC ores RS' };
+// The contested zone maps that can be pinned (the same list the overlay's pages show).
+const ZONE_MAPS = require('./zone-maps.json').map((m) => ({
+  name: m.name || m.places[0],
+  url: `${ZONE_MAP_URL}${encodeURIComponent(m.file + ' Map')}.webp`,
+  w: m.w,
+  h: m.h,
+  by: m.by,
+  source: 'contestedzonetimers.com',
+}));
+
+// The tray's "Pin to Screen" submenu: Off, then everything that can be pinned in alphabetical order (in
+// the language shown): the signature lists, the Executive Hangar timer, a zone map and one mineral with
+// its 1×–10× rocks; the maps and the minerals are submenus of their own.
+function pinMenu() {
+  const lang = i18n.getLanguage();
+  const mode = config.pinSignatures;
+  const byLabel = (a, z) => a.label.localeCompare(z.label, lang, { sensitivity: 'base', numeric: true });
+  const radio = (label, checked, click) => ({ label, type: 'radio', checked, click });
+  const minerals = [...new Map(pinRows.map((r) => [r.n, r])).values()].sort((a, z) => a.n.localeCompare(z.n, lang, { sensitivity: 'base' }));
+  const items = [
+    radio(T('Ship ores'), mode === 'ship', () => setPinSignatures('ship')),
+    radio(T('Hand-mined'), mode === 'fps', () => setPinSignatures('fps')),
+    radio(T('ROC ores'), mode === 'vehicle', () => setPinSignatures('vehicle')),
+    radio(T('Executive Hangar timer'), mode === 'hangar', () => setPinSignatures('hangar')),
+    { label: T('Zone maps'), submenu: ZONE_MAPS.map((m) => radio(m.name, mode === 'map' && config.pinMap?.url === m.url, () => setPinSignatures('map', m))).sort(byLabel) },
+    ...(minerals.length ? [{ label: T('Minerals'), submenu: minerals.map((m) => radio(m.n, mode === 'mineral' && config.pinMineral === m.n, () => setPinSignatures('mineral', m.n))) }] : []),
+  ].sort(byLabel);
+  return [radio(T('Off'), !mode, () => setPinSignatures(false)), { type: 'separator' }, ...items];
+}
 let pinWin = null;
 let pinRows = []; // [{ n, tier, category, sig, rs: [1×…10×] }] from the overlay's database
 
@@ -1157,18 +1188,7 @@ function buildTray() {
     Menu.buildFromTemplate([
       { label: T('Show / hide ({key})', { key: config.hotkey }), click: toggle },
       { label: T('Settings…'), click: openSettings },
-      {
-        label: T('Pin beside the icon'),
-        submenu: [
-          { label: T('Off'), type: 'radio', checked: !config.pinSignatures, click: () => setPinSignatures(false) },
-          { label: T('Ship ores'), type: 'radio', checked: config.pinSignatures === 'ship', click: () => setPinSignatures('ship') },
-          { label: T('Hand-mined'), type: 'radio', checked: config.pinSignatures === 'fps', click: () => setPinSignatures('fps') },
-          { label: T('ROC ores'), type: 'radio', checked: config.pinSignatures === 'vehicle', click: () => setPinSignatures('vehicle') },
-          ...(config.pinMineral ? [{ label: T('{name} (1×–10× rocks)', { name: config.pinMineral }), type: 'radio', checked: config.pinSignatures === 'mineral', click: () => setPinSignatures('mineral', config.pinMineral) }] : []),
-          { label: T('Executive Hangar timer'), type: 'radio', checked: config.pinSignatures === 'hangar', click: () => setPinSignatures('hangar') },
-          ...(config.pinMap ? [{ label: T('{name} map', { name: config.pinMap.name }), type: 'radio', checked: config.pinSignatures === 'map', click: () => setPinSignatures('map') }] : []),
-        ],
-      },
+      { label: T('Pin to Screen'), submenu: pinMenu() },
       { type: 'separator' },
       updateStatus
         ? { label: updateStatus, enabled: false }
@@ -1252,6 +1272,15 @@ function snapshotMode(spec) {
       if (step === '@notice') win.webContents.send('overlay:notice');
       else if (step === '@version') await checkGameVersion();
       else if (step === '@live') await refreshCommodities(); // live commodity demand from UEX
+      else if (step === '@tray') { // the tray's Pin to Screen menu, as indented text in tray.txt (labels, checks)
+        const lines = [];
+        const walk = (items, depth) => items.forEach((m) => {
+          lines.push(`${'  '.repeat(depth)}${m.type === 'separator' ? '---' : `${m.type === 'radio' ? (m.checked ? '(•) ' : '( ) ') : ''}${m.label}`}`);
+          if (m.submenu) walk(m.submenu, depth + 1);
+        });
+        walk([{ label: T('Pin to Screen'), submenu: pinMenu() }], 0);
+        fs.writeFileSync(path.join(dir, 'tray.txt'), lines.join('\n'));
+      }
       else if (step === '@update') { checkForUpdates(false); await new Promise((r) => setTimeout(r, 6000)); } // result in update.log
       else if (step === '@stale') win.webContents.send('game:version', { live: '9.99.0' }); // pretend a newer patch is live
       else if (step === '@feedback') openFeedback();

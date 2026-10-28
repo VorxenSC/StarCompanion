@@ -505,17 +505,9 @@ for (const { base, members } of families.values()) {
 // the live timer from the cycle.
 // The zone maps are the community's (Terada: Checkmate, Orbituary, Ruin Station; u/Kerast: the
 // Executive Hangar and the Supervisor stations), shown from contestedzonetimers.com, never copied here.
-const TERADA = { by: 'Terada (@cmd_Terada)', byUrl: null };
-const KERAST = { by: 'u/Kerast', byUrl: 'https://www.reddit.com/user/Kerast/' };
-const ZONE_MAPS = [
-  { places: ['Checkmate'], file: 'Checkmate', w: 4096, h: 2859, ...TERADA },
-  { places: ['Orbituary'], file: 'Orbituary', w: 4096, h: 2859, ...TERADA },
-  { places: ['Ruin Station'], file: 'Ruin', w: 4096, h: 2859, ...TERADA },
-  { places: ['PYAM-SUPVISR-3-4', 'PYAM-SUPVISR-3-5'], file: 'Supervisor', w: 1080, h: 1033, ...KERAST },
-  { places: ['PYAM-EXHANG-0-1'], file: 'Executive Hangar', w: 1080, h: 1033, ...KERAST },
-].map((m) => ({
+const ZONE_MAPS = require('../app/zone-maps.json').map((m) => ({
   ...m,
-  name: m.places.length > 1 ? 'PYAM-SUPVISR' : m.places[0],
+  name: m.name || m.places[0],
   url: `https://contestedzonetimers.com/maps/${encodeURIComponent(m.file + ' Map')}.webp`,
   source: 'contestedzonetimers.com',
   sourceUrl: 'https://contestedzonetimers.com/contested-zone-maps',

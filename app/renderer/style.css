@@ -55,6 +55,55 @@ body.docked .dock {
 .dock img { width: calc(44px / var(--zoom, 1)); height: calc(44px / var(--zoom, 1)); pointer-events: none; }
 .dock:hover, .dock:focus-visible { opacity: 0.95; transform: scale(1.06); filter: drop-shadow(0 0 calc(10px / var(--zoom, 1)) rgba(95, 212, 232, 0.55)); outline: none; }
 body.docked .dock { animation: dockIn 0.35s var(--ease) both; }
+/* Noticing the icon: it shakes (a burst at launch; every few seconds until the bar has been opened once,
+   with a steady glow). Under reduced motion only the glow stays. */
+/* The glow is a round, soft halo behind the icon that fades out before the window's edge (a drop shadow
+   followed the icon's square corners and was cut off by the window). It breathes slowly. */
+body.docked .dock { position: relative; }
+.dock.attract img { position: relative; } /* above the halo */
+.dock.attract::before { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(95, 212, 232, 0.6) 50%, rgba(95, 212, 232, 0.42) 70%, rgba(95, 212, 232, 0.16) 88%, rgba(95, 212, 232, 0));
+  animation: attractGlow 2.4s ease-in-out infinite; }
+@keyframes attractGlow { 0%, 100% { opacity: 0.55; transform: scale(0.92); } 50% { opacity: 1; transform: scale(1.04); } }
+.dock.shake img { animation: iconShake 1.3s linear both; }
+@keyframes iconShake {
+  0.00% { transform: translateX(0) rotate(0) scale(1); }
+  2.31% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  4.62% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  6.92% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  9.23% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  11.54% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  13.85% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  16.15% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  18.46% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  20.77% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  23.08% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  25.38% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  27.69% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  30.00% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  32.31% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  34.62% { transform: translateX(0) rotate(0) scale(1.04); }
+  43.08% { transform: translateX(0) rotate(0) scale(1.04); }
+  45.38% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  47.69% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  50.00% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  52.31% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  54.62% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  56.92% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  59.23% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  61.54% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  63.85% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  66.15% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  68.46% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  70.77% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  73.08% { transform: translateX(3.6px) rotate(13deg) scale(1.1); }
+  75.38% { transform: translateX(-3.6px) rotate(-13deg) scale(1.1); }
+  79.23% { transform: translateX(1.6px) rotate(8deg) scale(1.02); }
+  83.08% { transform: translateX(-1.2px) rotate(-6deg) scale(1.02); }
+  86.92% { transform: translateX(0.8px) rotate(4deg) scale(1.02); }
+  90.77% { transform: translateX(-0.4px) rotate(-2deg) scale(1.02); }
+  100.00% { transform: translateX(0) rotate(0) scale(1); }
+}
 @keyframes dockIn {
   from { transform: scale(0.7); }
   to { transform: scale(1); }
@@ -451,7 +500,7 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .in, .scan, .rise, body .wrap, body .brand, body .bar > *, body .hints, body .ghost, body .dock { animation: none !important; }
+  .in, .scan, .rise, body .wrap, body .brand, body .bar > *, body .hints, body .ghost, body .dock, body .dock img, .dock.attract::before { animation: none !important; }
   body .ghost { display: none !important; } /* no animation to play: the icon must not stay over the open bar */
   .panel { transition: none; }
 }

@@ -32,6 +32,7 @@ const DEFAULT_CONFIG = {
   windowWidth: 720, // the design's 680px column plus room for its glow; changed with the resize grip
   zoom: 1, // text size: Ctrl+= / Ctrl+- / Ctrl+0 in the overlay, or the tray menu
   dock: true, // keep a discreet icon on screen while the overlay is closed
+  iconSeen: false, // true once the player has opened the bar themselves; until then the icon shakes to be noticed
   dockTransparency: 0, // that icon, when the mouse is not over it
   showNotice: true, // the "Before you start" notice at launch, until "Don't show this again"
   checkUpdates: true, // look for a new release on GitHub at launch and ask before installing it
@@ -94,6 +95,8 @@ function loadConfig() {
       saved.transparency = TRANSPARENCY_STEPS.reduce((best, v) => (Math.abs(v - t) < Math.abs(best - t) ? v : best), 0);
     }
     delete saved.opacity;
+    // 0.4.41: a config from an earlier version belongs to someone who already knows where the icon is.
+    if (saved.iconSeen === undefined) saved.iconSeen = true;
     // 0.4.40: one transparency scale for every window, solid by default; earlier choices start over.
     if (saved.alphaScale !== 2) {
       delete saved.transparency;
@@ -200,8 +203,14 @@ function takeFocus(byKey) {
   setTimeout(() => keysLog(`open: focused=${win.isFocused()}`), 400);
 }
 
-function open(byKey) {
+// auto: the app opened the bar itself (the startup notice), not the player: that does not count as
+// having found the icon.
+function open(byKey, auto) {
   if (!win) return;
+  if (!auto && !config.iconSeen) {
+    config.iconSeen = true;
+    saveConfig();
+  }
   if (state === 'open') {
     takeFocus(byKey);
     return;
@@ -241,12 +250,17 @@ function finishClose() {
   }
 }
 
+let launchShaken = false;
 function dockNow() {
   const dock = dockPosition();
   state = 'docked';
   win.setFocusable(false); // a click on the icon must not pull focus from the game until it opens
   setBounds({ x: dock.x, y: dock.y, width: DOCK_SIZE, height: DOCK_SIZE });
-  win.webContents.send('overlay:docked', { opacity: dockOpacity() });
+  // The icon shakes to be noticed: a short burst the first time it shows after launch, and over and
+  // over until the player has opened the bar once.
+  const attention = !config.iconSeen ? 'unseen' : !launchShaken ? 'launch' : null;
+  launchShaken = true;
+  win.webContents.send('overlay:docked', { opacity: dockOpacity(), attention });
   win.showInactive();
   updatePin();
 }
@@ -854,11 +868,11 @@ function startup() {
   refreshHangarAnchor();
   setInterval(refreshHangarAnchor, HANGAR_ANCHOR_MS);
   if (config.showNotice) {
-    open();
+    open(false, true);
     win.webContents.send('overlay:notice');
   } else {
     if (config.dock) dockNow();
-    else open();
+    else open(false, true);
     if (config.checkUpdates) setTimeout(() => checkForUpdates(false), 4000);
   }
 }

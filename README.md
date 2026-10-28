@@ -79,6 +79,10 @@ Key listener shows whether the listener runs and how many key presses it has see
 `%APPDATA%\Star Companion\keys.log` records each shortcut press and whether the bar got focus (never
 which other keys were pressed).
 
+The icon shakes like a ringing alarm clock, with a soft glow, so a new player notices it: once at each launch,
+and every few seconds until the bar has been opened for the first time (the startup notice does not count).
+With Windows animations off, only the glow stays.
+
 Settings (gear button in the search bar, or tray → Settings…) has: shortcut, key listener status,
 start with Windows, close when clicking the game, show icon when closed, icon transparency, transparency
 (every window is solid at 0%, the default, and goes to 100% in 20% steps), text size, language (Automatic follows

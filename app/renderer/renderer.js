@@ -1856,6 +1856,7 @@ function remeasureWhenSized(tries = 0) {
 }
 
 companion.onOpen((info) => {
+  stopIconShake(); // the bar is open: the icon has been found
   lastIcon = info;
   body.classList.remove('docked', 'folding');
   body.classList.toggle('side-right', info.side === 'right');
@@ -1913,14 +1914,33 @@ companion.onHotkeyRecorder(startRecorder);
 // The hotkey shown in the bar opens the recorder too.
 $('hotkey').addEventListener('click', () => startRecorder());
 
-companion.onDocked(({ opacity }) => {
+// The icon shakes to be noticed: a short burst the first time it shows after launch ('launch'), and a
+// burst every few seconds, with a steady glow, until the bar has been opened once ('unseen').
+let shakeTimer = null;
+function stopIconShake() {
+  clearInterval(shakeTimer);
+  shakeTimer = null;
+  dockEl.classList.remove('shake', 'attract');
+}
+function shakeIcon() {
+  dockEl.classList.remove('shake');
+  void dockEl.offsetWidth; // restart the animation
+  dockEl.classList.add('shake');
+}
+companion.onDocked(({ opacity, attention }) => {
   body.classList.remove('unfolding', 'folding');
   body.classList.add('docked');
   applyLayoutVars(opacity);
+  stopIconShake();
+  if (!attention) return;
+  dockEl.classList.toggle('attract', attention === 'unseen');
+  setTimeout(shakeIcon, 600);
+  if (attention === 'unseen') shakeTimer = setInterval(shakeIcon, 2800);
 });
 
 // The icon: the main process decides click (open) or drag (move) from the real cursor.
 const dockEl = $('dock');
+dockEl.addEventListener('animationend', (ev) => { if (ev.animationName === 'iconShake') dockEl.classList.remove('shake'); });
 dockEl.addEventListener('pointerdown', (ev) => {
   dockEl.setPointerCapture(ev.pointerId);
   companion.dockPointer('down');

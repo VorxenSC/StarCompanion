@@ -441,6 +441,12 @@ const PORTABLE = !!process.env.PORTABLE_EXECUTABLE_FILE;
 const UPDATE_TEST = process.env.SC_UPDATE_TEST; // dev aid: pretend to be this version, log the result, quit
 let updateStatus = ''; // shown in the tray menu while a download runs
 let manualCheck = false;
+// The check at every launch starts with the splash and is settled by the time the app would show: a
+// newer release is offered first, before the notice or the icon (see startup()).
+let holdUpdateDialog = false; // true from launch until startup() has had the check's answer
+let pendingUpdate = null; // the release found while the dialog was held
+let settleLaunchCheck = () => {};
+const launchCheckSettled = new Promise((resolve) => { settleLaunchCheck = resolve; });
 
 function updateLog(...parts) {
   const line = `${new Date().toISOString()} ${parts.join(' ')}\n`;
@@ -468,10 +474,13 @@ function setupUpdater() {
     updateLog('available', info.version);
     if (UPDATE_TEST) return app.quit();
     if (SNAPSHOT) return; // dev check: the log says enough, no dialog on the desktop
-    askToUpdate(info);
+    settleLaunchCheck();
+    if (holdUpdateDialog) pendingUpdate = info; // startup() offers it before the app shows
+    else askToUpdate(info);
   });
   autoUpdater.on('update-not-available', (info) => {
     updateLog('up to date', info.version);
+    settleLaunchCheck();
     if (UPDATE_TEST) return app.quit();
     if (manualCheck) dialog.showMessageBox({ type: 'info', title: 'Star Companion', message: T('You have the latest version.'), detail: `Star Companion ${app.getVersion()}`, noLink: true });
   });
@@ -486,6 +495,7 @@ function setupUpdater() {
   });
   autoUpdater.on('error', (err) => {
     updateLog('error', err?.message || err);
+    settleLaunchCheck();
     updateStatus = '';
     buildTray();
     if (UPDATE_TEST) return app.quit();
@@ -891,21 +901,29 @@ function endSplash() {
 
 // ---------- Startup notice ----------
 // Shown in the overlay itself at launch; the update check waits until it is dismissed.
-function startup() {
+async function startup() {
   checkGameVersion();
   setInterval(checkGameVersion, 6 * 60 * 60 * 1000);
   refreshCommodities();
   setInterval(refreshCommodities, LIVE_COMMODITIES_MS);
   refreshHangarAnchor();
   setInterval(refreshHangarAnchor, HANGAR_ANCHOR_MS);
+  // The update check began with the splash. Give it a few more seconds if it has not answered, then offer
+  // a newer release before the app shows; if it answers later still, the offer comes when it does.
+  if (holdUpdateDialog) {
+    await Promise.race([launchCheckSettled, new Promise((resolve) => setTimeout(resolve, 4000))]);
+    holdUpdateDialog = false;
+    if (pendingUpdate) {
+      const info = pendingUpdate;
+      pendingUpdate = null;
+      await askToUpdate(info);
+    }
+  }
   if (config.showNotice) {
     open(false, true);
     win.webContents.send('overlay:notice');
-  } else {
-    if (config.dock) dockNow();
-    else open(false, true);
-    if (config.checkUpdates) setTimeout(() => checkForUpdates(false), 4000);
-  }
+  } else if (config.dock) dockNow();
+  else open(false, true);
 }
 
 function noticeDone(dontShowAgain) {
@@ -913,7 +931,6 @@ function noticeDone(dontShowAgain) {
     config.showNotice = false;
     saveConfig();
   }
-  if (config.checkUpdates) setTimeout(() => checkForUpdates(false), 1500);
 }
 
 // ---------- The shortcut key ----------
@@ -1380,6 +1397,11 @@ if (!SNAPSHOT && !UPDATE_TEST && !app.requestSingleInstanceLock()) {
     applyLanguage();
     setupUpdater();
     if (UPDATE_TEST) return checkForUpdates(false);
+    // Every launch looks for a newer release first (the installed app; a copy run from source cannot update).
+    if (!SNAPSHOT && app.isPackaged && config.checkUpdates) {
+      holdUpdateDialog = true;
+      checkForUpdates(false);
+    }
     if (!SNAPSHOT) createSplash();
     createWindow();
     registerHotkey(); // globalShortcut until the key helper reports READY

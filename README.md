@@ -36,7 +36,9 @@ again" to skip it (the tray menu can show it again).
 
 ### Updates
 
-At launch the installed app checks this repository's Releases. When a newer version exists it asks
+Every time the installed app starts it checks this repository's Releases, while the splash plays (a few
+seconds more at most if the answer is slow), so a newer version is offered before the notice or the icon
+shows. When one exists it asks
 "Update now" or "Later" (with "Don't remind me about this version"); "Update now" downloads it,
 installs it and restarts. The tray menu has "Check for updates", and Settings can turn the launch
 check off. A log is kept in `%APPDATA%\Star Companion\update.log`.

@@ -1165,7 +1165,7 @@ const HEADLINE = {
   mission: ['Reward'],
   mineral: ['Server base', 'Radar signature', 'Volatile'],
   commodity: ['Best sale', 'Cheapest buy'],
-  faction: ['Type', 'Area'],
+  faction: ['Type', 'Area', 'Founded', 'Ranks'], // the short facts; Focus, Leadership and Headquarters get a row of their own
   location: ['System', 'Star'],
   activity: ['Hangar'],
 };
@@ -1220,7 +1220,7 @@ function renderDetail(e) {
       ),
     ),
     // Everything else spread across the full width.
-    rest.length > 0 && h('div', { class: 'facts' }, rest.map(fact)),
+    rest.length > 0 && h('div', { class: e.t === 'faction' ? 'facts facts-fit' : 'facts' }, rest.map(fact)),
     barRow.length > 0 && h('div', { class: 'facts facts-bars' }, barRow.map((b, i) => fact(b, rest.length + i))),
     h('div', { class: 'rise', delay: 420 }, body),
   );

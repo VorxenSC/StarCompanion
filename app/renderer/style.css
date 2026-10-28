@@ -297,6 +297,7 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 24px; }
 /* Level bars (minerals): one row, equal columns, so the bars line up. */
 .facts.facts-bars { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px; }
+.facts-fit { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); } /* a few long facts share the row, however many there are */
 .fact.wide { grid-column: span 2; } /* a long value (a mission name) on one line */
 /* The first section right after the facts: the page's own gap is spacing enough. */
 .detail > .rise > .sec-title:first-child { margin-top: 0; }

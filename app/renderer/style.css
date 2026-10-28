@@ -305,6 +305,11 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .fact-value { font: 500 18px var(--display); color: var(--text); overflow-wrap: break-word; --ls: 0.02em; letter-spacing: var(--ls); }
 .fact .scan { top: -1px; bottom: auto; height: 1px; width: 24px; }
 
+/* Blueprint: the best mission's name and its drop data together, set apart by an accent edge. */
+.best-drop { padding: 6px 0 4px 14px; border-left: 2px solid var(--accent); }
+.best-drop-name { font: 500 20px var(--display); margin-bottom: 8px; }
+.best-drop-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px 20px; }
+.best-drop-chance { color: #8fe3a4; }
 .sec-title { margin: 22px 0 6px; font: 500 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
 .desc { margin: 0; color: rgba(205, 218, 230, 0.82); white-space: pre-line; text-align: justify; hyphens: auto; }
 .note { margin: 0; color: var(--faint); }

@@ -375,14 +375,19 @@ function viewBlueprint(e) {
       ['Craft time', d.craftTime ? (mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}min` : `${mins} min`) : null],
       ['Materials', d.ingredients.length],
       ['Missions', d.missions.length || (d.defaultOwned ? 'Default blueprint' : 'None known')],
-      // The mission most likely to give it, its odds, who offers it and what kind of job it is.
-      ['Best mission', best && jump(best.name, best.name, 'mission'), { wide: true }],
-      ['Drop chance', best && `${Math.round(best.chance * 100)}%`],
-      ['Faction', best?.factions?.join(', ')],
-      ['Mission type', best && kinds(best)],
-      ['Systems', best?.systems?.join(', ')],
     ],
     body: [
+      // The mission most likely to give it, all in one place: its name, the odds, who offers it, what kind
+      // of job it is and where.
+      best && section('Best mission drop', h('div', { class: 'best-drop' },
+        h('div', { class: 'best-drop-name' }, jump(best.name, best.name, 'mission')),
+        h('div', { class: 'best-drop-facts' }, [
+          ['Drop chance', h('span', { class: 'best-drop-chance' }, `${Math.round(best.chance * 100)}%`)],
+          ['Faction', best.factions?.join(', ')],
+          ['Mission type', kinds(best)],
+          ['Systems', best.systems?.join(', ')],
+        ].filter(([, v]) => v).map(([label, v]) => h('div', { class: 'fact' }, h('span', { class: 'fact-label' }, tr(label)), h('span', { class: 'fact-value' }, v)))),
+      )),
       section(
         'Materials',
         table(

@@ -1944,8 +1944,8 @@ companion.onHotkeyRecorder(startRecorder);
 // The hotkey shown in the bar opens the recorder too.
 $('hotkey').addEventListener('click', () => startRecorder());
 
-// The icon shakes to be noticed: a short burst the first time it shows after launch ('launch'), and a
-// burst every few seconds, with a steady glow, until the bar has been opened once ('unseen').
+// The icon shakes to be noticed: a ring every few seconds until the player opens the bar by hand, with a
+// steady glow too if they have never opened it ('unseen'), without it on later launches ('launch').
 let shakeTimer = null;
 function stopIconShake() {
   clearInterval(shakeTimer);
@@ -1965,7 +1965,7 @@ companion.onDocked(({ opacity, attention }) => {
   if (!attention) return;
   dockEl.classList.toggle('attract', attention === 'unseen');
   setTimeout(shakeIcon, 600);
-  if (attention === 'unseen') shakeTimer = setInterval(shakeIcon, 2800);
+  shakeTimer = setInterval(shakeIcon, 2800);
 });
 
 // The icon: the main process decides click (open) or drag (move) from the real cursor.

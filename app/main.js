@@ -209,9 +209,12 @@ function takeFocus(byKey) {
 // having found the icon.
 function open(byKey, auto) {
   if (!win) return;
-  if (!auto && !config.iconSeen) {
-    config.iconSeen = true;
-    saveConfig();
+  if (!auto && !SNAPSHOT) {
+    openedByPlayer = true; // the icon stops shaking for this run
+    if (!config.iconSeen) {
+      config.iconSeen = true;
+      saveConfig();
+    }
   }
   if (state === 'open') {
     takeFocus(byKey);
@@ -252,16 +255,17 @@ function finishClose() {
   }
 }
 
-let launchShaken = false;
+// Whether the player has opened the bar themselves since the app started; until then the icon keeps
+// shaking, so it is noticed on every launch, not only the first.
+let openedByPlayer = false;
 function dockNow() {
   const dock = dockPosition();
   state = 'docked';
   win.setFocusable(false); // a click on the icon must not pull focus from the game until it opens
   setBounds({ x: dock.x, y: dock.y, width: DOCK_SIZE, height: DOCK_SIZE });
-  // The icon shakes to be noticed: a short burst the first time it shows after launch, and over and
-  // over until the player has opened the bar once.
-  const attention = !config.iconSeen ? 'unseen' : !launchShaken ? 'launch' : null;
-  launchShaken = true;
+  // The icon shakes to be noticed, over and over until the player opens the bar by hand: with a steady
+  // glow too while they have never opened it ('unseen'), without it on later launches ('launch').
+  const attention = !config.iconSeen ? 'unseen' : !openedByPlayer ? 'launch' : null;
   win.webContents.send('overlay:docked', { opacity: dockOpacity(), attention });
   win.showInactive();
   updatePin();
@@ -1390,7 +1394,7 @@ ipcMain.on('link:open', (_e, url) => {
 if (!SNAPSHOT && !UPDATE_TEST && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', open);
+  app.on('second-instance', () => open()); // starting it again opens the bar
   app.whenReady().then(() => {
     config = loadConfig();
     if (process.env.SC_LANG) config.language = process.env.SC_LANG; // dev aid for snapshots

@@ -97,7 +97,16 @@ function table(headers, rows, tableClass) {
     'table',
     { class: tableClass },
     h('thead', null, h('tr', null, headers.map(([label, cls]) => h('th', { class: cls }, label && tr(label))))),
-    h('tbody', null, rows.map((cells) => h('tr', null, cells.map((c, i) => h('td', { class: headers[i][1] }, c))))),
+    // A cell given as { span, content } takes that many columns (the cells after it are left out).
+    h('tbody', null, rows.map((cells) => {
+      let col = 0;
+      return h('tr', null, cells.map((c) => {
+        const spans = c && typeof c === 'object' && !(c instanceof Node) && 'span' in c;
+        const td = h('td', { class: headers[col][1], colspan: spans ? c.span : null }, spans ? c.content : c);
+        col += spans ? c.span : 1;
+        return td;
+      }));
+    })),
   );
 }
 
@@ -301,7 +310,9 @@ const LOADOUT_GROUPS = [
 ];
 // Who fires a weapon: the pilot, a crew member in a manned turret, or one at a remote turret's seat.
 // Within a group the pilot's weapons come first.
-const CONTROLS = { pilot: 'Pilot', 'remote-pilot': 'Remote turret · pilot if unmanned', manned: 'Crew turret', remote: 'Remote turret' };
+const CONTROLS = { pilot: 'Pilot', 'remote-pilot': 'Pilot / Gunner', manned: 'Crew turret', remote: 'Remote turret' };
+// The tag's tooltip, for the short "Pilot / Gunner".
+const CONTROL_HINTS = { 'remote-pilot': 'Remote turret: the pilot fires it while no gunner sits at it' };
 const CONTROL_ORDER = ['pilot', 'remote-pilot', 'manned', 'remote'];
 function groupLoadout(loadout) {
   const m = new Map();
@@ -326,15 +337,17 @@ function loadoutTable(loadout) {
   const rows = groupLoadout(loadout.filter((l) => !LOADOUT_HIDDEN.has(l.type)));
   const label = (t) => tr((LOADOUT_GROUPS.find(([g]) => g === t) || [t, t])[1]);
   return table(
-    [['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'num'], ['Class', 'dim']],
+    [['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'grade-col'], ['Class', 'dim']],
     rows.map((l, i) => [
       i === 0 || rows[i - 1].type !== l.type ? label(l.type) : '',
-      h('span', null, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : '', l.mount && h('span', { class: 'dim' }, ` · ${tr('on {mount}', { mount: l.mount })}`),
-        CONTROLS[l.control] && h('span', { class: `control control-${l.control}` }, tr(CONTROLS[l.control]))),
+      h('span', null, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : '', l.mount && h('span', { class: 'dim' }, ` · ${tr('on {mount}', { mount: l.mount })}`)),
       l.size != null ? `S${l.size}` : '',
-      l.grade ? h('span', { class: `grade grade-${l.grade.toLowerCase()}` }, l.grade) : '',
-      l.class ? tr(l.class) : '',
+      // Weapons have no grade or class: those two columns say who fires them, from where the grade starts.
+      ...(!l.grade && !l.class && CONTROLS[l.control]
+        ? [{ span: 2, content: h('span', { class: `control control-${l.control}`, title: CONTROL_HINTS[l.control] ? tr(CONTROL_HINTS[l.control]) : null }, tr(CONTROLS[l.control])) }]
+        : [l.grade ? h('span', { class: `grade grade-${l.grade.toLowerCase()}` }, l.grade) : '', l.class ? tr(l.class) : '']),
     ]),
+    't-loadout',
   );
 }
 
@@ -1356,8 +1369,8 @@ function renderSettings() {
     row('Close when clicking the game', 'Fold back into the icon when the game gets focus', toggle('hideOnBlur', s.hideOnBlur), i++),
     group('Look'),
     row('Show icon when closed', 'A faint icon stays on screen; click it to open', toggle('dock', s.dock), i++),
-    row('Icon opacity', 'How visible the icon is while you play', steps('dockOpacity', s.steps.dockOpacity, s.dockOpacity, !s.dock), i++),
-    row('Transparency', 'Default is solid; 100% is as see-through as stays readable', steps('transparency', s.steps.transparency, s.transparency, false, (v) => (v === 0 ? tr('Default') : pct(v))), i++),
+    row('Icon transparency', 'How see-through the icon is while you play; 0% is solid', steps('dockTransparency', s.steps.dockTransparency, s.dockTransparency, !s.dock), i++),
+    row('Transparency', '0% is solid; 100% is as see-through as stays readable', steps('transparency', s.steps.transparency, s.transparency), i++),
     row('Text size', 'Also Ctrl + = and Ctrl + -', steps('zoom', s.steps.zoom, s.zoom), i++),
     row('Language', 'Automatic follows Windows', choice('language', [['auto', tr('Automatic')], ['en', tr('English')], ['pt-BR', tr('Portuguese')]], s.language), i++),
     row('Position and size', 'Back to the default place and size', h('button', { class: 'set-btn', onclick: () => settingsAction('resetLayout') }, tr('Reset')), i++),

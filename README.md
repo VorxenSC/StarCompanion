@@ -80,11 +80,11 @@ Key listener shows whether the listener runs and how many key presses it has see
 which other keys were pressed).
 
 Settings (gear button in the search bar, or tray → Settings…) has: shortcut, key listener status,
-start with Windows, close when clicking the game, show icon when closed, icon opacity, transparency
-(Default = solid, 100% = as see-through as stays readable), text size, language (Automatic follows
+start with Windows, close when clicking the game, show icon when closed, icon transparency, transparency
+(every window is solid at 0%, the default, and goes to 100% in 20% steps), text size, language (Automatic follows
 Windows' display language: Portuguese → Português (Brasil), anything else → English), reset position
 and size, updates, the startup notice and the settings file's folder. Everything is saved in
-`config.json` (`hotkey`, `hideOnBlur`, `transparency`, `zoom`, `language`, `dock`, `dockOpacity`,
+`config.json` (`hotkey`, `hideOnBlur`, `transparency`, `zoom`, `language`, `dock`, `dockTransparency`,
 `dockX`/`dockY`, `windowWidth`, `height` = maximum window height). Once you resize with the grip,
 your width and height are kept from then on.
 
@@ -93,11 +93,11 @@ for 1 to 10 rocks as one line to paste in the game chat (`Gold RS: 3585, 7170, 1
 **Pin {mineral}** and **Pin all ship ores / hand-mined / ROC ores** keep a small list beside the icon to
 match a scanner reading while mining: one mineral with its signature for 1 to 10 rocks, or every
 mineral of that kind with its signature, in alphabetical order. The same choice is in Settings (Pin
-beside the icon) and the tray menu. The list has the icon's opacity, never takes focus, lets clicks
+beside the icon) and the tray menu. The list never takes focus, lets clicks
 through, and hides while the search bar is open. Every pinned window (signature lists, the hangar
-timer, a zone map) has a small opacity slider at its bottom right and a resize corner (the bottom
+timer, a zone map) has a small transparency slider (0% solid to 100%, in 20% steps) at its bottom right and a resize corner (the bottom
 corner away from the icon; double-click it for the default size). The text grows with the window, so
-a bigger pin reads more easily. Each kind keeps its own size and opacity.
+a bigger pin reads more easily. Each kind keeps its own size and transparency.
 
 Search **Executive Hangar** (or "exec hangar", "hangar executivo") for the Pyro contested-zone run that
 ends in a PYAM Exec ship. The page shows the hangar's live timer: its five lights (red turning green

@@ -8,5 +8,5 @@ contextBridge.exposeInMainWorld('pin', {
   grip: (over) => ipcRenderer.send('pin:grip', !!over), // the pointer is on the resize corner: take the mouse
   resize: (phase, screenX) => ipcRenderer.send('pin:resize', phase, screenX),
   close: () => ipcRenderer.send('pin:close'), // the map's ×: unpin it
-  alpha: (value, done) => ipcRenderer.send('pin:alpha', Number(value), !!done), // the map's opacity slider
+  alpha: (value, done) => ipcRenderer.send('pin:alpha', Number(value), !!done), // the pin's transparency slider
 });

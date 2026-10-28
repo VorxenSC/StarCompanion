@@ -31,7 +31,7 @@ function showHangar(anchor, labels, lang) {
 // Every pin's resize corner and opacity slider, and the map's close button: while the pointer is on one
 // of them the window takes the mouse (it is click-through otherwise). A drag on the corner sends the
 // pointer's screen position to the main process, which sizes the window (the content scales with it);
-// the slider sets the pin's opacity; the × unpins the map.
+// the slider sets the pin's transparency (0% solid … 100%); the × unpins the map.
 const grip = $('grip');
 let dragging = false;
 let overHot = false;
@@ -65,8 +65,8 @@ grip.addEventListener('dblclick', () => pin.resize('reset'));
 const alpha = $('alpha');
 let sliding = false;
 alpha.addEventListener('pointerdown', () => { sliding = true; dragging = true; });
-alpha.addEventListener('input', () => pin.alpha(alpha.value, false));
-alpha.addEventListener('change', () => pin.alpha(alpha.value, true));
+alpha.addEventListener('input', () => pin.alpha(Number(alpha.value), false));
+alpha.addEventListener('change', () => pin.alpha(Number(alpha.value), true));
 document.addEventListener('pointerup', () => { if (sliding) { sliding = false; dragging = false; } });
 
 pin.onData((data) => {
@@ -79,8 +79,10 @@ pin.onData((data) => {
   $('close').hidden = !data.map;
   $('pin').classList.toggle('is-map', !!data.map);
   $('pin').classList.toggle('is-hangar', !!data.hangar);
-  alpha.value = String(data.alpha ?? 1);
-  alpha.title = data.alphaLabel || '';
+  alpha.value = String(data.transparency ?? 0);
+  const transparencyTitle = () => `${data.transparencyLabel || ''} ${Math.round(alpha.value * 100)}%`;
+  alpha.title = transparencyTitle();
+  alpha.oninput = () => { alpha.title = transparencyTitle(); };
   if (data.hangar) return showHangar(data.hangar, data.labels, data.lang);
   if (data.map) {
     $('unit').textContent = '';

@@ -6,7 +6,7 @@
 html, body { margin: 0; background: transparent; overflow: hidden; }
 .pin {
   box-sizing: border-box; width: 100%; padding: 8px 10px 8px;
-  background: rgba(9, 15, 22, 0.92); /* the window itself takes the icon's opacity */ border: 1px solid rgba(190, 215, 235, 0.2); border-radius: 3px;
+  background: rgb(9, 15, 22); /* solid: the pin's slider sets the window's transparency */ border: 1px solid rgba(190, 215, 235, 0.2); border-radius: 3px;
   color: #eef4f9; font: 12px/1.3 'IBM Plex Sans', sans-serif;
 }
 .pin-head { display: flex; justify-content: space-between; margin-bottom: 4px; font: 500 10px 'IBM Plex Mono', monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }

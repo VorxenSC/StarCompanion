@@ -25,12 +25,14 @@ const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 const DEFAULT_CONFIG = {
   hotkey: 'PageDown', // the single key that shows/hides the overlay (Electron Accelerator format)
   hideOnBlur: true, // close when you click back into the game
-  transparency: 0, // 0 = solid ("Default"); 1 = the most see-through that still reads well
+  // Every window is solid unless the player makes it see-through: each transparency goes from 0 (solid,
+  // the default) to 1 (as see-through as stays usable) in 20% steps.
+  transparency: 0, // the search bar and its results
   height: 1520, // maximum height (capped to the screen); the window shrinks to fit shorter results
   windowWidth: 720, // the design's 680px column plus room for its glow; changed with the resize grip
   zoom: 1, // text size: Ctrl+= / Ctrl+- / Ctrl+0 in the overlay, or the tray menu
   dock: true, // keep a discreet icon on screen while the overlay is closed
-  dockOpacity: 0.35, // that icon's opacity when the mouse is not over it
+  dockTransparency: 0, // that icon, when the mouse is not over it
   showNotice: true, // the "Before you start" notice at launch, until "Don't show this again"
   checkUpdates: true, // look for a new release on GitHub at launch and ask before installing it
   skipVersion: null, // a release the player chose not to be reminded about
@@ -40,8 +42,7 @@ const DEFAULT_CONFIG = {
   pinMineral: null, // with 'mineral': the one mineral pinned, with its 1×–10× rocks
   pinMap: null, // with 'map': { name, url, w, h, by } of the zone map pinned
   pinWidths: {}, // each kind of pin's width ({ list, hangar, map }), set by dragging its corner; 0.4.37's pinMapWidth still counts for the map
-  pinMapAlpha: 0.7, // the pinned map's opacity relative to the icon's, set with its small slider
-  pinAlpha: { list: 1, hangar: 1 }, // the same for the signature lists and the hangar timer
+  pinTransparency: { list: 0, hangar: 0, map: 0 }, // each kind of pin, set with its small slider
   hangarAnchor: null, // the Executive Hangar cycle's start (s) last read online; the built-in one until then
   // dockX, dockY: where the icon sits; the bar unfolds from it. Saved when either is dragged.
   // sizeChosen: true once the player resized with the grip; their width and height are kept from then on.
@@ -49,12 +50,16 @@ const DEFAULT_CONFIG = {
 
 const MIN_HEIGHT = 100;
 const MIN_WIDTH = 520;
-// Transparency: Default (solid) … 100% (as see-through as stays readable). Window opacity = 1 - 0.45 × t.
-const TRANSPARENCY_STEPS = [0, 0.25, 0.5, 0.75, 1];
+// Transparency: 0% (solid) … 100% in 20% steps. The bar's 100% is as see-through as stays readable
+// (opacity 0.55); the icon's and the pins' go further (0.15), being small and glanced at.
+const TRANSPARENCY_STEPS = [0, 0.2, 0.4, 0.6, 0.8, 1];
 const MIN_OPACITY = 0.55;
 const opacityFor = (t) => 1 - (1 - MIN_OPACITY) * t;
+const SMALL_MIN_OPACITY = 0.15;
+const smallOpacityFor = (t) => 1 - (1 - SMALL_MIN_OPACITY) * t;
+const toStep = (t) => (TRANSPARENCY_STEPS.includes(t) ? t : 0);
+const dockOpacity = () => smallOpacityFor(toStep(config.dockTransparency));
 const ZOOM_STEPS = [0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6];
-const DOCK_OPACITY_STEPS = [0.2, 0.35, 0.5, 0.7];
 // The docked window is a DOCK_SIZE square with the icon centred in it; the bar unfolds so that its
 // end square (ICON_SIZE) lands exactly where the icon was.
 const DOCK_SIZE = 64;
@@ -89,6 +94,12 @@ function loadConfig() {
       saved.transparency = TRANSPARENCY_STEPS.reduce((best, v) => (Math.abs(v - t) < Math.abs(best - t) ? v : best), 0);
     }
     delete saved.opacity;
+    // 0.4.40: one transparency scale for every window, solid by default; earlier choices start over.
+    if (saved.alphaScale !== 2) {
+      delete saved.transparency;
+      saved.alphaScale = 2;
+    }
+    for (const old of ['dockOpacity', 'pinMapAlpha', 'pinAlpha']) delete saved[old];
     if (saved.pinSignatures === true) saved.pinSignatures = 'ship'; // 0.4.18 had only the ship list
     // Sizes saved before 0.4.7 were defaults, not choices: take the new (taller) default.
     if (!saved.sizeChosen) {
@@ -235,7 +246,7 @@ function dockNow() {
   state = 'docked';
   win.setFocusable(false); // a click on the icon must not pull focus from the game until it opens
   setBounds({ x: dock.x, y: dock.y, width: DOCK_SIZE, height: DOCK_SIZE });
-  win.webContents.send('overlay:docked', { opacity: config.dockOpacity });
+  win.webContents.send('overlay:docked', { opacity: dockOpacity() });
   win.showInactive();
   updatePin();
 }
@@ -367,7 +378,7 @@ function maxHeight() {
 }
 
 function sendLayout() {
-  win?.webContents.send('overlay:layout', { maxHeight: maxHeight(), zoom: config.zoom, side, dockOpacity: config.dockOpacity });
+  win?.webContents.send('overlay:layout', { maxHeight: maxHeight(), zoom: config.zoom, side, dockOpacity: dockOpacity() });
 }
 
 function setTransparency(value) {
@@ -387,9 +398,8 @@ function setDock(enabled) {
   } else if (state === 'hidden' && enabled) dockNow();
 }
 
-function setDockOpacity(value) {
-  config.dockOpacity = value;
-  pinWin?.setOpacity(value);
+function setDockTransparency(value) {
+  config.dockTransparency = value;
   sendLayout();
   saveConfig();
   buildTray();
@@ -627,14 +637,9 @@ const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral', 'hangar', 'map'];
 // reads more easily. The map is also fainter than the icon so the game shows through.
 const PIN_MAP_WIDTH = 420;
 const PIN_SCALE = { min: 0.75, max: 4 };
-const PIN_MAP_ALPHA = 0.7;
-const PIN_MAP_ALPHA_MIN = 0.15;
-const clampAlpha = (v, fallback) => Math.max(PIN_MAP_ALPHA_MIN, Math.min(1, Number(v) || fallback));
-// Each kind of pin keeps its own opacity (its small slider): the map, the hangar timer, the lists.
+// Each kind of pin keeps its own transparency (its small slider): the map, the hangar timer, the lists.
 const pinKind = (mode) => (mode === 'map' || mode === 'hangar' ? mode : 'list');
-function pinAlpha(kind = pinKind(config.pinSignatures)) {
-  return kind === 'map' ? clampAlpha(config.pinMapAlpha, PIN_MAP_ALPHA) : clampAlpha(config.pinAlpha?.[kind], 1);
-}
+const pinTransparency = (kind = pinKind(config.pinSignatures)) => toStep(config.pinTransparency?.[kind]);
 const pinBaseWidth = (kind) => (kind === 'map' ? PIN_MAP_WIDTH : PIN_WIDTH);
 // The height a view takes at its base width.
 const pinBaseHeight = (view) => (view.map ? 52 + ((PIN_MAP_WIDTH - 22) * view.map.h) / view.map.w : view.hangar ? 98 : 48 + view.rows.length * 17);
@@ -696,7 +701,7 @@ function createPin() {
 
 function sendPinData() {
   const view = pinView();
-  if (view) pinWin?.webContents.send('pin:data', { ...view, alpha: pinAlpha(), alphaLabel: T('Opacity') });
+  if (view) pinWin?.webContents.send('pin:data', { ...view, transparency: pinTransparency(), transparencyLabel: T('Transparency') });
 }
 
 // Beside the icon, on the side facing the middle of the screen, top-aligned with it.
@@ -710,7 +715,7 @@ function updatePin() {
   if (!pinWin) return createPin();
   const dock = dockPosition();
   const { workArea: a } = screen.getDisplayNearestPoint({ x: dock.x + DOCK_SIZE / 2, y: dock.y + DOCK_SIZE / 2 });
-  pinWin.setOpacity(config.dockOpacity * pinAlpha()); // the icon's alpha, times what the pin's slider says
+  pinWin.setOpacity(smallOpacityFor(pinTransparency())); // what the pin's own slider says
   // As wide as dragged, keeping its proportions, and never wider or taller than the screen allows.
   const kind = pinKind(config.pinSignatures);
   const base = pinBaseWidth(kind);
@@ -733,13 +738,12 @@ function updatePin() {
 // that kind of pin when the drag ends; a double click goes back to its default width.
 let pinDrag = null;
 ipcMain.on('pin:grip', (_e, over) => pinWin?.setIgnoreMouseEvents(!over, { forward: true }));
-// A pin's opacity slider: applied while it moves, saved when it is let go.
+// A pin's transparency slider (0% to 100% in 20% steps): applied while it moves, saved when let go.
 ipcMain.on('pin:alpha', (_e, value, done) => {
-  if (!pinWin || !PIN_MODES.includes(config.pinSignatures) || !Number.isFinite(value)) return;
+  if (!pinWin || !PIN_MODES.includes(config.pinSignatures) || !TRANSPARENCY_STEPS.includes(value)) return;
   const kind = pinKind(config.pinSignatures);
-  if (kind === 'map') config.pinMapAlpha = clampAlpha(value, PIN_MAP_ALPHA);
-  else config.pinAlpha = { ...config.pinAlpha, [kind]: clampAlpha(value, 1) };
-  pinWin.setOpacity(config.dockOpacity * pinAlpha(kind));
+  config.pinTransparency = { ...config.pinTransparency, [kind]: value };
+  pinWin.setOpacity(smallOpacityFor(value));
   if (done) saveConfig();
 });
 // The map's close button: unpins it (Settings, the tray or the page's Pin map bring it back).
@@ -1021,7 +1025,7 @@ function settingsSnapshot() {
     startWithWindows: startsWithWindows(),
     canStartWithWindows: app.isPackaged,
     dock: config.dock,
-    dockOpacity: config.dockOpacity,
+    dockTransparency: toStep(config.dockTransparency),
     transparency: config.transparency,
     zoom: config.zoom,
     hideOnBlur: config.hideOnBlur,
@@ -1034,7 +1038,7 @@ function settingsSnapshot() {
     languageInUse: i18n.getLanguage(),
     version: app.getVersion(),
     keys: { listener: !!(keyHelper && keyHelperReady), seen: keysSeen, lastHitAt, log: KEYS_LOG },
-    steps: { dockOpacity: DOCK_OPACITY_STEPS, transparency: TRANSPARENCY_STEPS, zoom: ZOOM_STEPS },
+    steps: { dockTransparency: TRANSPARENCY_STEPS, transparency: TRANSPARENCY_STEPS, zoom: ZOOM_STEPS },
   };
 }
 
@@ -1042,7 +1046,7 @@ function applySetting(key, value) {
   switch (key) {
     case 'startWithWindows': setStartWithWindows(!!value); break;
     case 'dock': setDock(!!value); break;
-    case 'dockOpacity': if (DOCK_OPACITY_STEPS.includes(value)) setDockOpacity(value); break;
+    case 'dockTransparency': if (TRANSPARENCY_STEPS.includes(value)) setDockTransparency(value); break;
     case 'transparency': if (TRANSPARENCY_STEPS.includes(value)) setTransparency(value); break;
     case 'zoom': if (ZOOM_STEPS.includes(value)) setZoom(value); break;
     case 'hideOnBlur': config.hideOnBlur = !!value; saveConfig(); break;
@@ -1288,7 +1292,7 @@ function snapshotMode(spec) {
 ipcMain.handle('db:load', () => fs.promises.readFile(dbFile(), 'utf8'));
 ipcMain.handle('commodities:live', () => liveCommodities); // the latest fetch, for a database reloaded later
 ipcMain.handle('hangar:anchor', () => hangarAnchor());
-ipcMain.handle('app:config', () => ({ language: i18n.getLanguage(), hotkey: config.hotkey, maxHeight: maxHeight(), zoom: config.zoom, dockOpacity: config.dockOpacity, liveGameVersion }));
+ipcMain.handle('app:config', () => ({ language: i18n.getLanguage(), hotkey: config.hotkey, maxHeight: maxHeight(), zoom: config.zoom, dockOpacity: dockOpacity(), liveGameVersion }));
 ipcMain.on('overlay:hide', () => close());
 ipcMain.on('overlay:closed', () => finishClose());
 ipcMain.on('app:ready', () => splashReady());

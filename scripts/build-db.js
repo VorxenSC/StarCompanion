@@ -31,6 +31,7 @@ const ships = load('ships.json');
 const market = load('market.json');
 const commodities = load('commodities.json');
 const factions = load('factions.json');
+const factionLogos = load('faction-logos.json')?.logos || {}; // hand-picked real logos (scripts/faction-logos.json)
 const wikiImages = load('images.json')?.images || {};
 const rsiPrices = load('rsi-prices.json');
 // Hand-written notes (where players find things, systems): scripts/curated/*.json, shipped with the app.
@@ -458,7 +459,15 @@ for (const f of factions?.factions || []) {
     t: 'faction',
     n: f.name,
     s: [f.type, f.area, f.focus].filter(Boolean).join(' · '),
-    d: { ...f, url: `https://starcitizen.tools/${encodeURIComponent(f.name.replace(/ /g, '_'))}` },
+    d: {
+      ...f,
+      // The wiki's headquarters field sometimes holds the faction's description (Vaughn's): a place is short.
+      headquarters: f.headquarters && String(f.headquarters).length <= 100 ? f.headquarters : null,
+      url: `https://starcitizen.tools/${encodeURIComponent(f.name.replace(/ /g, '_'))}`,
+      // The faction's logo as starcitizen.tools hosts it, with which tile it needs behind it (light for
+      // dark logos); only real logos are used: a faction without one shows no picture.
+      logo: factionLogos[f.name] && { url: factionLogos[f.name].url, w: factionLogos[f.name].w, h: factionLogos[f.name].h, tile: factionLogos[f.name].tile, page: factionLogos[f.name].page },
+    },
   });
 }
 

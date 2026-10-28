@@ -151,11 +151,25 @@ function shopsTable(shops) {
 }
 
 // ---------- Detail views: { facts: [[label, value]], body: [nodes] } ----------
+// "LaserCannon" → "Laser Cannon", "weaponMountUsable" → "Weapon Mount Usable".
+const camelWords = (v) => String(v).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+
 function viewItem(e) {
   const d = e.d;
+  // The item's own Type, Size, Grade and Class lead the facts; the source's attribute list (cstone) repeats
+  // them: the same value is dropped, and a different Type is the weapon's subtype (Laser Cannon, Magazine,
+  // Active…) or, for a missile, what it tracks (Infrared, Electromagnetic, Cross Section), so it is named so.
+  const own = { Type: d.type, Size: d.size, Grade: d.grade, Class: d.class };
   const attrs = Object.entries(d.attrs || {})
     .filter(([k]) => k !== 'MANUFACTURER')
-    .map(([k, v]) => [k.charAt(0) + k.slice(1).toLowerCase(), v]);
+    .map(([k, v]) => [k.charAt(0) + k.slice(1).toLowerCase(), v])
+    .flatMap(([label, v]) => {
+      const mine = own[label];
+      if (mine == null || mine === '') return [[label, v]];
+      if (String(mine) === String(v)) return [];
+      if (label === 'Size' || String(v) === String(d.manufacturer)) return []; // a second size, or the maker again (gadgets)
+      return label === 'Type' ? [[/^Missile/.test(d.type || '') ? 'Tracking signal' : 'Subtype', camelWords(v)]] : [[label, v]];
+    });
   const cheapest = d.shops?.filter((s) => s.price > 0).sort((a, z) => a.price - z.price)[0];
   const m = d.market;
   const uexUrl = d.uexId && `https://uexcorp.space/marketplace/?id_item=${d.uexId}`;
@@ -548,7 +562,7 @@ function viewMission(e) {
   return {
     facts: [
       ['Contractor', d.giver],
-      ['Faction', d.faction || d.factions?.join(', ')],
+      ['Faction', (d.faction ?? d.factions?.join(', ')) === d.giver ? null : d.faction || d.factions?.join(', ')], // not twice when the contractor is the faction
       ['Mission type', d.kinds?.map((k) => tr(k)).join(', ')],
       ['Systems', d.systems?.join(', ')],
       ['Legality', d.legal],
@@ -820,6 +834,9 @@ function systemMap(name, o) {
   return svg;
 }
 
+// The source says "Information Blocked" where it has nothing to show.
+const realValue = (v) => (/^information blocked$/i.test(String(v ?? '').trim()) ? null : v);
+
 function viewFaction(e) {
   const d = e.d;
   const ranks = d.ranks || [];
@@ -828,9 +845,9 @@ function viewFaction(e) {
       ['Type', d.type],
       ['Area', d.area],
       ['Focus', d.focus],
-      ['Leadership', d.leadership],
+      ['Leadership', realValue(d.leadership)],
       ['Headquarters', d.headquarters],
-      ['Founded', d.founded],
+      ['Founded', realValue(d.founded)],
       ['Ranks', ranks.filter((r) => r.min >= 0).length || null],
     ],
     body: [
@@ -842,7 +859,7 @@ function viewFaction(e) {
             note('Reputation is earned by completing this faction\'s contracts; each standing unlocks better-paid ones.'),
           )
         : note('No reputation ladder: this faction does not track standing with players.'),
-      links([['Wiki', d.url]]),
+      links([['Wiki', d.url], ['Logo', d.logo?.page]]),
     ],
   };
 }
@@ -1123,6 +1140,18 @@ function imageFor(e) {
   return img;
 }
 
+// A faction's logo, on a light or dark tile (whichever shows it), from the wiki's own file. Nothing is
+// shown for a faction without one, and the box goes away if the picture does not load.
+function logoFor(e) {
+  const logo = e.d.logo;
+  if (!logo) return null;
+  const img = h('img', { class: `detail-img logo logo-${logo.tile}`, alt: '', referrerpolicy: 'no-referrer', title: tr('Logo from starcitizen.tools') });
+  img.addEventListener('error', () => { img.remove(); fit(); });
+  img.addEventListener('load', fit);
+  img.src = logo.url;
+  return img;
+}
+
 // The one or two facts worth reading first; they sit beside the name, the rest go in the grid below.
 const HEADLINE = {
   item: ['Lowest price', 'UEX market price', 'DPS'],
@@ -1161,7 +1190,7 @@ function renderDetail(e) {
     h(
       'div',
       { class: 'detail-head' },
-      imageFor(e),
+      e.t === 'faction' ? logoFor(e) : imageFor(e),
       h(
         'div',
         { class: 'detail-main' },
@@ -1172,7 +1201,8 @@ function renderDetail(e) {
           h('button', { class: 'back', onclick: back }, 'Back ', h('kbd', null, 'ESC')),
         ),
         h('div', { class: 'detail-name in', delay: 40 }, e.n),
-        h('div', { class: 'detail-meta in', delay: 110 }, e.s || ''),
+        // A faction's subtitle (type · area · focus) is the same as its Type, Area and Focus facts below.
+        e.t !== 'faction' && h('div', { class: 'detail-meta in', delay: 110 }, e.s || ''),
         actions?.some(Boolean) && h('div', { class: 'detail-actions in', delay: 130 }, actions),
         headline.length > 0 &&
           h(

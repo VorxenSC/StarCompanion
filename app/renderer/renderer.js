@@ -426,13 +426,16 @@ function loadoutTable(loadout) {
 function viewBlueprint(e) {
   const d = e.d;
   const mins = Math.round((d.craftTime || 0) / 60);
-  const best = d.missions[0];
+  // Real missions first; the game's reward tables (no mission a player sees) come after, without a link.
+  const real = d.missions.filter((m) => !m.internal);
+  const tables = d.missions.filter((m) => m.internal);
+  const best = real[0];
   const kinds = (m) => (m.kinds || []).map((k) => tr(k)).join(', ');
   return {
     facts: [
       ['Craft time', d.craftTime ? (mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}min` : `${mins} min`) : null],
       ['Materials', d.ingredients.length],
-      ['Missions', d.missions.length || (d.defaultOwned ? 'Default blueprint' : 'None known')],
+      ['Missions', real.length || tr(d.defaultOwned ? 'Default blueprint' : tables.length ? 'Reward table only' : 'None known')],
     ],
     body: [
       // The mission most likely to give it, all in one place: its name, the odds, who offers it, what kind
@@ -462,10 +465,16 @@ function viewBlueprint(e) {
       section(
         'Missions that reward it',
         d.missions.length
-          ? table(
-              [['Mission', ''], ['Faction', ''], ['Type', 'dim'], ['Drop chance', 'num']],
-              sortedBy(d.missions, (m) => m.name).map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', kinds(m), `${Math.round(m.chance * 100)}%`]),
-            )
+          ? [
+              !real.length && note('This blueprint comes from a reward table in the game files: the missions that use it are not known.'),
+              table(
+                [['Mission', ''], ['Faction', ''], ['Type', 'dim'], ['Drop chance', 'num']],
+                [
+                  ...sortedBy(real, (m) => m.name).map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', kinds(m), `${Math.round(m.chance * 100)}%`]),
+                  ...sortedBy(tables, (m) => m.name).map((m) => [h('span', { class: 'dim' }, `${tr('Reward table')}: ${m.name}`), '', '', `${Math.round(m.chance * 100)}%`]),
+                ],
+              ),
+            ]
           : note(d.defaultOwned ? 'Every player already owns this blueprint.' : 'No known mission.'),
       ),
       section('Item', jump(`Where to buy a ready-made ${e.n} →`, e.n, 'item')),

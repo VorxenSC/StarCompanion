@@ -244,6 +244,11 @@ function wikiVariants(title) {
   return [...wikiMissionsByKey].filter(([k]) => re.test(k)).flatMap(([, list]) => list);
 }
 const uniq = (list) => [...new Set(list.filter(Boolean))];
+// sc-craft also names some blueprint sources after the game's own reward tables ("Bp Rewards Xenothreat2 15 06",
+// "Cds Combat Heavy Core 01 02 02"), not a mission a player sees. They get no page and no place in the search; a
+// blueprint shows them as a reward table, without a link, and the tiers of one table as a single row.
+const isRewardTable = (name) => /^(bp|cds)\b|\d{2}\b.*\d{2}|bp rewards?/i.test(String(name || ''));
+const rewardTableLabel = (name) => String(name).replace(/^bp rewards?\s+/i, '').replace(/(\s+(\d{1,3}|mr\d+))+$/i, '').replace(/^xenothreat2?$/i, 'XenoThreat').replace(/^redwind$/i, 'Red Wind').trim();
 // sc-craft's mission names keep the game's tokens ("Defend ~mission(Objects)"): shown as plain words.
 const missionDisplay = (name) => cleanMissionText(String(name || '').replace(/~mission\(([^)]*)\)/g, (_m, inner) => `[${inner}]`));
 function missionInfo(title) {
@@ -270,7 +275,15 @@ for (const b of craft?.blueprints || []) {
       defaultOwned: b.defaultOwned,
       ingredients: b.ingredients,
       itemStats: b.itemStats || undefined,
-      missions: b.missions.sort((a, z) => z.chance - a.chance).map((m) => ({ ...m, name: missionDisplay(m.name), ...missionInfo(m.name) })),
+      missions: (() => {
+        const sorted = b.missions.sort((a, z) => z.chance - a.chance);
+        const tables = new Map();
+        for (const m of sorted) if (isRewardTable(m.name)) { const label = rewardTableLabel(m.name); tables.set(label, Math.max(tables.get(label) || 0, m.chance)); }
+        return [
+          ...sorted.filter((m) => !isRewardTable(m.name)).map((m) => ({ ...m, name: missionDisplay(m.name), ...missionInfo(m.name) })),
+          ...[...tables].map(([name, chance]) => ({ name, chance, internal: true })),
+        ];
+      })(),
       url: `https://sc-craft.tools/?search=${encodeURIComponent(b.name)}`,
     },
   });
@@ -417,7 +430,7 @@ for (const m of wiki?.missions || []) {
 }
 const wikiMissionKeys = new Set((wiki?.missions || []).filter((m) => !m.title.startsWith('[')).map((m) => norm(m.title)));
 for (const [k, v] of bpByMission) {
-  if (wikiMissionKeys.has(k)) continue;
+  if (wikiMissionKeys.has(k) || isRewardTable(v.name)) continue;
   const entry = add({ t: 'mission', n: missionDisplay(v.name), s: 'Blueprint reward', d: { blueprints: v.bps, ...missionInfo(v.name) } });
   missionTitleKey.set(entry, { key: titleKey(v.name) });
 }

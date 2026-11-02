@@ -1,0 +1,2414 @@
+[
+ {
+  "title": "~mission(Contractor|AssassinationTitle)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|BaseSweepTitle)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|BlackBoxRecoverTitleEasy)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|BlackBoxRecoverTitleHard)",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|BlackBoxRecoverTitleIntro)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|BlackBoxRecoverTitleMedium)",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|BlackBoxRecoverTitleSuper)",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|BlackBoxRecoverTitleVeryEasy)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|BlackBoxRecoverTitleVeryHard)",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|BountyTitleEasy)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|BountyTitleHard)",
+  "rep": 200
+ },
+ {
+  "title": "~mission(Contractor|BountyTitleMedium)",
+  "rep": 150
+ },
+ {
+  "title": "~mission(Contractor|BountyTitleSuper)",
+  "rep": 300
+ },
+ {
+  "title": "~mission(Contractor|BountyTitleVeryEasy)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|BountyTitleVeryHard)",
+  "rep": 250
+ },
+ {
+  "title": "~mission(Contractor|DestroyProbeTitle)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|RecoverItemTitle)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "~mission(Contractor|RecoverSpaceTitleEasy)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|RecoverSpaceTitleHard)",
+  "rep": 200
+ },
+ {
+  "title": "~mission(Contractor|RecoverSpaceTitleIntro)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|RecoverSpaceTitleMedium)",
+  "rep": 150
+ },
+ {
+  "title": "~mission(Contractor|RecoverSpaceTitleSuper)",
+  "rep": 300
+ },
+ {
+  "title": "~mission(Contractor|RecoverSpaceTitleVeryEasy)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|RecoverSpaceTitleVeryHard)",
+  "rep": 250
+ },
+ {
+  "title": "~mission(Contractor|SearchBodySpaceTitleEasy)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|SearchBodySpaceTitleHard)",
+  "rep": 200
+ },
+ {
+  "title": "~mission(Contractor|SearchBodySpaceTitleIntro)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|SearchBodySpaceTitleMedium)",
+  "rep": 150
+ },
+ {
+  "title": "~mission(Contractor|SearchBodySpaceTitleSuper)",
+  "rep": 300
+ },
+ {
+  "title": "~mission(Contractor|SearchBodySpaceTitleVeryEasy)",
+  "rep": 100
+ },
+ {
+  "title": "~mission(Contractor|SearchBodySpaceTitleVeryHard)",
+  "rep": 250
+ },
+ {
+  "title": "~mission(Destination) Errand",
+  "rep": 50
+ },
+ {
+  "title": "~mission(Location) has been greenlit",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "~mission(Location) needs assistance",
+  "bp": true
+ },
+ {
+  "title": "~mission(Location|Address) needs help",
+  "bp": true
+ },
+ {
+  "title": "~mission(ReputationRank) | <EM3>DIRECT</EM3> ~mission(CargoGradeToken) Haul | ~mission(Location|name) > ~mission(Destination|name)",
+  "bp": true
+ },
+ {
+  "title": "~mission(ReputationRank) | ~mission(CargoGradeToken) Haul | from ~mission(Location|name)",
+  "bp": true
+ },
+ {
+  "title": "~mission(TargetName) needs stomping",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "~mission(title)",
+  "rep": 1500
+ },
+ {
+  "title": "A Chance to Impress",
+  "rep": 100
+ },
+ {
+  "title": "A little retaliation",
+  "bp": true
+ },
+ {
+  "title": "A Swift Reprisal",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "A Well Deserved Break",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Adagio Holdings in Need of Salvagers",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Additional Resources For Research",
+  "bp": true
+ },
+ {
+  "title": "Advanced Tracker License Certification",
+  "rep": 50
+ },
+ {
+  "title": "Alert: ~mission(Location) under attack",
+  "bp": true
+ },
+ {
+  "title": "All Things Come To An End",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Ambush Op",
+  "rep": 150
+ },
+ {
+  "title": "Anybody Seen ~mission(TargetName)?",
+  "rep": 50
+ },
+ {
+  "title": "Armor with horn and string",
+  "rep": 25
+ },
+ {
+  "title": "Armor with Vanduul",
+  "rep": 25
+ },
+ {
+  "title": "Asgard Fight Mod",
+  "rep": 250
+ },
+ {
+  "title": "Assist People's Alliance Vessel Tranquility",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Assist Retreating Ship",
+  "rep": 200
+ },
+ {
+  "title": "Assistance needed at ~mission(Location)",
+  "bp": true
+ },
+ {
+  "title": "ATLS Cool Metal Color",
+  "rep": 20
+ },
+ {
+  "title": "ATLS Orange Line",
+  "rep": 20
+ },
+ {
+  "title": "ATLS Snowland Color",
+  "rep": 20
+ },
+ {
+  "title": "Attack on CFP outpost",
+  "bp": true
+ },
+ {
+  "title": "Back up needed at outpost",
+  "bp": true
+ },
+ {
+  "title": "Backup Needed Now",
+  "rep": 150
+ },
+ {
+  "title": "Big Style LMG",
+  "rep": 10,
+  "bp": true
+ },
+ {
+  "title": "Blackbox Retrieval",
+  "rep": 240,
+  "bp": true
+ },
+ {
+  "title": "Blackbox Retrieval Very Dangerous",
+  "rep": 360,
+  "bp": true
+ },
+ {
+  "title": "Blackbox Retrieval w/Danger",
+  "rep": 260,
+  "bp": true
+ },
+ {
+  "title": "Block XenoThreat Expansion",
+  "bp": true
+ },
+ {
+  "title": "Bounty Assignment: ~mission(TargetName) (HRT)",
+  "bp": true
+ },
+ {
+  "title": "Bring Down the Hammer",
+  "rep": 200
+ },
+ {
+  "title": "Build a Mod Scorpius",
+  "rep": 100
+ },
+ {
+  "title": "Bulk Covalex Shipment Needs Recovering",
+  "rep": 250
+ },
+ {
+  "title": "Call for Help: ~mission(Location)",
+  "bp": true
+ },
+ {
+  "title": "Campaign to reclaim XenoThreat outposts",
+  "bp": true
+ },
+ {
+  "title": "Capture Arlington Gang Leader Maltrox Arlington",
+  "rep": 500
+ },
+ {
+  "title": "Capture Arlington Gang Member Kass Dent",
+  "rep": 500
+ },
+ {
+  "title": "Capture Arlington Gang Member Les Arlington",
+  "rep": 500
+ },
+ {
+  "title": "Capture Arlington Gang Member Nicks Cantwell",
+  "rep": 500
+ },
+ {
+  "title": "Capture Arlington Gang Member Oslo Arlington",
+  "rep": 500
+ },
+ {
+  "title": "Capture Arlington Gang Member Sam ‘Weepy’ Arlington",
+  "rep": 500
+ },
+ {
+  "title": "Carefully Clear Site",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Cargo Hauling Opportunity with Ling Hauling | ~mission(Location|name) > ~mission(Destination|name)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Cargo Retrieval | ~mission(Location|name) > ~mission(Destination|name)",
+  "rep": 200
+ },
+ {
+  "title": "Cargo Shipment Must Be Completed",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Cargo Transfer from Shuttered Facility | ~mission(Location|name) > ~mission(Destination|name)",
+  "rep": 50
+ },
+ {
+  "title": "Cleaning Up Someone Else’s Mess",
+  "rep": 100
+ },
+ {
+  "title": "Clear ~mission(Location) of Salvage",
+  "rep": 25
+ },
+ {
+  "title": "Clear CFP Route of Hostiles",
+  "rep": 100
+ },
+ {
+  "title": "Clear Citizens for Prosperity Servers",
+  "rep": 75
+ },
+ {
+  "title": "Client's Cargo Needs Recovering",
+  "rep": 100
+ },
+ {
+  "title": "Clipper Fight Now",
+  "bp": true
+ },
+ {
+  "title": "Collect Irradiated Kopion Horns",
+  "rep": 150
+ },
+ {
+  "title": "Collect Irradiated Valakkar Eggs",
+  "rep": 150
+ },
+ {
+  "title": "Combat Support: ~mission(Location)",
+  "rep": 2000
+ },
+ {
+  "title": "Come to Aid of Convoy",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Complete Stranded Ling Shipment",
+  "rep": 200
+ },
+ {
+  "title": "Convince Upstarts to Abandon Sector",
+  "rep": 200
+ },
+ {
+  "title": "Convoy Caught in Brutal Attack",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Crash some ships",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Crew Hasn’t Checked In",
+  "rep": 160,
+  "bp": true
+ },
+ {
+  "title": "Critical Cargo Extraction",
+  "rep": 250
+ },
+ {
+  "title": "CRITICAL FLEET REFUEL",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "CRITICAL REFUEL REQUEST: ~mission(Ship)",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Crucial Supplies Need Retrieving",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Cull Invasive Creatures",
+  "rep": 150
+ },
+ {
+  "title": "Curious Weapon",
+  "rep": 10
+ },
+ {
+  "title": "Danger: Contraband Weapons Inbound",
+  "rep": 200
+ },
+ {
+  "title": "Dangerous Ambush",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "DEAD SAINTS - ~mission(ReputationRank) | ~mission(CargoRouteToken) ~mission(CargoGradeToken) Haul | from ~mission(Location|name)",
+  "rep": 100
+ },
+ {
+  "title": "DEAD SAINTS - ~mission(ReputationRank) | ~mission(CargoRouteToken) ~mission(CargoGradeToken) Haul | to ~mission(Destination|name)",
+  "rep": 100
+ },
+ {
+  "title": "DEAD SAINTS -- ~mission(ReputationRank) Rank, ~mission(CargoGradeToken) Scale Cargo Run | ~mission(Location|name) > ~mission(Destination|name)",
+  "rep": 100
+ },
+ {
+  "title": "Deal with ~mission(TargetName) and Support Forces",
+  "rep": 500,
+  "bp": true
+ },
+ {
+  "title": "Deep space hit",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "Defend ~mission(Location) From Mercs",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Defend ~mission(Location) from Outlaws",
+  "bp": true
+ },
+ {
+  "title": "Defend ~mission(Objects) From Mercs",
+  "rep": 250
+ },
+ {
+  "title": "Defend InterSec Operative",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Defenders needed against Headhunters",
+  "bp": true
+ },
+ {
+  "title": "Delivery of Abandoned Ling Cargo",
+  "rep": 250
+ },
+ {
+  "title": "Destroy Headhunter Stolen Data",
+  "bp": true
+ },
+ {
+  "title": "Destroy Outlaw Data Servers",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Destroy XenoThreat Data Servers",
+  "bp": true
+ },
+ {
+  "title": "Destroy XenoThreat Fuel Reserves",
+  "rep": 3200
+ },
+ {
+  "title": "Destroy XenoThreat Logistic Data",
+  "bp": true
+ },
+ {
+  "title": "Disable Outlaw Stronghold at ~mission(Location)",
+  "bp": true
+ },
+ {
+  "title": "Do Lava Suit",
+  "rep": 25
+ },
+ {
+  "title": "Driving CFP out",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Drop a XenoThreat",
+  "rep": 400,
+  "bp": true
+ },
+ {
+  "title": "Efficient Miners Wanted",
+  "rep": 400,
+  "bp": true
+ },
+ {
+  "title": "Eliminate Annoyance",
+  "rep": 100
+ },
+ {
+  "title": "Eliminate Fuel Stores",
+  "bp": true
+ },
+ {
+  "title": "Eliminate Vanduul Ship",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Elite Op",
+  "rep": 300
+ },
+ {
+  "title": "Emergency: Blinding Hope in Trouble",
+  "rep": 800,
+  "bp": true
+ },
+ {
+  "title": "ENTRY LVL. COURIER NEEDED IN NYX",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "ENTRY LVL. COURIER NEEDED IN STANTON",
+  "bp": true
+ },
+ {
+  "title": "Eradicate All Traces of Headhunter Data",
+  "bp": true
+ },
+ {
+  "title": "Eradicate UEE Threat: ~mission(TargetName)",
+  "rep": 300
+ },
+ {
+  "title": "Establishing Security",
+  "rep": 25
+ },
+ {
+  "title": "Exciting New Opportunities with Foxwell Enforcement",
+  "rep": 100
+ },
+ {
+  "title": "Executive Protection Detail",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Expel Outlaws",
+  "rep": 500
+ },
+ {
+  "title": "Experienced Protection Detail Needed",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Extra Small Covalex Shipment Needs Recovering",
+  "rep": 50
+ },
+ {
+  "title": "Extra Special Job",
+  "rep": 800
+ },
+ {
+  "title": "Extra Special Wolf",
+  "bp": true
+ },
+ {
+  "title": "Extreme Risk Cargo Retrieval",
+  "rep": 300
+ },
+ {
+  "title": "Extremely Dangerous Defense",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "F8 War Mod",
+  "rep": 250
+ },
+ {
+  "title": "Find Headhunter Crewmember and Help Finish the Job",
+  "rep": 800
+ },
+ {
+  "title": "FIND SERVERS AT ASD SITE AND DESTROY",
+  "rep": 50
+ },
+ {
+  "title": "Finish Interrupted Ling Delivery",
+  "rep": 50
+ },
+ {
+  "title": "Finish the job",
+  "rep": 150
+ },
+ {
+  "title": "Firebird Mod",
+  "rep": 100
+ },
+ {
+  "title": "Fortune ship for you",
+  "rep": 30
+ },
+ {
+  "title": "Full Area Scan for Ore",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Fun Kopion Skull Gun",
+  "rep": 10
+ },
+ {
+  "title": "Fun Military Skull Gun",
+  "rep": 10
+ },
+ {
+  "title": "Gather Irradiated Valakkar Fangs",
+  "rep": 150
+ },
+ {
+  "title": "Get Our Shit!",
+  "rep": 25
+ },
+ {
+  "title": "Get the Good Stuff",
+  "rep": 1200
+ },
+ {
+  "title": "Getting Our Goods Back | to ~mission(Destination|name)",
+  "rep": 200
+ },
+ {
+  "title": "Getting what we deserve",
+  "rep": 250
+ },
+ {
+  "title": "Ghost some XenoTrash",
+  "rep": 3200,
+  "bp": true
+ },
+ {
+  "title": "Go on the warpath",
+  "rep": 400,
+  "bp": true
+ },
+ {
+  "title": "Golem Rocks",
+  "rep": 30
+ },
+ {
+  "title": "Gone But Not Forgotten",
+  "rep": 150
+ },
+ {
+  "title": "good help’s hard to find",
+  "rep": 100
+ },
+ {
+  "title": "Grab ‘n’ go",
+  "rep": 50
+ },
+ {
+  "title": "Green light on ~mission(Location)",
+  "bp": true
+ },
+ {
+  "title": "Green light on ~mission(TargetName|Last)",
+  "rep": 1200,
+  "bp": true
+ },
+ {
+  "title": "Ground The Upstarts",
+  "rep": 100
+ },
+ {
+  "title": "Guard ~mission(Location) From Rivals",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Guard ~mission(Objects) At All Costs",
+  "rep": 300
+ },
+ {
+  "title": "Guardian Fight Mod",
+  "rep": 100
+ },
+ {
+  "title": "Guardian take down ship",
+  "rep": 100
+ },
+ {
+  "title": "Guardian WiK-X",
+  "rep": 100
+ },
+ {
+  "title": "Handle Vanduul Attack on Ship",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Hauling ask.",
+  "rep": 200
+ },
+ {
+  "title": "Headhunter attack on ~mission(Location)",
+  "bp": true
+ },
+ {
+  "title": "Headhunter Needs Help",
+  "rep": 100
+ },
+ {
+  "title": "Headhunter Pilot in Trouble",
+  "rep": 150
+ },
+ {
+  "title": "Headhunter Pilot Needs a Hand",
+  "rep": 100
+ },
+ {
+  "title": "Headhunter Ship Needs Backup",
+  "rep": 200
+ },
+ {
+  "title": "Heavy and Bright",
+  "rep": 10,
+  "bp": true
+ },
+ {
+  "title": "Help Deal with Outlaw Hunting Party",
+  "rep": 100
+ },
+ {
+  "title": "Help defend ~mission(Location) from Headhunters",
+  "bp": true
+ },
+ {
+  "title": "Help Headhunters at ~mission(DefendLocationWrapperLocation)",
+  "rep": 200
+ },
+ {
+  "title": "Help Headhunters Prospect",
+  "rep": 100
+ },
+ {
+  "title": "Help Protect Site",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Hide Snow Suit",
+  "rep": 25
+ },
+ {
+  "title": "High Priority Ore Scan",
+  "rep": 600,
+  "bp": true
+ },
+ {
+  "title": "High Risk Shipment Recovery",
+  "rep": 200
+ },
+ {
+  "title": "High-Risk Bounty: ~mission(TargetName)",
+  "rep": 500,
+  "bp": true
+ },
+ {
+  "title": "High-Risk Ship Encounter",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Highly Dangerous Ambush",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Hit a CFP Complex",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Hit a CFP Ship",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Hit on XenoThreat command",
+  "rep": 400,
+  "bp": true
+ },
+ {
+  "title": "Hit XenoThreat at ~mission(Location)",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Hitting a CFP site",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "Hot Shot",
+  "rep": 10
+ },
+ {
+  "title": "Hunt Some Heads",
+  "rep": 300
+ },
+ {
+  "title": "Idea for Isaac",
+  "rep": 800,
+  "bp": true
+ },
+ {
+  "title": "INFILITRATE ASD SITE AND DESTROY SERVERS",
+  "rep": 50
+ },
+ {
+  "title": "Inmate Maintenance Opportunity",
+  "rep": 100
+ },
+ {
+  "title": "Intensive Eradication Effort",
+  "rep": 300
+ },
+ {
+  "title": "Inter-Outpost Delivery at ~mission(Destination)",
+  "rep": 50
+ },
+ {
+  "title": "Intercepted Supply Run",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Interested in Building a Better Future?",
+  "rep": 100
+ },
+ {
+  "title": "Jackpot",
+  "rep": 200
+ },
+ {
+  "title": "Jorrit Dossier: Project Hyperion",
+  "bp": true
+ },
+ {
+  "title": "Jorrit Dossier: Updated Energy Anomaly Data",
+  "bp": true
+ },
+ {
+  "title": "Jorrit Dossier: Updated Power Usage Data",
+  "bp": true
+ },
+ {
+  "title": "Jorrit Dossier: Updated Security Data",
+  "bp": true
+ },
+ {
+  "title": "Jorrit Dossier: Updated Seismic Data",
+  "bp": true
+ },
+ {
+  "title": "Journeyman Tracker License Certification",
+  "rep": 50
+ },
+ {
+  "title": "JR. LVL. COURIER NEEDED IN STANTON",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Keep ~mission(Location) Safe",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Keep ~mission(Objects) Safe From Upstarts",
+  "rep": 100
+ },
+ {
+  "title": "Kill Order",
+  "rep": 600,
+  "bp": true
+ },
+ {
+  "title": "Kill the king",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Large Covalex Shipment Needs Recovering",
+  "rep": 200
+ },
+ {
+  "title": "Large Deposit Of Ore To Confirm",
+  "rep": 400,
+  "bp": true
+ },
+ {
+  "title": "Launch Surprise Attack",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "let's help each other",
+  "rep": 100
+ },
+ {
+  "title": "Ling Family ~mission(ReputationRank) Haul - ~mission(CargoGradeToken) Scale | ~mission(Location|name) > ~mission(Destination|name)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Ling Family ~mission(ReputationRank) Haul - ~mission(CargoGradeToken) Scale | to ~mission(Destination|name)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Ling Shipment Recovery",
+  "rep": 100
+ },
+ {
+  "title": "Locate Missing Clients",
+  "rep": 100
+ },
+ {
+  "title": "Locate Missing Contractors",
+  "rep": 250
+ },
+ {
+  "title": "Locate Missing Crew",
+  "rep": 300
+ },
+ {
+  "title": "Locate Missing Employee",
+  "rep": 100
+ },
+ {
+  "title": "Locate Missing Family Member",
+  "rep": 200
+ },
+ {
+  "title": "Locate Missing Team",
+  "rep": 150
+ },
+ {
+  "title": "Long Distance Covalex Delivery Stanton",
+  "rep": 100
+ },
+ {
+  "title": "Looking for a Damn Hero",
+  "rep": 300
+ },
+ {
+  "title": "Looking for a little revenge",
+  "bp": true
+ },
+ {
+  "title": "Looking For Trouble",
+  "rep": 200
+ },
+ {
+  "title": "Lost But Not Gone",
+  "rep": 300
+ },
+ {
+  "title": "Low Risk Cargo Retrieval",
+  "rep": 50
+ },
+ {
+  "title": "Low Risk Protection Detail",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Lrg. Purchase Order: Hand Mined Materials",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Lrg. Purchase Order: Ship Mined Ore",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Lrg. Purchase Order: Vehicle Mined Ore",
+  "rep": 200
+ },
+ {
+  "title": "Make a Ursa Mod",
+  "rep": 20
+ },
+ {
+  "title": "Make ATLS shoot",
+  "rep": 20
+ },
+ {
+  "title": "Make glowy armor",
+  "rep": 25
+ },
+ {
+  "title": "Make jumpy ATLS shoot",
+  "rep": 20
+ },
+ {
+  "title": "Make VOLT shotgun angrier",
+  "rep": 10
+ },
+ {
+  "title": "Master Tracker License Certification",
+  "rep": 50
+ },
+ {
+  "title": "Med. Covalex Shipment Needs Recovering",
+  "rep": 150
+ },
+ {
+  "title": "Med. Distance Covalex Delivery Nyx",
+  "rep": 100
+ },
+ {
+  "title": "Med. Distance Covalex Delivery Stanton",
+  "rep": 100
+ },
+ {
+  "title": "Med. Purchase Order: Hand Mined Materials",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Med. Purchase Order: Ship Mined Ore",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Med. Purchase Order: Vehicle Mined Ore",
+  "rep": 150
+ },
+ {
+  "title": "Mining and Data Collection",
+  "rep": 600,
+  "bp": true
+ },
+ {
+  "title": "Mining and MOLE",
+  "rep": 800
+ },
+ {
+  "title": "Minor Mining Job",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Missing Mining Team",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Missing Persons",
+  "rep": 240,
+  "bp": true
+ },
+ {
+  "title": "Mjr. Purchase Order: Ship Mined Ore",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Moderate Repairs Needed: ~mission(Location)",
+  "rep": 100
+ },
+ {
+  "title": "Monolith Armor Very Smooth",
+  "rep": 10,
+  "bp": true
+ },
+ {
+  "title": "Moraine Data Retrieval",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Moraine Movements",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "More than a Max",
+  "rep": 250
+ },
+ {
+  "title": "Need a CFP taken down",
+  "bp": true
+ },
+ {
+  "title": "Need a death at ~mission(Location)",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Need a hitter",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "need an out?",
+  "rep": 100
+ },
+ {
+  "title": "Need multiple CFP outposts retaken",
+  "bp": true
+ },
+ {
+  "title": "Need Resource for Research\\n",
+  "bp": true
+ },
+ {
+  "title": "Need Some Ore Mined",
+  "rep": 220,
+  "bp": true
+ },
+ {
+  "title": "Need someone taken out",
+  "bp": true
+ },
+ {
+  "title": "Neutralize Dangerous Criminal Fleet",
+  "rep": 200
+ },
+ {
+  "title": "Neutralize UEE Threat: ~mission(TargetName)",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Neutralize Vanduul Target",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "New Defense Contract: ~mission(TargetName) Elimination",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "New Move Big Starlancer Ship",
+  "rep": 250
+ },
+ {
+  "title": "New Opportunity - Ambush Strike",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "No Fly Zone",
+  "rep": 100
+ },
+ {
+  "title": "Now make Polaris. Short Time Deal.",
+  "rep": 1000
+ },
+ {
+  "title": "Noxy Mod",
+  "rep": 20
+ },
+ {
+  "title": "Obtain Irradiated Valakkar Pearls",
+  "rep": 150
+ },
+ {
+  "title": "Operative Extraction",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Opportunity for Independent Cargo Hauler | ~mission(Location|name) > ~mission(Destination|name)",
+  "rep": 100
+ },
+ {
+  "title": "Orange Level Contract: ~mission(Ship) Needs Assistance",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Destroy Outlaw Infrastructure",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Destroy Outlaw Threat",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Potential Security Threat",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Protect Our Client’s Interests",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Return the Favor",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Security Patrol",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Ship Protection Needed",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Spring a Trap",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Take Out Criminal Fleet",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Orange Level Contract: Take Out Fuel Supplies",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Orange Lvl. Contract: Defend ~mission(Objects)",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Orange Lvl. Contract: Defend ~mission(Objects) and Escort Employees",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Orange Lvl. Contract: Protect ~mission(Objects)",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Orange Lvl. Contract: Protect ~mission(Objects) and Escort Employees",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Ore Deposit Needs Scanning",
+  "rep": 260,
+  "bp": true
+ },
+ {
+  "title": "Ore Needs Gathering",
+  "rep": 380,
+  "bp": true
+ },
+ {
+  "title": "Ore Scan Needed",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Ore To Be Scanned",
+  "rep": 220,
+  "bp": true
+ },
+ {
+  "title": "Orison Relief: Large Fabrication Order",
+  "bp": true
+ },
+ {
+  "title": "Outlaw attack at ~mission(Location)",
+  "bp": true
+ },
+ {
+  "title": "Outsmarting our Enemies",
+  "rep": 300
+ },
+ {
+  "title": "Paid Target in CFP",
+  "rep": 1200,
+  "bp": true
+ },
+ {
+  "title": "Patrol Dangerous Outlaw Sector",
+  "rep": 250
+ },
+ {
+  "title": "Patrol Dangerous Sector",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Patrol Dangerous Travel Lanes",
+  "rep": 150
+ },
+ {
+  "title": "Patrol Extremely Dangerous Sector",
+  "rep": 300
+ },
+ {
+  "title": "Patrol Outlaw Hunting Grounds",
+  "rep": 200
+ },
+ {
+  "title": "Patrol Risky Travel Lanes",
+  "rep": 100
+ },
+ {
+  "title": "Patrol to Prevent Possible Attack",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Patrol Travel Lanes",
+  "rep": 100
+ },
+ {
+  "title": "Patrol Vanduul Hunting Ground",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Peregrine Wikelo Mod",
+  "rep": 30
+ },
+ {
+  "title": "Pilot in Distress",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Pilot Seeking Combat Support",
+  "bp": true
+ },
+ {
+  "title": "Pilot Under Fire From Vanduul",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Plug a traitor",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Precision Strike on ~mission(TargetName)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Preemptive Strike On ~mission(TargetName)",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Preliminary Bounty: ~mission(TargetName)",
+  "rep": 50
+ },
+ {
+  "title": "Primo Target",
+  "rep": 1200,
+  "bp": true
+ },
+ {
+  "title": "Pro Tem Bounty Assignment: ~mission(TargetName)",
+  "rep": 150
+ },
+ {
+  "title": "Prospects Look Good",
+  "rep": 30
+ },
+ {
+  "title": "Protect ~mission(Location) from XenoThreat Attack",
+  "bp": true
+ },
+ {
+  "title": "Protect ~mission(Location) from XenoThreat Incursion",
+  "bp": true
+ },
+ {
+  "title": "Protect ~mission(Location) from XenoThreat Raid",
+  "bp": true
+ },
+ {
+  "title": "Protect ~mission(Objects) From Luggers",
+  "rep": 100
+ },
+ {
+  "title": "Protect Location",
+  "rep": 500
+ },
+ {
+  "title": "Protect Our Site",
+  "rep": 100
+ },
+ {
+  "title": "Protect Vital Asset",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Protecting outpost from XenoThreat",
+  "bp": true
+ },
+ {
+  "title": "Protection Detail Needed. High Risk.",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Provide Protection at ~mission(Location)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Prowler More Utility",
+  "rep": 250
+ },
+ {
+  "title": "Pulse Plus",
+  "rep": 20
+ },
+ {
+  "title": "PURGE ASD SERVERS",
+  "rep": 50
+ },
+ {
+  "title": "Purge XenoThreat Servers",
+  "rep": 3200
+ },
+ {
+  "title": "QV Breaker Station Mining Rights (Exclusive)",
+  "bp": true
+ },
+ {
+  "title": "QV Breaker Station Mining Rights (Shared)",
+  "bp": true
+ },
+ {
+  "title": "Rally to Help Clips Convoy",
+  "rep": 250
+ },
+ {
+  "title": "Ready for RAFT?",
+  "rep": 30
+ },
+ {
+  "title": "Reclaim Headhunter Outpost",
+  "bp": true
+ },
+ {
+  "title": "Reclaim XenoThreat Outpost",
+  "bp": true
+ },
+ {
+  "title": "Reclaiming Clusters from Headhunters",
+  "bp": true
+ },
+ {
+  "title": "Reclaiming Outposts from XenoThreat",
+  "bp": true
+ },
+ {
+  "title": "Reclusive Bounty: ~mission(TargetName) | Extreme Risk",
+  "rep": 300
+ },
+ {
+  "title": "Reclusive Bounty: ~mission(TargetName) | High Risk",
+  "rep": 200
+ },
+ {
+  "title": "Reclusive Bounty: ~mission(TargetName) | Very-High Risk",
+  "rep": 250
+ },
+ {
+  "title": "Recover Vanduul Corpses",
+  "bp": true
+ },
+ {
+  "title": "Recover Vanduul Tech",
+  "bp": true
+ },
+ {
+  "title": "Recover VIP Covalex Shipment",
+  "rep": 300
+ },
+ {
+  "title": "Recovering Valuable Supplies",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Red Fight Armor",
+  "rep": 10
+ },
+ {
+  "title": "Red Fight Shotgun",
+  "rep": 10
+ },
+ {
+  "title": "Red Level Contract: Ambush Attack Squad",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Clear PAFs, Recover Cargo, and Deliver to OLP | to ~mission(Destination|name)",
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Destroy Outlaw Infrastructure",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Fuel Container Demolition",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: High-Risk Security Patrol",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Recoup Stolen Haul | ~mission(Location|name) > ~mission(Destination|name)",
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Retrieve Haul | ~mission(Location|name) > ~mission(Destination|name)",
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Save Ships at ~mission(DefendLocationWrapperLocation)",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Secure Threatened Space",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Ship Under Attack",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Support VIP Clients",
+  "bp": true
+ },
+ {
+  "title": "Red Level Contract: Surprise Attack",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Red Lvl. Contract: Defend ~mission(Objects)",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Red Lvl. Contract: Defend ~mission(Objects) and Escort Employees",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Red Lvl. Contract: Protect ~mission(Objects)",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Red Lvl. Contract: Protect ~mission(Objects) and Escort Employees",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Red Wind Challenging Cargo Recovery",
+  "rep": 200
+ },
+ {
+  "title": "Red Wind Dangerous Cargo Recovery",
+  "rep": 250
+ },
+ {
+  "title": "Red Wind Easy Cargo Recovery",
+  "rep": 100
+ },
+ {
+  "title": "Red Wind Special Cargo Recovery",
+  "rep": 300
+ },
+ {
+  "title": "Red Wind Straightforward Cargo Recovery",
+  "rep": 150
+ },
+ {
+  "title": "Reduce Overpopulation",
+  "rep": 100
+ },
+ {
+  "title": "Reduce Valakkar Breaker Station Population",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "REFUEL REQUEST: ~mission(Ship)",
+  "bp": true
+ },
+ {
+  "title": "Remove Upstart Gang From Sector",
+  "rep": 150
+ },
+ {
+  "title": "Repel Raiders",
+  "rep": 500
+ },
+ {
+  "title": "Reprisal Attack",
+  "rep": 200
+ },
+ {
+  "title": "Reputation Management",
+  "bp": true
+ },
+ {
+  "title": "Requesting Help",
+  "rep": 2000
+ },
+ {
+  "title": "Rescue Incomplete Ling Delivery",
+  "rep": 150
+ },
+ {
+  "title": "Respond to Distress Beacon",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Restore Order at ~mission(DefendLocationWrapperLocation)",
+  "rep": 300
+ },
+ {
+  "title": "Retake Platforms From Nine Tails",
+  "bp": true
+ },
+ {
+  "title": "Retaking Outposts from Headhunters",
+  "bp": true
+ },
+ {
+  "title": "Retrieval Op",
+  "rep": 150
+ },
+ {
+  "title": "Retrieve Additional Smuggler Intel",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Return Goods",
+  "rep": 150
+ },
+ {
+  "title": "RSI Meteor Mod",
+  "rep": 30
+ },
+ {
+  "title": "Salvage Job: Large",
+  "rep": 600,
+  "bp": true
+ },
+ {
+  "title": "Salvage Job: Mid",
+  "rep": 400,
+  "bp": true
+ },
+ {
+  "title": "Salvage Job: Small",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Salvager Needed (Lrg. Special Order of RMC / UCM / Components)",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Salvager Needed (Lrg. Supply of RMC / UCM / Components)",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Salvager Needed (Med. Special Order of RMC / UCM / Components)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Salvager Needed (Med. Supply of RMC / UCM / Components)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Salvager Needed (Med. Supply of RMC)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Salvager Needed (Small Special Order of RMC / Components)",
+  "rep": 100
+ },
+ {
+  "title": "Salvager Needed (Small Supply of RMC / Components)",
+  "rep": 100
+ },
+ {
+  "title": "Salvager Needed (Small Supply of RMC / UCM)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Salvager Needed (Small Supply of RMC)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Save Ship",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Scan And Mining Needed",
+  "rep": 260,
+  "bp": true
+ },
+ {
+  "title": "Scan with a Prospector Payout",
+  "rep": 800
+ },
+ {
+  "title": "Scout and Scan",
+  "rep": 100
+ },
+ {
+  "title": "Scrap Salvage at ~mission(Location)",
+  "rep": 25
+ },
+ {
+  "title": "Search for Ship",
+  "rep": 150
+ },
+ {
+  "title": "Secure ~mission(Location) from Upstarts",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Secure ~mission(Objects) From Rivals",
+  "rep": 150
+ },
+ {
+  "title": "Secure Our Airspace",
+  "rep": 150
+ },
+ {
+  "title": "Secure Site",
+  "rep": 500
+ },
+ {
+  "title": "Security Contractor Evaluation",
+  "rep": 50
+ },
+ {
+  "title": "Security Contractor Reevaluation",
+  "rep": 500
+ },
+ {
+  "title": "See What’s Out There",
+  "rep": 100
+ },
+ {
+  "title": "SEEK AND DESTROY ASD DATA",
+  "rep": 50
+ },
+ {
+  "title": "Seeking Experienced Combat Pilots",
+  "rep": 50
+ },
+ {
+  "title": "Setting a Trap",
+  "rep": 100
+ },
+ {
+  "title": "Settle a Score",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Ship In Distress",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Ship Needs Emergency Assistance",
+  "bp": true
+ },
+ {
+  "title": "Shot in the chaos",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "Should'a left it to a professional",
+  "rep": 600
+ },
+ {
+  "title": "Shut Off Power at ~mission(Location)",
+  "rep": 25
+ },
+ {
+  "title": "Silent Strike",
+  "rep": 100
+ },
+ {
+  "title": "Simple Hit",
+  "rep": 75,
+  "bp": true
+ },
+ {
+  "title": "Small Covalex Shipment Needs Recovering",
+  "rep": 100
+ },
+ {
+  "title": "Small Mining Order: Sadaryx",
+  "rep": 100
+ },
+ {
+  "title": "Small Purchase Order: Hand Mined Materials",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Small Purchase Order: Ship Mined Ore",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Small Purchase Order: Vehicle Mined Ore",
+  "rep": 100
+ },
+ {
+  "title": "Sneaky Stabber",
+  "rep": 250
+ },
+ {
+  "title": "Sneaky Starfighter Ion",
+  "rep": 100
+ },
+ {
+  "title": "Snow Snipe",
+  "rep": 10
+ },
+ {
+  "title": "Space Patrol",
+  "rep": 150
+ },
+ {
+  "title": "Special Covalex Delivery Stanton System",
+  "rep": 200
+ },
+ {
+  "title": "Special Purchase Order: Mined Materials",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Special Recovery Operation",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Spirit Cargo mod",
+  "rep": 30
+ },
+ {
+  "title": "Stand Our Ground",
+  "rep": 250
+ },
+ {
+  "title": "Standard Cargo Recovery Op.",
+  "rep": 150
+ },
+ {
+  "title": "Starfighter Inferno Special",
+  "rep": 100
+ },
+ {
+  "title": "Starlifter A2 War Mod",
+  "rep": 500
+ },
+ {
+  "title": "Still Looking for Work?",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Stock Taking | ~mission(Location|name) > ~mission(Destination|name)",
+  "rep": 200
+ },
+ {
+  "title": "Stop Attack at ~mission(DefendLocationWrapperLocation)",
+  "rep": 250
+ },
+ {
+  "title": "Stop Attack on High-Profile Client",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Stop Deadly Ship Attack",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Stop Gang From Destroying ~mission(Objects)",
+  "rep": 200
+ },
+ {
+  "title": "Stop Rival Attack at ~mission(Location)",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Stop Rivals from Launching Heist",
+  "rep": 3200
+ },
+ {
+  "title": "Stopping the Competition",
+  "rep": 150
+ },
+ {
+  "title": "Strategic Bombing",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Stuck Ling Shipment Pending Delivery",
+  "rep": 300
+ },
+ {
+  "title": "Suit Up Take Off",
+  "rep": 10,
+  "bp": true
+ },
+ {
+  "title": "Supply Order: Sadaryx Focus Lenses",
+  "rep": 100
+ },
+ {
+  "title": "Support Client Under Attack",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Surprise Party",
+  "rep": 100
+ },
+ {
+  "title": "Sweep and Clear Location",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Sweep and clear some CFP haunts",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Tactical Strike",
+  "rep": 250
+ },
+ {
+  "title": "Tactical Strike Group Needed",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Take Outlaws at ~mission(Location) Offline",
+  "bp": true
+ },
+ {
+  "title": "Taking back from the Headhunters",
+  "bp": true
+ },
+ {
+  "title": "Taking Back Our Goods",
+  "rep": 200
+ },
+ {
+  "title": "Taking down a XenoThreat Hideout",
+  "rep": 400,
+  "bp": true
+ },
+ {
+  "title": "Taking out some XenoThreat trash",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Taking what’s ours",
+  "rep": 100
+ },
+ {
+  "title": "Taking XenoThreat Turf",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Target at ~mission(Location)",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "Target takedown for a fast track in",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "Terminate UEE Threat: ~mission(TargetName)",
+  "rep": 250
+ },
+ {
+  "title": "Terrorist ~mission(TargetName) to be Neutralized",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Test Armor",
+  "rep": 25
+ },
+ {
+  "title": "Test Your Mettle",
+  "rep": 25
+ },
+ {
+  "title": "They Will Be Missed",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "Time to roll on CFP",
+  "rep": 400,
+  "bp": true
+ },
+ {
+  "title": "Time to Teach a Lesson",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Too Much Gun",
+  "rep": 10,
+  "bp": true
+ },
+ {
+  "title": "Top Tier Operator Needed",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Track Down ~mission(TargetName)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Tracker Beginner's Permit Certification",
+  "rep": 50
+ },
+ {
+  "title": "Tracker License Certification",
+  "rep": 50
+ },
+ {
+  "title": "Tracker Training Permit Certification",
+  "rep": 50
+ },
+ {
+  "title": "Trapping a Rat",
+  "rep": 250
+ },
+ {
+  "title": "Treat yourself to a fight",
+  "rep": 300,
+  "bp": true
+ },
+ {
+  "title": "Tricky Ambush",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Turf War",
+  "bp": true
+ },
+ {
+  "title": "Two Birds, One Stone",
+  "rep": 2400
+ },
+ {
+  "title": "Unfinished Contract",
+  "rep": 800
+ },
+ {
+  "title": "Upgrade Intrepid",
+  "rep": 30
+ },
+ {
+  "title": "URGENT CAPITAL FLEET REFUEL",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "URGENT CONVOY REFUEL",
+  "bp": true
+ },
+ {
+  "title": "URGENT REFUEL REQUEST: ~mission(Ship)",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "URGENT: Boarding Action In Progress",
+  "rep": 8000
+ },
+ {
+  "title": "UWC'S HIRING REFUELERS",
+  "rep": 200
+ },
+ {
+  "title": "Vanduul-Tech Smugglers",
+  "rep": 100
+ },
+ {
+  "title": "Verified Bounty: ~mission(TargetName) | HeadHunters | ~mission(Danger)",
+  "rep": 8000
+ },
+ {
+  "title": "Verified Bounty: ~mission(TargetName) | XenoThreat | ~mission(Danger)",
+  "rep": 16000
+ },
+ {
+  "title": "Verified Bounty: ~mission(TargetName) at ~mission(Location)",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "Verified Bounty: ~mission(TargetName) at QV Breaker Station",
+  "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Very Long Distance Covalex Delivery Stanton",
+  "rep": 150
+ },
+ {
+  "title": "VIP Client Needs Protection",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "Vital Resources Needed For Research",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Wanna be a Headhunter?",
+  "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "Want Taurus ship",
+  "rep": 250
+ },
+ {
+  "title": "Wanted: ~mission(TargetName)",
+  "rep": 600,
+  "bp": true
+ },
+ {
+  "title": "Wasting Their Stockpile",
+  "rep": 200
+ },
+ {
+  "title": "Welcome to the System",
+  "rep": 800,
+  "bp": true
+ },
+ {
+  "title": "What is Terrapin?",
+  "rep": 100
+ },
+ {
+  "title": "Where Wolf? Here Wolf",
+  "rep": 30
+ },
+ {
+  "title": "Wikelo Arrive to System",
+  "rep": 10
+ },
+ {
+  "title": "Wikelo Navy F7",
+  "rep": 100
+ },
+ {
+  "title": "Worth the trouble",
+  "rep": 300
+ },
+ {
+  "title": "XenoThreat Lieutenant needs some killing",
+  "bp": true
+ },
+ {
+  "title": "XL Purchase Order: Hand Mined Materials",
+  "rep": 200,
+  "bp": true
+ },
+ {
+  "title": "XL Purchase Order: Ship Mined Ore",
+  "rep": 250,
+  "bp": true
+ },
+ {
+  "title": "XL Purchase Order: Vehicle Mined Ore",
+  "rep": 250
+ },
+ {
+  "title": "XS Purchase Order: Ship Mined Ore",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Ambush An Amateur",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Clear Out PAF",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Clear Shipjacking Group",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Defend ~mission(DefendLocationWrapperLocation)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Disrupt Operations",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Limiting Potential Threat",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Merc Work",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Neutralize Shipjacking Gang",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Routine Patrol",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Security Sweep",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Ship Under Attack",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Stand Up to Aggressors",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Level Contract: Surprise Strike",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Lvl. Contract: Defend ~mission(Objects)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Lvl. Contract: Defend ~mission(Objects) and Escort Employees",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Lvl. Contract: Protect ~mission(Objects)",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yellow Lvl. Contract: Protect ~mission(Objects) and Escort Employees",
+  "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Yormandi Gun",
+  "rep": 10
+ },
+ {
+  "title": "Your Best Shot",
+  "rep": 10,
+  "bp": true
+ },
+ {
+  "title": "Zeus Cargo Special",
+  "rep": 100
+ },
+ {
+  "title": "Zeus Special",
+  "rep": 30
+ }
+]

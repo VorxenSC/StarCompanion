@@ -119,18 +119,23 @@ function links(pairs) {
 // Where to buy or rent, in alphabetical order of the place (cheapest first when two read the same).
 // The sources (cstone, UEX, the wiki) often list the same shop, spelled a little differently
 // ("Area 18 - Astro Armada" / "Area18 - Retail bridges - Astro Armada", "New Deal Lorville" /
-// "Teasa Spaceport - New Deal"). Same price, same city, and one shop name inside the other (spaces
-// ignored): one shop, shown once with its most recent check.
+// "Teasa Spaceport - New Deal"). Same city, almost the same price, and one shop name inside the other (spaces
+// ignored): one shop, shown once, with the most recent price.
 const flat = (s) => CompanionSearch.norm(s).replace(/ /g, '');
 function shopParts(s) {
   const parts = String(s.where || '').split(' - ');
-  return { city: flat(parts[2] || parts[1] || ''), shop: flat(parts[parts.length - 1]) };
+  // system, body and city must all agree: the same shop name at another station is another shop
+  // (a station at a Lagrange point has no city: the point is the place)
+  const at = /-Ld/i.test(parts[1] || '') ? 2 : 3;
+  const last = parts[parts.length - 1];
+  return { city: flat(parts.slice(0, at).join(' ')), shop: flat(last), brand: flat(CompanionSearch.norm(last).split(' ')[0]) };
 }
 const sameShop = (a, z) => {
-  if ((a.price || 0) !== (z.price || 0)) return false;
+  // the sources round and update prices at different times: within 1 % is the same price
+  if (Math.abs((a.price || 0) - (z.price || 0)) > 0.01 * Math.max(a.price || 0, z.price || 0)) return false;
   const x = shopParts(a);
   const y = shopParts(z);
-  return x.city === y.city && x.shop && y.shop && (x.shop.includes(y.shop) || y.shop.includes(x.shop));
+  return x.city === y.city && x.shop && y.shop && (x.shop.includes(y.shop) || y.shop.includes(x.shop) || (x.brand.length >= 4 && x.brand === y.brand));
 };
 function dedupeShops(shops) {
   const kept = [];
@@ -145,8 +150,8 @@ function shopsTable(shops) {
   const sorted = dedupeShops(shops).sort((a, z) => alpha((s) => s.where)(a, z) || (a.price || Infinity) - (z.price || Infinity));
   const sells = sorted.some((s) => s.sell);
   return table(
-    [['Where', ''], ['Price', 'num'], ...(sells ? [['Sells for', 'num']] : []), ['Verified', 'dim']],
-    sorted.map((s) => [s.where, auec(s.price), ...(sells ? [s.sell ? auec(s.sell) : ''] : []), s.verified || '']),
+    [['Where', ''], ['Price', 'num'], ...(sells ? [['Sells for', 'num']] : [])],
+    sorted.map((s) => [s.where, auec(s.price), ...(sells ? [s.sell ? auec(s.sell) : ''] : [])]),
     sells ? undefined : 't-price',
   );
 }
@@ -342,9 +347,9 @@ function viewShip(e) {
             ? h('p', { class: 'note' }, usd(price.usd), ' ', tr('MSRP — not listed in the store right now.'))
             : [
                 table(
-                  // The same columns as "Buy in game" below (place · price · date), so they line up; the
+                  // The same columns as "Buy in game" below (place · price), so they line up; the
                   // listing's status sits beside its name.
-                  [['Standalone ship', ''], ['USD', 'num'], ['Checked', 'dim']],
+                  [['Standalone ship', ''], ['USD', 'num']],
                   [price, warbondNow].filter(Boolean).map((p) => [
                     h(
                       'span',
@@ -355,7 +360,6 @@ function viewShip(e) {
                       h('span', { class: 'dim' }, `· ${tr(p.available ? 'on sale' : 'off sale')}`),
                     ),
                     usd(p.usd),
-                    p.checked || '',
                   ]),
                   't-price',
                 ),
@@ -655,7 +659,11 @@ function scmSections(d) {
   const cargoLine = (orders) => orders.map((o) => `${o.what}${o.max || o.min ? ` (${o.min === o.max || !o.max ? o.min : `${o.min}–${o.max}`} ${o.unit === 'SCU' ? 'SCU' : '×'})` : ''}`).join(', ');
   return [
     !none(s.items) && section('Rewards', h('div', null, s.items.map((i) => h('span', { class: 'pill' }, `${i.name}${i.amount > 1 ? ` ×${fmt(i.amount)}` : ''}`)))),
-    !none(repRows) && section('Reputation', table([['Faction', ''], ['Track', 'dim'], ['On completion', 'num'], ['On failure', 'num']], repRows)),
+    !none(repRows) && section('Reputation', [
+      table([['Faction', ''], ['Track', 'dim'], ['On completion', 'num'], ['On failure', 'num']], repRows),
+      s.rep.some((r) => r.starStrings) && note('This reputation comes from the StarStrings add-on: scmdb.net lists none for this mission.'),
+    ]),
+    s.blueprintHint && note('The StarStrings add-on marks this mission as able to give a blueprint; which one is not known.'),
     !none(where) && section('Where', table([['', 'dim'], ['', '']], where)),
     !none(s.enemies) && section(
       'Enemies',
@@ -877,8 +885,8 @@ function viewCommodity(e) {
         'Sell here · demand per location',
         sells.length
           ? table(
-              [['Location', ''], ['Pays / SCU', 'num'], ['Demand', ''], ['Updated', 'dim']],
-              sortedBy(sells, (l) => l.where).map((l) => [placeCell(l), auec(l.sell), demandMeter(l.inventory), l.updated || '']),
+              [['Location', ''], ['Pays / SCU', 'num'], ['Demand', '']],
+              sortedBy(sells, (l) => l.where).map((l) => [placeCell(l), auec(l.sell), demandMeter(l.inventory)]),
             )
           : note('No terminal buys it.'),
       ),
@@ -886,8 +894,8 @@ function viewCommodity(e) {
         'Buy here · stock per location',
         buys.length
           ? table(
-              [['Location', ''], ['Costs / SCU', 'num'], ['Stock', ''], ['Updated', 'dim']],
-              sortedBy(buys, (l) => l.where).map((l) => [placeCell(l), auec(l.buy), stockMeter(l.stock), l.updated || '']),
+              [['Location', ''], ['Costs / SCU', 'num'], ['Stock', '']],
+              sortedBy(buys, (l) => l.where).map((l) => [placeCell(l), auec(l.buy), stockMeter(l.stock)]),
             )
           : note('No terminal sells it.'),
       ),

@@ -496,6 +496,16 @@ function scmGroup(list) {
   };
 }
 const normC = (s) => norm(String(s || ''));
+// StarStrings' title tags (scripts/starstrings-tags.js), used only where scmdb.net has nothing: the reputation
+// of a mission it lists none for, and a blueprint mission it has no blueprint pool for.
+const starTags = new Map(((() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'starstrings-tags.json'), 'utf8')); } catch { return []; } })()).map((t) => [titleKey(t.title), t]));
+let starRep = 0, starBp = 0;
+function starFill(scm, list, giver, hasBlueprints) {
+  const t = starTags.get(titleKey(list[0]?.title));
+  if (!t) return;
+  if (t.rep && !scm.rep.length) { scm.rep = [{ faction: giver || clean(list[0].faction) || 'Reputation', track: 'Standing', min: t.rep, max: t.rep, starStrings: true }]; starRep++; }
+  if (t.bp && !hasBlueprints && !list.some((c) => c.blueprintPools?.length)) { scm.blueprintHint = true; starBp++; }
+}
 const scmByTitle = new Map();
 for (const c of scmdbContracts) {
   const k = titleKey(c.title);
@@ -523,6 +533,7 @@ for (const e of entries) {
   }
   if (!list.length) continue;
   e.d.scm = scmGroup(list);
+  starFill(e.d.scm, list, e.d.giver, e.d.blueprints?.length);
   scmEnriched++;
   const givers = uniq(list.map((c) => c.contractor));
   if (!e.d.giver && givers.length === 1) e.d.giver = cleanGiver(givers[0]);
@@ -575,10 +586,11 @@ for (const list of scmNew.values()) {
       onceOnly: list.every((x) => x.onceOnly) || undefined,
       kinds: uniq(list.map((x) => missionKind(x.debugName))),
       scmdbOnly: true,
-      scm: scmGroup(list),
+      scm: (() => { const g = scmGroup(list); starFill(g, list, giver, false); return g; })(),
     },
   });
 }
+console.log(`StarStrings tags used: ${starRep} reputations, ${starBp} blueprint marks`);
 console.log(`missions: ${scmEnriched} enriched from scmdb.net, ${scmNew.size} added that only scmdb.net has`);
 
 // ---------- Minerals (scminer.rocks) ----------

@@ -334,8 +334,25 @@ function fitHeight(wanted, beyondMax) {
 // chosen width. The window widens toward the screen's middle, up to half the screen, and returns to
 // the chosen width when the content no longer needs it. The chosen width itself is never changed here.
 let widening = false; // our own setBounds must not move the icon (see the 'moved' handler)
+// The comparison of two ships or two weapons: two cards side by side, so the window takes twice the chosen
+// width (up to nearly the whole screen). It grows away from the icon, as for wide tables, and returns after.
+let comparing = false;
+function setCompare(on) {
+  comparing = !!on;
+  if (!win || state !== 'open') return;
+  const b = win.getBounds();
+  const { workArea: a } = screen.getDisplayMatching(b);
+  const base = Math.max(MIN_WIDTH, Math.min(a.width, config.windowWidth));
+  const width = Math.round(comparing ? Math.min(Math.floor(a.width * 0.96), base * 2) : base);
+  if (Math.abs(width - b.width) <= SIZE_SLACK) return;
+  let x = side === 'right' ? b.x + b.width - width : b.x;
+  x = Math.max(a.x, Math.min(a.x + a.width - width, x));
+  widening = true;
+  setBounds({ x, y: b.y, width, height: b.height });
+  setImmediate(() => { widening = false; });
+}
 function fitWidth(wanted) {
-  if (!win || state !== 'open' || !Number.isFinite(wanted)) return;
+  if (!win || state !== 'open' || comparing || !Number.isFinite(wanted)) return;
   const b = win.getBounds();
   const { workArea: a } = screen.getDisplayMatching(b);
   const base = Math.max(MIN_WIDTH, Math.min(a.width, config.windowWidth));
@@ -1394,6 +1411,7 @@ ipcMain.on('overlay:geometry', (_e, g) => {
   if (g && [g.inset, g.barTop, g.barHeight].every(Number.isFinite)) geo = g; // also inputX/inputY: where to click
 });
 ipcMain.on('overlay:fit', (_e, height, beyondMax) => fitHeight(Number(height), !!beyondMax));
+ipcMain.on('overlay:compare', (_e, on) => setCompare(on));
 ipcMain.on('overlay:fit-width', (_e, width) => fitWidth(Number(width)));
 ipcMain.handle('settings:get', async () => { await refreshKeyStats(); return settingsSnapshot(); });
 ipcMain.handle('settings:set', (_e, key, value) => applySetting(String(key), value));

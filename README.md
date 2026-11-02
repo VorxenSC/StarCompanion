@@ -55,6 +55,7 @@ release tagged `v<version>` with `StarCompanion-<version>-setup.exe`, its `.bloc
 | Tab / Shift+Tab | filter by type (all, items, ships, blueprints, missions, minerals, commodities, factions, locations) |
 | PgUp / mouse wheel | scroll the panel (PgDn too, if you change the shortcut away from it) |
 | Esc | detail → list → clear search → close |
+| COMPARE (under a ship or item picture) | opens a second search bar beside the card; pick another ship, or another item of the same kind, and the two cards sit side by side, lined up and scrolling together. Click outside to close both |
 | Ctrl + = / Ctrl + - / Ctrl + 0 | larger / smaller / default text |
 | drag "Star Companion" or the bar | move the overlay (the icon follows) |
 | drag the corner grip | resize: width, and the panel's maximum height |

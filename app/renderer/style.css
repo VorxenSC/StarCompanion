@@ -183,7 +183,7 @@ body.unfolding .bar > .corner { animation: none; }
 .corner.bl { left: -1px; bottom: -1px; border-left-width: 2px; border-bottom-width: 2px; }
 .corner.br { right: -1px; bottom: -1px; border-right-width: 2px; border-bottom-width: 2px; }
 .bar-icon { flex: none; }
-#q {
+#q, #q2 {
   flex: 1;
   min-width: 0;
   height: 44px;
@@ -196,7 +196,7 @@ body.unfolding .bar > .corner { animation: none; }
   caret-color: var(--accent);
   outline: none;
 }
-#q::placeholder { color: rgba(205, 218, 230, 0.62); opacity: 1; }
+#q::placeholder, #q2::placeholder { color: rgba(205, 218, 230, 0.62); opacity: 1; }
 .bar-key { flex: none; display: flex; align-items: center; gap: 8px; font: 11px var(--mono); letter-spacing: 0.06em; color: rgba(205, 218, 230, 0.68); }
 kbd { display: inline-flex; align-items: center; justify-content: center; height: 24px; padding: 0 8px; border: 1px solid rgba(190, 215, 235, 0.3); border-radius: 3px; font: 11px var(--mono); letter-spacing: 0.06em; color: rgba(235, 242, 248, 0.88); }
 .icon-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: transparent; border: 1px solid transparent; border-radius: 3px; color: rgba(205, 218, 230, 0.78); cursor: pointer; }
@@ -218,6 +218,27 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 }
 .panel.open { margin-top: 6px; opacity: 1; }
 .panel-scroll { height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+
+/* ---------- Compare: a second card beside the first ---------- */
+.img-col { flex: none; width: 132px; display: flex; flex-direction: column; gap: 8px; }
+.cmp-btn { display: flex; align-items: center; justify-content: center; gap: 8px; height: 32px; padding: 0 8px; background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(95, 212, 232, 0.45); border-radius: 3px; font: 600 11px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease; }
+.cmp-btn:hover, .cmp-btn:focus-visible { color: #fff; border-color: var(--accent); box-shadow: 0 0 14px -4px var(--accent); outline: none; }
+.cmp-btn svg { flex: none; }
+body.comparing { display: flex; gap: 14px; align-items: flex-start; }
+body.side-right.comparing { flex-direction: row-reverse; }
+body.comparing .wrap, .wrap2 { flex: 1 1 0; min-width: 0; width: auto; }
+.wrap2 { position: relative; display: flex; flex-direction: column; animation: compareIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.wrap2 .brand { cursor: default; }
+.cmp-title { color: #ffb347; }
+.wrap2 .brand-filter { color: rgba(205, 218, 230, 0.7); text-transform: none; letter-spacing: 0.04em; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wrap2 .bar { border-color: rgba(255, 179, 71, 0.55); }
+.wrap2 .bar:focus-within { border-color: #ffb347; box-shadow: 0 0 0 1px #ffb347, 0 0 24px -8px #ffb347, var(--shadow); }
+.wrap2 .corner { border-color: #ffb347; }
+.wrap2 #q2 { caret-color: #ffb347; }
+@keyframes compareIn { from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(-28px); } to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; } }
+body.side-right .wrap2 { animation-name: compareInRight; }
+@keyframes compareInRight { from { opacity: 0; clip-path: inset(0 0 0 100%); transform: translateX(28px); } to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; } }
+@media (prefers-reduced-motion: reduce) { .wrap2 { animation: none; } }
 
 /* ---------- Result rows ---------- */
 .list { padding: 8px; display: flex; flex-direction: column; }
@@ -300,7 +321,10 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .facts-fit { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); } /* a few long facts share the row, however many there are */
 .fact.wide { grid-column: span 2; } /* a long value (a mission name) on one line */
 /* The first section right after the facts: the page's own gap is spacing enough. */
-.detail > .rise > .sec-title:first-child { margin-top: 0; }
+.detail > .rise > .sec-title:first-child, .detail > .rise > .sec-block:first-child > .sec-title:first-child { margin-top: 0; }
+/* Compare: what one card lacks shows as a dimmed dash so the two line up row for row. */
+.cmp-gap .fact-value, .cmp-gap .headline-value, .sec-block.cmp-gap .note { color: rgba(205, 218, 230, 0.28); }
+.sec-block.cmp-gap .sec-title { opacity: 0.45; }
 .fact { position: relative; padding-top: 10px; border-top: 1px solid rgba(190, 215, 235, 0.18); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .fact-label { font: 10px var(--mono); text-transform: uppercase; color: rgba(205, 218, 230, 0.66); --ls: 0.14em; letter-spacing: var(--ls); }
 .fact-value { font: 500 18px var(--display); color: var(--text); overflow-wrap: break-word; --ls: 0.02em; letter-spacing: var(--ls); }
@@ -321,7 +345,7 @@ kbd { display: inline-flex; align-items: center; justify-content: center; height
 .spec-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 .spec-label { color: var(--muted, rgba(205, 218, 230, 0.75)); }
 .spec-value { font-family: var(--mono); text-align: right; color: var(--text); }
-.sec-title { margin: 22px 0 6px; font: 500 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.sec-title { margin: 22px 0 6px; font: 500 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: #ffb347; padding-bottom: 4px; border-bottom: 1px solid rgba(255, 179, 71, 0.28); }
 .desc { margin: 0; color: rgba(205, 218, 230, 0.82); white-space: pre-line; text-align: justify; hyphens: auto; }
 .note { margin: 0; color: var(--faint); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -589,6 +613,19 @@ table.t-cd td { vertical-align: middle; padding-top: 3px; padding-bottom: 3px; }
 td.grade-col, th.grade-col { text-align: left; white-space: nowrap; }
 
 /* Who fires a weapon: pilot, crew in a manned turret, crew at a remote turret. */
+.wikelo { margin-bottom: 14px; }
+.wikelo-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+.wikelo-name { font: 600 14px var(--display); color: var(--accent); }
+.wikelo-rep { font: 600 10px/15px var(--mono); padding: 0 5px; border: 1px solid #ffd166; color: #ffd166; border-radius: 2px; text-transform: uppercase; }
+.mtags { flex: none; display: inline-flex; gap: 4px; margin-right: 10px; }
+.mtag { display: inline-block; min-width: 30px; padding: 0 6px; text-align: center; border: 1px solid currentColor; border-radius: 2px; font: 700 11px/18px var(--mono); letter-spacing: 0.04em; }
+.msize { color: #7fdcff; background: rgba(127, 220, 255, 0.1); }
+.msize-3, .msize-4 { color: #8ff0b0; background: rgba(143, 240, 176, 0.1); }
+.msize-5, .msize-6, .msize-7 { color: #ffd166; background: rgba(255, 209, 102, 0.1); }
+.msize-8, .msize-9, .msize-10, .msize-11, .msize-12 { color: #ff9b73; background: rgba(255, 155, 115, 0.1); }
+.mseek-ir { color: #ff6b6b; background: rgba(255, 107, 107, 0.14); }
+.mseek-em { color: #6ea8ff; background: rgba(110, 168, 255, 0.14); }
+.mseek-cs { color: #c3a6ff; background: rgba(195, 166, 255, 0.14); }
 .control { display: inline-block; padding: 0 5px; border: 1px solid currentColor; border-radius: 2px; font: 600 10px/15px var(--mono); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; vertical-align: 1px; }
 .control-pilot { color: #ffd166; }
 .control-manned { color: #7cc4ff; }

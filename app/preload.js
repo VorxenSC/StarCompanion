@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('companion', {
   ready: () => ipcRenderer.send('app:ready'), // database loaded: the splash can leave
   closed: () => ipcRenderer.send('overlay:closed'),
   fit: (height, beyondMax) => ipcRenderer.send('overlay:fit', height, beyondMax),
+  compare: (on) => ipcRenderer.send('overlay:compare', on), // two cards side by side: the window doubles in width
   fitWidth: (width) => ipcRenderer.send('overlay:fit-width', width),
   geometry: (g) => ipcRenderer.send('overlay:geometry', g),
   grip: (phase) => ipcRenderer.send('overlay:grip', phase),

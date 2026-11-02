@@ -135,6 +135,24 @@ for (const s of ships?.ships || []) {
   for (const k of [s.name, s.shortName]) if (!shipByName.has(norm(k))) shipByName.set(norm(k), e);
 }
 for (const p of ships?.shipBuy || []) shipByName.get(norm(p.name))?.d.buy.push({ where: p.where, price: p.price, verified: isoDay(p.updated), src: 'uex' });
+// Wikelo's collection contracts (scripts/collect-wikelo.js): the recipe to bring for each ship he gives. The
+// reward is matched to a ship by its full name; failing that, the longest ship name inside it.
+const wikeloRaw = load('wikelo.json');
+let wikeloShips = 0;
+for (const c of wikeloRaw?.contracts || []) {
+  if (c.kind !== 'vehicle') continue;
+  const names = c.rewards.map((r) => norm(r.name));
+  let target = null;
+  for (const n of names) if (shipByName.has(n)) { target = shipByName.get(n); break; }
+  if (!target) {
+    const loose = [...shipByName.keys()].filter((k) => names.some((n) => n.includes(k))).sort((a, z) => z.length - a.length)[0];
+    if (loose && /ship|special|wikelo/i.test(c.rewards.map((r) => r.name).join(' '))) target = shipByName.get(loose);
+  }
+  if (!target || target.t !== 'ship') continue;
+  (target.d.wikelo ||= []).push({ name: c.name, reputation: c.reputation, orders: c.orders, rewards: c.rewards });
+  wikeloShips++;
+}
+console.log(`wikelo: ${wikeloShips} ship contracts attached`);
 for (const p of ships?.shipRent || []) shipByName.get(norm(p.name))?.d.rent.push({ where: p.where, price: p.price, verified: isoDay(p.updated), src: 'uex' });
 
 // ---------- Items: cstone (shops) + wiki (metadata) + scminer mining gear, merged by name ----------
@@ -702,9 +720,13 @@ for (const e of entries) {
 for (const { base, members } of families.values()) {
   if (members.length < 2) continue;
   const names = members.map((m) => m.n).sort((a, z) => (a === base ? -1 : z === base ? 1 : a.localeCompare(z)));
+  // A skin is the same item with other paint: the base's stats (category, attributes, loot) fill what its own
+  // record lacks. Shops stay its own, since the skin is sold apart from the base.
+  const parent = members.find((m) => m.n === base && m.t === 'item');
   for (const m of members) {
     m.d.base = base;
     m.d.variants = names;
+    if (parent && m !== parent) for (const k of ['category', 'attrs', 'lootable']) if (m.d[k] == null && parent.d[k] != null) m.d[k] = parent.d[k];
   }
 }
 

@@ -146,6 +146,15 @@ function dedupeShops(shops) {
   }
   return kept;
 }
+// Wikelo's recipe for a ship: what to bring to his emporium and what comes back, one block per contract.
+function wikeloSection(d) {
+  const line = (o) => `${o.qty}${o.unit === 'SCU' ? ' SCU' : '×'} ${o.name}`;
+  return section('Wikelo exchange', d.wikelo.map((c) => h('div', { class: 'wikelo' },
+    h('div', { class: 'wikelo-head' }, h('span', { class: 'wikelo-name' }, c.name), c.reputation && h('span', { class: 'wikelo-rep' }, tr(c.reputation))),
+    table([['Bring', ''], ['Qty', 'num']], c.orders.map((o) => [o.name, `${fmt(o.qty)}${o.unit === 'SCU' ? ' SCU' : ''}`])),
+    h('p', { class: 'note' }, `${tr('You get')}: ${c.rewards.map(line).join(', ')}`),
+  )));
+}
 function shopsTable(shops) {
   const sorted = dedupeShops(shops).sort((a, z) => alpha((s) => s.where)(a, z) || (a.price || Infinity) - (z.price || Infinity));
   const sells = sorted.some((s) => s.sell);
@@ -368,6 +377,7 @@ function viewShip(e) {
       ),
       section('Buy in game (aUEC)', d.buy?.length ? shopsTable(d.buy) : note('Not sold in any in-game shop.')),
       d.rent?.length > 0 && section('Rent in game', shopsTable(d.rent)),
+      d.wikelo?.length > 0 && wikeloSection(d),
       d.description && section('Description', h('p', { class: 'desc' }, d.description)),
       links([['Wiki', d.wikiUrl], ['RSI store', d.pledgeUrl], ['cstone', d.cstoneUrl]]),
     ],
@@ -1308,7 +1318,197 @@ const HEADLINE = {
   activity: ['Hangar'],
 };
 
-function renderDetail(e) {
+// ---------- Compare: two ships or two weapons side by side ----------
+// A button under the picture opens a second search bar beside the card; the one picked opens in a second card.
+const CAN_COMPARE = new Set(['ship', 'item']);
+const CMP_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 7.5h8.2V4.8l5 4.1-5 4.1v-2.7H2.5z" fill="currentColor" opacity="0.92"/><path d="M21.5 16.5h-8.2v-2.7l-5 4.1 5 4.1v-2.7h8.2z" fill="currentColor" opacity="0.92" transform="translate(0 -3)"/></svg>';
+function pictureColumn(e, opts) {
+  const pic = e.t === 'faction' ? logoFor(e) : imageFor(e);
+  if (!CAN_COMPARE.has(e.t) || opts.side === 'right') return pic;
+  const btn = h('button', { class: 'cmp-btn', title: tr('Compare with another one'), onclick: () => startCompare(e) });
+  btn.innerHTML = CMP_ICON;
+  btn.append(h('span', null, tr('Compare')));
+  return h('div', { class: 'img-col' }, pic, btn);
+}
+let cmp = null; // { left, el, input, content, panel, results, idx, detail }
+// What an item is compared against: hand weapons carry their kind in `category` on some records and only in `type`
+// ("FPS Weapon / Medium") on others, so both spellings land in one group; anything else groups by category or type.
+const kindKey = (e) => {
+  const cat = e.d?.category || '', type = (e.d?.type || '').split(' / ')[0];
+  if (/^FPS (RANGED )?WEAPON$/i.test(cat) || /^FPS Weapon$/i.test(type)) return 'fps-weapon';
+  return (cat || type).toLowerCase();
+};
+const sameKind = (a, z) => a.t === z.t && (a.t !== 'item' || (kindKey(a) !== '' && kindKey(a) === kindKey(z)));
+function startCompare(left) {
+  if (cmp) return cmp.input.focus();
+  const corners = ['tl', 'tr', 'bl', 'br'].map((c) => h('i', { class: `corner ${c}` }));
+  const input = h('input', { id: 'q2', type: 'text', autocomplete: 'off', spellcheck: 'false', placeholder: tr(left.t === 'ship' ? 'Ship to compare with…' : 'Item to compare with…') });
+  const content = h('div', { class: 'panel-content' });
+  const panel = h('div', { class: 'panel open' }, h('div', { class: 'panel-scroll' }, content));
+  const close = h('button', { class: 'icon-btn', 'aria-label': tr('Close comparison'), title: tr('Close comparison'), onclick: () => closeCompare() });
+  close.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" /></svg>';
+  const el = h('div', { class: 'wrap2' },
+    h('div', { class: 'brand' }, h('span', { class: 'brand-name cmp-title' }, tr('Compare')), h('span', { class: 'brand-filter' }, left.n)),
+    h('div', { class: 'bar' }, corners, input, close),
+    panel,
+  );
+  cmp = { left, el, input, content, panel, results: [], idx: 0, detail: null };
+  // Both cards scroll as one while a second card is open: each mirrors the other's position.
+  const mine = panel.firstChild;
+  let syncing = false;
+  const follow = (from, to) => () => {
+    if (!cmp?.detail) return;
+    if (syncing) { syncing = false; return; }
+    if (Math.round(to.scrollTop) !== Math.round(from.scrollTop)) { syncing = true; to.scrollTop = from.scrollTop; }
+  };
+  mine.addEventListener('scroll', follow(mine, scrollEl));
+  cmp.scrollMain = follow(scrollEl, mine);
+  scrollEl.addEventListener('scroll', cmp.scrollMain);
+  body.classList.add('comparing');
+  document.body.append(el);
+  companion.compare(true);
+  input.addEventListener('input', () => { cmp.detail = null; searchCompare(); });
+  el.addEventListener('keydown', compareKey);
+  searchCompare();
+  fit();
+  setTimeout(() => input.focus(), 60);
+}
+function searchCompare() {
+  const q = cmp.input.value;
+  cmp.results = q.trim() ? CompanionSearch.search(index, q, { type: cmp.left.t, collapseVariants: true }).filter((e) => e !== cmp.left && sameKind(cmp.left, e)) : [];
+  cmp.idx = 0;
+  paintCompare();
+}
+function paintCompare() {
+  if (!cmp) return;
+  if (cmp.detail) {
+    cmp.content.replaceChildren(renderDetail(cmp.detail, { side: 'right', back: () => { cmp.detail = null; paintCompare(); cmp.input.focus(); } }));
+  } else if (!cmp.input.value.trim()) {
+    cmp.content.replaceChildren(h('div', { class: 'empty' }, h('span', { class: 'empty-tag in' }, tr('Compare')), h('span', { class: 'empty-text in', delay: 60 }, tr(cmp.left.t === 'ship' ? 'Type the name of the ship to compare with {name}' : 'Type the name of the item to compare with {name}', { name: cmp.left.n }))));
+  } else if (!cmp.results.length) {
+    cmp.content.replaceChildren(h('div', { class: 'empty' }, h('span', { class: 'empty-tag in' }, tr('No signal')), h('span', { class: 'empty-text in', delay: 60 }, tr('Nothing matches “{q}”', { q: cmp.input.value }))));
+  } else {
+    cmp.content.replaceChildren(h('div', { class: 'list' }, cmp.results.map((e, i) => h('button', { class: `row${i === cmp.idx ? ' active' : ''}`, onclick: () => pickCompare(i), onmousemove: () => { cmp.idx = i; markCompare(); } },
+      h('span', { class: 'row-type' }, tr(TYPE_LABEL[e.t])),
+      missileTags(e, 0),
+      h('span', { class: 'row-name' }, e.n),
+      h('span', { class: 'row-meta' }, missileMeta(e) || e.s || ''),
+      rowArrow(),
+    ))));
+  }
+  if (cmp.detail) alignCompare();
+  cmp.panel.firstChild.scrollTop = 0;
+  fit();
+}
+
+// Lines the two cards up, so the same stat sits at the same height on both sides: facts, headline facts and page
+// sections are put in one shared order (the left card's, then what only the right one has), and whatever one card
+// lacks becomes a dimmed "—" placeholder; matching sections then get the height of the taller one.
+const ghostOf = (node, valueSel) => {
+  const g = node.cloneNode(true);
+  g.classList.add('cmp-gap');
+  g.querySelectorAll('.scan').forEach((s) => s.remove());
+  g.querySelectorAll('.in').forEach((s) => s.classList.remove('in')); // no entrance animation: it would leave the clone hidden
+  const v = g.querySelector(valueSel);
+  if (v) v.textContent = '—';
+  return g;
+};
+function sharedOrder(ka, kb) {
+  const order = [...ka];
+  kb.forEach((k, i) => { if (!order.includes(k)) order.splice(i ? order.indexOf(kb[i - 1]) + 1 : 0, 0, k); });
+  return order;
+}
+// Keys repeat now and then (two "Damage" blocks), so each carries its occurrence number.
+const keyed = (nodes, keyOf) => {
+  const seen = {};
+  return nodes.map((n) => { const k = keyOf(n); seen[k] = (seen[k] || 0) + 1; return [`${k}#${seen[k]}`, n]; });
+};
+function alignChildren(ca, cb, keyOf, ghost) {
+  if (!ca || !cb) return;
+  const ma = new Map(keyed([...ca.children].filter((n) => !n.classList.contains('cmp-gap')), keyOf));
+  const mb = new Map(keyed([...cb.children], keyOf));
+  for (const k of sharedOrder([...ma.keys()], [...mb.keys()])) {
+    const na = ma.get(k) || ghost(mb.get(k)), nb = mb.get(k) || ghost(ma.get(k));
+    ca.append(na);
+    cb.append(nb);
+  }
+}
+function alignCompare() {
+  const a = contentEl.querySelector('.detail'), b = cmp.content.querySelector('.detail');
+  if (!a || !b) return;
+  a.querySelectorAll('.cmp-gap').forEach((g) => g.remove());
+  const [ha, hb] = [a, b].map((d) => d.querySelector('.detail-head'));
+  if (ha && hb) { // the original's COMPARE button makes its head taller; both heads take the taller height
+    ha.style.minHeight = hb.style.minHeight = '';
+    ha.style.minHeight = hb.style.minHeight = `${Math.max(ha.offsetHeight, hb.offsetHeight)}px`;
+  }
+  const factKey = (n) => n.querySelector('.fact-label')?.textContent || '';
+  const factGhost = (n) => ghostOf(n, '.fact-value, .headline-value');
+  alignChildren(a.querySelector('.headline'), b.querySelector('.headline'), factKey, factGhost);
+  alignChildren(a.querySelector('.facts:not(.facts-bars)'), b.querySelector('.facts:not(.facts-bars)'), factKey, factGhost);
+  alignChildren(a.querySelector('.facts-bars'), b.querySelector('.facts-bars'), factKey, factGhost);
+  const ra = a.querySelector('.rise'), rb = b.querySelector('.rise');
+  if (!ra || !rb) return;
+  for (const r of [ra, rb]) wrapSections(r);
+  const blockKey = (n) => n.dataset.key;
+  const blockGhost = (n) => {
+    const g = h('div', { class: 'sec-block cmp-gap' });
+    const t = n.querySelector('.sec-title');
+    if (t) g.append(t.cloneNode(true), h('p', { class: 'note' }, '—'));
+    return g;
+  };
+  alignChildren(ra, rb, blockKey, blockGhost);
+  const ba = [...ra.children], bb = [...rb.children];
+  ba.forEach((n) => { n.style.minHeight = ''; });
+  bb.forEach((n) => { n.style.minHeight = ''; });
+  ba.forEach((n, i) => {
+    const m = Math.max(n.offsetHeight, bb[i].offsetHeight);
+    n.style.minHeight = bb[i].style.minHeight = `${m}px`;
+  });
+}
+// A page's sections as blocks (a title and what follows it up to the next title), so they can be lined up by title.
+function wrapSections(rise) {
+  if (rise.firstElementChild?.classList.contains('sec-block')) return;
+  const blocks = [];
+  for (const n of [...rise.children]) {
+    if (n.classList.contains('sec-title') || !blocks.length) blocks.push(h('div', { class: 'sec-block', 'data-key': n.classList.contains('sec-title') ? n.textContent : '' }));
+    blocks[blocks.length - 1].append(n);
+  }
+  rise.replaceChildren(...blocks);
+}
+function markCompare() {
+  cmp.content.querySelectorAll('.row').forEach((r, j) => r.classList.toggle('active', j === cmp.idx));
+}
+function pickCompare(i) {
+  if (!cmp?.results[i]) return;
+  cmp.detail = cmp.results[i];
+  paintCompare();
+}
+function compareKey(ev) {
+  ev.stopPropagation(); // the main search's keys (arrows, Tab, typing) are not for this card
+  if (ev.key === 'Escape') { ev.preventDefault(); if (cmp.detail) { cmp.detail = null; paintCompare(); cmp.input.focus(); } else closeCompare(); }
+  else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+    ev.preventDefault();
+    if (!cmp.results.length || cmp.detail) return;
+    cmp.idx = Math.max(0, Math.min(cmp.results.length - 1, cmp.idx + (ev.key === 'ArrowDown' ? 1 : -1)));
+    markCompare();
+    cmp.content.querySelectorAll('.row')[cmp.idx]?.scrollIntoView({ block: 'nearest' });
+  } else if (ev.key === 'Enter') { ev.preventDefault(); if (!cmp.detail) pickCompare(cmp.idx); }
+  else if (ev.key === 'Tab') ev.preventDefault();
+}
+function closeCompare(silent) {
+  if (!cmp) return;
+  scrollEl.removeEventListener('scroll', cmp.scrollMain);
+  cmp.el.remove();
+  cmp = null;
+  contentEl.querySelectorAll('.detail .cmp-gap').forEach((g) => g.remove()); // the placeholders that lined the card up
+  contentEl.querySelectorAll('.detail .sec-block').forEach((n) => { n.style.minHeight = ''; });
+  body.classList.remove('comparing');
+  companion.compare(false);
+  if (!silent) { fit(); qEl.focus(); }
+}
+
+function renderDetail(e, opts = {}) {
   const { facts, body, actions, bars, sortFacts } = VIEWS[e.t](e);
   const present = ([, v]) => v != null && v !== '' && v !== false;
   const shown = facts.filter(present);
@@ -1333,7 +1533,7 @@ function renderDetail(e) {
     h(
       'div',
       { class: 'detail-head' },
-      e.t === 'faction' ? logoFor(e) : imageFor(e),
+      pictureColumn(e, opts),
       h(
         'div',
         { class: 'detail-main' },
@@ -1341,7 +1541,7 @@ function renderDetail(e) {
           'div',
           { class: 'detail-top' },
           h('span', { class: 'detail-type in' }, tr(TYPE_LABEL[e.t])),
-          h('button', { class: 'back', onclick: back }, 'Back ', h('kbd', null, 'ESC')),
+          h('button', { class: 'back', onclick: opts.back || back }, 'Back ', h('kbd', null, 'ESC')),
         ),
         h('div', { class: 'detail-name in', delay: 40 }, e.n),
         // A faction's subtitle (type · area · focus) is the same as its Type, Area and Focus facts below.
@@ -1371,6 +1571,43 @@ function pageRef(e) {
   return { type: TYPE_LABEL[e.t] || e.t, name: e.n, sub: e.s || '', id: e.id || '', ref: e.d?.debugName || e.d?.uuid || e.d?.id || '' };
 }
 
+// A missile's size (S1, S2…) and how it finds its target (IR, EM, CS) as two coloured tags before its name, so
+// "missile" alone sorts out what fits a hardpoint and what the target's signature has to be.
+const MISSILE_SEEKER = {
+  Infrared: ['IR', 'Infrared tracking: locks on to the heat a ship gives off'],
+  Electromagnetic: ['EM', 'Electromagnetic tracking: locks on to the electromagnetic signature of a ship'],
+  CrossSection: ['CS', 'Cross section tracking: locks on to the cross section of a ship'],
+};
+// A missile or torpedo, also when its source gave no category: the name ends in Missile or Torpedo ("Calamity
+// XII-IR Torpedo"); a launcher or a rack is not one. The roman numeral in the name is its size, a suffix its seeker.
+const ROMAN = { I: 1, V: 5, X: 10 };
+const romanValue = (r) => [...r].reduce((n, c, i, a) => n + (ROMAN[c] < (ROMAN[a[i + 1]] || 0) ? -ROMAN[c] : ROMAN[c]), 0);
+function missileInfo(e) {
+  if (e.t !== 'item') return null;
+  const a = e.d?.attrs || {};
+  const named = /\b([IVX]+)(?:-([A-Z]+))?\s+(?:Missile|Torpedo)$/.exec(e.n);
+  if (e.d?.category !== 'MISSILE' && !(named && !/Launcher|Rack/i.test(e.n))) return null;
+  const size = parseInt(a.SIZE, 10) || (named ? romanValue(named[1]) : NaN);
+  const bySuffix = { IR: 'Infrared', EM: 'Electromagnetic', CS: 'CrossSection' }[named?.[2]];
+  return { size, seeker: MISSILE_SEEKER[a.TYPE] || MISSILE_SEEKER[bySuffix], attrs: a, classification: e.d?.classification };
+}
+function missileTags(e, delay) {
+  const m = missileInfo(e);
+  if (!m) return null;
+  const { size, seeker } = m;
+  return h('span', { class: 'mtags in', delay },
+    Number.isFinite(size) && h('span', { class: `mtag msize msize-${Math.min(size, 12)}`, title: tr('Size {n}', { n: size }) }, `S${size}`),
+    seeker && h('span', { class: `mtag mseek mseek-${seeker[0].toLowerCase()}`, title: tr(seeker[1]) }, seeker[0]),
+  );
+}
+// What sets one missile apart in the list: its class, damage and lock time.
+function missileMeta(e) {
+  const m = missileInfo(e);
+  if (!m) return null;
+  const a = m.attrs;
+  return [m.classification, a.DAMAGE && `${tr('lock')} ${a['LOCK TIME']}`, a.SPEED].filter(Boolean).join(' · ') || null;
+}
+
 function renderList() {
   return h(
     'div',
@@ -1385,8 +1622,9 @@ function renderList() {
         { class: `row${i === idx ? ' active' : ''}`, onclick: () => open(i), onmousemove: () => setIdx(i, false) },
         h('div', { class: 'scan', delay: d }),
         h('span', { class: 'row-type in', delay: d }, tr(TYPE_LABEL[e.t])),
+        missileTags(e, d),
         h('span', { class: 'row-name in', delay: d }, e.n),
-        h('span', { class: 'row-meta in', delay: d }, `${e.s || ''}${more}`),
+        h('span', { class: 'row-meta in', delay: d }, `${missileMeta(e) || e.s || ''}${more}`),
         rowArrow(),
       )];
     }),
@@ -1865,6 +2103,7 @@ function fit() {
   const panelH = open ? Math.max(0, Math.min(contentEl.offsetHeight + 2, roomForPanel)) : 0;
   panelEl.classList.toggle('open', open);
   panelEl.style.height = `${panelH}px`;
+  if (cmp) cmp.panel.style.height = `${panelH}px`;
   const target = Math.ceil((chrome + (open ? PANEL_GAP + panelH : 0)) * zoom);
   clearTimeout(shrinkTimer);
   // While the grip is dragged the panel tracks it live, so the window shrinks at once too.
@@ -1877,6 +2116,7 @@ function fit() {
 }
 
 function search() {
+  closeCompare(true);
   results = CompanionSearch.search(index, qEl.value, { type, collapseVariants: true });
   idx = 0;
   detail = null;
@@ -1899,6 +2139,7 @@ function open(i) {
 }
 
 function back() {
+  closeCompare(true);
   detail = null;
   render();
   setIdx(idx);
@@ -2041,7 +2282,21 @@ function remeasureWhenSized(tries = 0) {
   remeasureSoon(); // and again once the unfold has finished
 }
 
+// What was typed does not stay: if the bar was closed for two minutes or more, it opens empty.
+const FORGET_AFTER_MS = 2 * 60 * 1000;
+let closedAt = 0;
+function forgetSearch() {
+  closeCompare(true);
+  settingsOpen = false;
+  qEl.value = '';
+  type = 'all';
+  detail = null;
+  results = [];
+  idx = 0;
+  render();
+}
 companion.onOpen((info) => {
+  if (closedAt && Date.now() - closedAt >= FORGET_AFTER_MS && (qEl.value || detail || cmp)) forgetSearch();
   stopIconShake(); // the bar is open: the icon has been found
   lastIcon = info;
   body.classList.remove('docked', 'folding');
@@ -2114,6 +2369,8 @@ function shakeIcon() {
   dockEl.classList.add('shake');
 }
 companion.onDocked(({ opacity, attention }) => {
+  closedAt = Date.now();
+  closeCompare(true);
   body.classList.remove('unfolding', 'folding');
   body.classList.add('docked');
   applyLayoutVars(opacity);

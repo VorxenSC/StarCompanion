@@ -92,7 +92,7 @@ version) in its subject and body, besides what you write.
 
 Settings (gear button in the search bar, or tray → Settings…) has: shortcut, key listener status,
 start with Windows, close when clicking the game, show icon when closed, icon transparency, transparency
-(0% solid to 100% in 20% steps; the bar and the icon start at 40%, the pins at 0%), text size, language (Automatic follows
+(0% solid to 100% in 20% steps; the bar and the icon start at 20%, the pins at 0%), text size, language (Automatic follows
 Windows' display language: Portuguese → Português (Brasil), anything else → English), reset position
 and size, updates, the startup notice and the settings file's folder. Everything is saved in
 `config.json` (`hotkey`, `hideOnBlur`, `transparency`, `zoom`, `language`, `dock`, `dockTransparency`,

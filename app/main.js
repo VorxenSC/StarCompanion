@@ -26,14 +26,14 @@ const DEFAULT_CONFIG = {
   hotkey: 'PageDown', // the single key that shows/hides the overlay (Electron Accelerator format)
   hideOnBlur: true, // close when you click back into the game
   // Each window's transparency goes from 0 (solid) to 1 (as see-through as stays usable) in 20% steps.
-  // The search bar and the icon start at 40%; the pins start solid.
-  transparency: 0.4, // the search bar and its results
+  // The search bar and the icon start at 20%; the pins start solid.
+  transparency: 0.2, // the search bar and its results
   height: 1520, // maximum height (capped to the screen); the window shrinks to fit shorter results
   windowWidth: 720, // the design's 680px column plus room for its glow; changed with the resize grip
   zoom: 1, // text size: Ctrl+= / Ctrl+- / Ctrl+0 in the overlay, or the tray menu
   dock: true, // keep a discreet icon on screen while the overlay is closed
   iconSeen: false, // true once the player has opened the bar themselves; until then the icon shakes to be noticed
-  dockTransparency: 0.4, // that icon, when the mouse is not over it
+  dockTransparency: 0.2, // that icon, when the mouse is not over it
   showNotice: true, // the "Before you start" notice at launch, until "Don't show this again"
   checkUpdates: true, // look for a new release on GitHub at launch and ask before installing it
   skipVersion: null, // a release the player chose not to be reminded about

@@ -730,6 +730,27 @@ for (const { base, members } of families.values()) {
   }
 }
 
+// Hand weapons cstone has no page for keep their wiki figures only (damage, modes, magazine); the attribute rows
+// cstone would give for those figures are written from them, in cstone's wording and only where cstone has none,
+// so every hand weapon shows the same rows. Volume, scope/barrel sizes and bullet speed stay absent: no source has them.
+for (const e of entries) {
+  const w = e.d?.weapon;
+  if (e.t !== 'item' || !w?.modes || !/^FPS Weapon/i.test(e.d.type || '')) continue;
+  const a = (e.d.attrs ||= {});
+  const set = (k, v) => { if (a[k] == null && v != null) a[k] = v; };
+  const rpm = (n) => `${Math.round(n || 0)} /min`, dmg = (n) => `${+(n || 0).toFixed(2)} dmg/s`;
+  set('MAGAZINE CAPACITY', w.magazine != null ? String(w.magazine) : null);
+  set('ALPHA DAMAGE', w.perShot != null ? String(+w.perShot.toFixed(2)) : null);
+  const by = (m) => w.modes.find((x) => x.mode === m);
+  for (const m of ['Single', 'Burst', 'Rapid']) {
+    set(`${m.toUpperCase()} FIRERATE`, rpm(by(m)?.rpm));
+    set(`${m.toUpperCase()} DPS`, dmg(by(m)?.dps));
+  }
+  if (by('Beam')) set('BEAM DPS', dmg(by('Beam').dps));
+  set('MAX FIRERATE', rpm(Math.max(0, ...w.modes.map((x) => x.rpm || 0))));
+  set('MAX DPS', dmg(Math.max(0, ...w.modes.map((x) => x.dps || 0))));
+}
+
 // ---------- Activities ----------
 // The Executive Hangar: the Pyro contested-zone chain that ends in a PYAM Exec ship. Gathered from the
 // starcitizen.tools article, contestedzonetimers.com (cycle, cooldowns, 4.10.2), expcarry.com's contested

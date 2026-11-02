@@ -69,8 +69,15 @@ async function main() {
   const index = await getJson(`${BASE}/GetSearch`);
   console.log(`cstone index: ${index.length} items, ${index.filter((x) => x.Sold).length} sold in shops`);
 
-  // Only items sold somewhere have a shop table worth fetching; the rest are kept as names.
-  const toFetch = index.filter((x) => x.Sold);
+  // Only items sold somewhere have a shop table worth fetching; the rest are kept as names. The exception is the
+  // hand weapons (the wiki's FPS Weapon items, same ids): most are loot only, and their page is the only source of
+  // volume, scope and barrel sizes and bullet speed.
+  let fpsWeapons = new Set();
+  try {
+    const wiki = JSON.parse(fs.readFileSync(path.join(RAW_DIR, 'wiki.json'), 'utf8'));
+    fpsWeapons = new Set(wiki.items.filter((x) => /^FPS Weapon/i.test(x.type || '')).map((x) => x.uuid));
+  } catch { /* no wiki data yet: only the sold items are fetched */ }
+  const toFetch = index.filter((x) => x.Sold || fpsWeapons.has(x.id));
   const results = await pool(
     toFetch,
     4,
@@ -92,7 +99,8 @@ async function main() {
     const d = details.get(x.id);
     const base = { id: x.id, name: x.name, sold: !!x.Sold };
     if (!d || d.error) return d?.error ? { ...base, error: d.error } : base;
-    return { ...base, ...d };
+    // An unsold item's page has one placeholder row ("Not Sold directly or at all."): that is no shop.
+    return { ...base, ...d, shops: d.shops.filter((s) => s.price != null || !/^Not sold/i.test(s.location || '')) };
   });
   const failed = items.filter((x) => x.error).length;
   if (failed) console.warn(`${failed} pages failed; re-run to retry them`);

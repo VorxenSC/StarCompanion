@@ -532,6 +532,9 @@ body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform
 .hints b { font-weight: 400; color: rgba(235, 242, 248, 0.9); }
 /* The keys on the left, the data and the links on the right: one gap throughout, one line, icons of one size. */
 .hints-data { flex: 0 1 auto; min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; }
+/* A dot in the middle of each gap, inside a group of items: it takes no room of its own. */
+.hints > * { position: relative; }
+.hints > :not(:first-child):not(.hints-data)::before { content: '·'; position: absolute; left: -12px; width: 12px; text-align: center; letter-spacing: 0; color: rgba(205, 218, 230, 0.55); }
 .hints .report-link, .hints .coffee { gap: 5px; }
 .hints .report-link svg, .hints .coffee svg { display: block; flex: none; width: 16px; height: 16px; }
 

@@ -137,6 +137,8 @@ and every 3 hours, and kept for starts without a connection.
 Tables list their rows in alphabetical order (stats, shops, missions, mining locations, terminals…),
 except where the order is the information: reputation levels and a system's planets.
 
+Armor rows say what the piece is: its class and part ("Heavy armor · Arms"), undersuit or flight suit, also when searched for ("heavy arms"). A piece no source gives a class for shows its part alone. A blueprint page lists the minimum reputation level of each mission that rewards it, and **Report** with the bug icon, in the line under the bar, opens the form set to Bug.
+
 Results are grouped by kind (activities such as the Executive Hangar, blueprints, then commodities, minerals, items, ships, factions, missions,
 locations), with the exact name first. Colour and edition variants (Parallax "Sunstone"…) show as one
 row with "+N variants"; the detail lists them all.

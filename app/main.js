@@ -38,7 +38,7 @@ const DEFAULT_CONFIG = {
   // The search bar and the icon start at 20%; the pins start solid.
   transparency: 0.2, // the search bar and its results
   height: 1520, // maximum height (capped to the screen); the window shrinks to fit shorter results
-  windowWidth: 720, // the design's 680px column plus room for its glow; changed with the resize grip
+  windowWidth: 812, // a 772px column plus room for its glow; changed with the resize grip
   zoom: 1, // text size: Ctrl+= / Ctrl+- / Ctrl+0 in the overlay, or the tray menu
   dock: true, // keep a discreet icon on screen while the overlay is closed
   iconSeen: false, // true once the player has opened the bar themselves; until then the icon shakes to be noticed

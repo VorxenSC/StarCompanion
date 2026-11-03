@@ -1754,7 +1754,7 @@ function translateStatic() {
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = tr(el.dataset.i18n);
   qEl.placeholder = tr('Search items, ships, blueprints, missions, minerals…');
   $('settings-btn').title = $('settings-btn').ariaLabel = tr('Settings');
-  $('suggest').title = tr('Send an idea, a bug or a data fix to the developer');
+  $('report-bug').title = $('report-bug').ariaLabel = tr('Report a bug');
   $('coffee').title = tr('Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7');
 }
 
@@ -1845,6 +1845,13 @@ function openFeedback(page) {
   setTimeout(() => $('fb-message')?.focus(), 50);
 }
 
+// The footer's Report: the form set to Bug, about the page on screen if there is one. Its other kinds stay a click away.
+function openBugReport() {
+  openFeedback(detail ? pageRef(detail) : null);
+  feedback.kind = 'Bug';
+  render();
+}
+
 function closeFeedback() {
   if (!feedback) return;
   feedback.open = false;
@@ -1910,7 +1917,7 @@ function renderFeedback() {
   return h(
     'div',
     { class: 'notice feedback' },
-    h('div', { class: 'detail-type in' }, f.page ? tr('Bug report') : 'Suggestions'),
+    h('div', { class: 'detail-type in' }, f.page || f.kind === 'Bug' ? tr('Bug report') : 'Suggestions'),
     h('div', { class: 'detail-name in', delay: 40 }, f.page ? tr('Report a bug') : 'Help shape Star Companion'),
     f.page
       ? h('div', { class: 'fb-page rise', delay: 100 }, h('span', { class: 'fact-label' }, tr('About this page')), h('span', { class: 'fb-page-name' }, `${tr(f.page.type)} · ${f.page.name}`), h('span', { class: 'dim' }, tr('The page is sent with your message, so the developer knows which one it is.')))
@@ -2246,9 +2253,9 @@ document.addEventListener('keydown', (ev) => {
 companion.onFeedback(openFeedback);
 companion.onSettings(openSettings);
 $('settings-btn').addEventListener('click', () => (settingsOpen ? closeSettings() : openSettings()));
-$('suggest').addEventListener('click', (ev) => {
+$('report-bug').addEventListener('click', (ev) => {
   ev.preventDefault();
-  openFeedback();
+  openBugReport();
 });
 $('coffee').addEventListener('click', (ev) => {
   ev.preventDefault();
@@ -2462,7 +2469,7 @@ async function load() {
   const total = Object.values(db.meta.counts).reduce((a, b) => a + b, 0);
   const sources = Object.entries(db.meta.sources).filter(([, s]) => s);
   const oldest = sources.map(([, s]) => s.fetchedAt.slice(0, 10)).sort()[0];
-  $('dbinfo').textContent = tr('{records} records · data {date}', { records: fmt(total), date: oldest });
+  $('dbinfo').textContent = tr('{records} records', { records: fmt(total) });
   dataDate = oldest;
   gameVersion = db.meta.gameVersion || null;
   dataBuiltAt = db.meta.builtAt || null;

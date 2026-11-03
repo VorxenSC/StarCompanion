@@ -17,7 +17,7 @@
     'Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7':
       'O Star Companion é gratuito e feito no meu tempo livre. Se ele te poupou uma viagem, uma caçada ou alguns milhões de aUEC, um café ajuda a mantê-lo atualizado a cada patch. Obrigado, cidadão — o7',
     'Loading database…': 'Carregando a base de dados…',
-    '{records} records · data {date}': '{records} registros · dados de {date}',
+    '{records} records': '{records} registros', Report: 'Reportar',
     'Database updated — reloading…': 'Base atualizada — recarregando…',
     'Some sources failed to update; previous data kept.': 'Algumas fontes falharam; os dados anteriores foram mantidos.',
     'Could not load the database: {error}': 'Não foi possível carregar a base: {error}',

@@ -417,8 +417,8 @@ td.effects, th.effects { color: var(--muted); white-space: normal; }
 .coffee-btn { color: var(--price); border-color: rgba(242, 179, 94, 0.45); }
 
 /* ---------- Suggestions form ---------- */
-.suggest { flex: none; color: rgba(205, 218, 230, 0.75); text-decoration: none; -webkit-app-region: no-drag; }
-.suggest:hover { color: var(--accent); text-decoration: none; }
+.report-link { display: inline-flex; align-items: center; gap: 5px; flex: none; color: rgba(205, 218, 230, 0.75); text-decoration: none; -webkit-app-region: no-drag; }
+.report-link:hover { color: var(--accent); text-decoration: none; }
 .fb-kinds { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
 .fb-kind { min-height: 34px; padding: 0 14px; background: transparent; border: 1px solid var(--line); border-radius: 2px; color: var(--muted); font: 12px var(--mono); letter-spacing: 0.06em; cursor: pointer; }
 .fb-kind:hover { color: var(--text); border-color: rgba(190, 215, 235, 0.4); }
@@ -528,9 +528,12 @@ td.effects, th.effects { color: var(--muted); white-space: normal; }
 body.side-right .grip { right: auto; left: -14px; cursor: nesw-resize; transform: scaleX(-1); }
 
 /* ---------- Key hints ---------- */
-.hints { display: flex; gap: 18px; padding: 12px 2px 0; font: 11px var(--mono); letter-spacing: 0.06em; color: rgba(205, 218, 230, 0.66); white-space: nowrap; }
+.hints { display: flex; align-items: center; gap: 12px; padding: 12px 2px 0; font: 11px/18px var(--mono); letter-spacing: 0.03em; color: rgba(205, 218, 230, 0.66); white-space: nowrap; }
 .hints b { font-weight: 400; color: rgba(235, 242, 248, 0.9); }
-.hints-data { margin-left: auto; overflow: hidden; text-overflow: ellipsis; }
+/* The keys on the left, the data and the links on the right: one gap throughout, one line, icons of one size. */
+.hints-data { flex: 0 1 auto; min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; }
+.hints .report-link, .hints .coffee { gap: 5px; }
+.hints .report-link svg, .hints .coffee svg { display: block; flex: none; width: 16px; height: 16px; }
 
 /* ---------- Motion: text is revealed left-to-right behind a scan line ---------- */
 @keyframes scIn {

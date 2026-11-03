@@ -437,6 +437,24 @@ function loadoutTable(loadout) {
   );
 }
 
+// The lowest reputation level a blueprint's mission asks for: from scmdb.net's contracts, else the wiki's
+// minimum. A title can be several missions, so it looks only at those that reward this blueprint.
+let missionsByTitle = null;
+let missionsFrom = null;
+function missionRank(title, blueprint) {
+  if (missionsFrom !== dbEntries) {
+    missionsFrom = dbEntries;
+    missionsByTitle = new Map();
+    for (const x of dbEntries) if (x.t === 'mission') missionsByTitle.set(x.n, [...(missionsByTitle.get(x.n) || []), x]);
+  }
+  const ranks = (missionsByTitle.get(title) || [])
+    .filter((m) => m.d.blueprints?.some((b) => b.name === blueprint))
+    .map((m) => m.d.scm?.minRank || (m.d.minStanding ? { name: m.d.minStanding } : null))
+    .filter(Boolean);
+  return ranks.sort((a, z) => (a.min ?? Infinity) - (z.min ?? Infinity))[0] || null;
+}
+const rankCell = (r) => (r ? h('span', { title: r.min != null ? tr('{n} reputation points', { n: fmt(r.min) }) : null }, r.name) : '—');
+
 function viewBlueprint(e) {
   const d = e.d;
   const mins = Math.round((d.craftTime || 0) / 60);
@@ -459,6 +477,7 @@ function viewBlueprint(e) {
         h('div', { class: 'best-drop-facts' }, [
           ['Drop chance', h('span', { class: 'best-drop-chance' }, `${Math.round(best.chance * 100)}%`)],
           ['Faction', best.factions?.join(', ')],
+          ['Minimum reputation', missionRank(best.name, e.n) && rankCell(missionRank(best.name, e.n))],
           ['Mission type', kinds(best)],
           ['Systems', best.systems?.join(', ')],
         ].filter(([, v]) => v).map(([label, v]) => h('div', { class: 'fact' }, h('span', { class: 'fact-label' }, tr(label)), h('span', { class: 'fact-value' }, v)))),
@@ -482,10 +501,10 @@ function viewBlueprint(e) {
           ? [
               !real.length && note('This blueprint comes from a reward table in the game files: the missions that use it are not known.'),
               table(
-                [['Mission', ''], ['Faction', ''], ['Type', 'dim'], ['Drop chance', 'num']],
+                [['Mission', ''], ['Faction', ''], ['Minimum reputation', ''], ['Type', 'dim'], ['Drop chance', 'num']],
                 [
-                  ...sortedBy(real, (m) => m.name).map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', kinds(m), `${Math.round(m.chance * 100)}%`]),
-                  ...sortedBy(tables, (m) => m.name).map((m) => [h('span', { class: 'dim' }, `${tr('Reward table')}: ${m.name}`), '', '', `${Math.round(m.chance * 100)}%`]),
+                  ...sortedBy(real, (m) => m.name).map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', rankCell(missionRank(m.name, e.n)), kinds(m), `${Math.round(m.chance * 100)}%`]),
+                  ...sortedBy(tables, (m) => m.name).map((m) => [h('span', { class: 'dim' }, `${tr('Reward table')}: ${m.name}`), '', '', '', `${Math.round(m.chance * 100)}%`]),
                 ],
               ),
             ]

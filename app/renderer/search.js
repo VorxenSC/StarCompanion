@@ -116,7 +116,81 @@
     return hits.slice(0, limit);
   }
 
-  const api = { norm, buildIndex, search, baseOf, GROUP_ORDER };
+  // ---------- What kind of armor an item is ----------
+  // The sources give an armor's part in one field and its class in others, so the subtitle said only "Helmet" or
+  // "ARMOR - ARMS". This puts them together, from what is stated first: the wiki's type and cstone's armor type,
+  // then a blueprint of the same name, then another colour of the same model on the same part if it has one
+  // class only, then the item's own description. What none of them settles shows its part alone.
+  const BODY_PARTS = ['Torso', 'Arms', 'Legs'];
+  const armorPart = (e) => {
+    if (e.t !== 'item') return null;
+    const d = e.d || {};
+    const byType = /^(Helmet|Torso|Arms|Legs|Backpack|Undersuit) \(Armor\)/.exec(d.type || '');
+    if (byType) return byType[1];
+    const byCategory = /^ARMOR - (\w+)/.exec(d.category || '');
+    if (byCategory) return byCategory[1][0] + byCategory[1].slice(1).toLowerCase();
+    if (/^Jacket \/ (Light|Medium|Heavy)/.test(d.type || '') && /\bArmor\b/.test(e.n)) return 'Torso'; // "Ixonia Armor", filed as a jacket
+    if (d.type || d.category) return null;
+    if (/flight ?suit|undersuit/i.test(e.n)) return 'Undersuit';
+    const named = /\bArmor (Core|Arms|Legs)\b/.exec(e.n); // no type at all: "Carnifex Armor Core (01_01_01)"
+    return named ? (named[1] === 'Core' ? 'Torso' : named[1]) : null;
+  };
+  const classIn = (text) => (/\b(Light|Medium|Heavy|Flight|Racing)\b/i.exec(text || '') || [])[1];
+  const capital = (s) => s && s[0].toUpperCase() + s.slice(1).toLowerCase();
+  const statedClass = (e, part) => {
+    const d = e.d || {};
+    const stated = classIn((d.type || '').split('/')[1]) || classIn((d.attrs || {})['ARMOR TYPE']);
+    return capital(stated || (part === 'Helmet' ? (/\b(Flight|Racing) Helmet\b/i.exec(e.n) || [])[1] : null));
+  };
+  const describedClass = (e) => {
+    const found = new Set([...String((e.d && e.d.description) || '').matchAll(/\b(light|medium|heavy)[- ](?:armou?r|helmet|backpack)\b/gi)].map((m) => capital(m[1])));
+    return found.size === 1 ? [...found][0] : null;
+  };
+  const armorWords = (cls, part) => {
+    if (part === 'Undersuit' && !/^(Light|Medium|Heavy)$/.test(cls || '')) return [cls === 'Flight' ? 'Flight suit' : 'Undersuit'];
+    if (!cls) return [part];
+    if (part === 'Backpack') return [`${cls} backpack`];
+    if (cls === 'Flight' || cls === 'Racing') return part === 'Helmet' ? [`${cls} helmet`] : [part];
+    return [`${cls} armor`, part];
+  };
+  // Sets e.armor (words for the language file) and e.s (the same in English, which the search reads) on every armor.
+  function labelArmors(entries) {
+    const blueprintClass = new Map();
+    for (const e of entries) if (e.t === 'blueprint' && /^Armou?r\b/i.test(e.s || '')) blueprintClass.set(norm(e.n), /Flightsuit/i.test(e.s) ? 'Flight' : /Racer/i.test(e.s) ? 'Racing' : capital(classIn(e.s)));
+    const modelKey = (e, part, words = 2) => `${part}|${norm(e.n).split(' ').slice(0, words).join(' ')}`;
+    const armors = [];
+    const models = new Map();
+    const note = (k, cls) => {
+      if (!models.has(k)) models.set(k, new Set());
+      models.get(k).add(cls);
+    };
+    for (const e of entries) {
+      const part = armorPart(e);
+      if (part) {
+        const cls = statedClass(e, part) || blueprintClass.get(norm(e.n));
+        armors.push({ e, part, cls });
+        if (cls) {
+          note(modelKey(e, part), cls);
+          if (BODY_PARTS.includes(part)) note(modelKey(e, part, 1), cls);
+        }
+      } else if (e.t === 'item' && /^Armor \//.test((e.d && e.d.type) || '')) {
+        e.armor = ['Ship armor', capital(classIn(e.d.type)) || ''].filter(Boolean);
+        e.s = e.armor.join(' · ');
+      }
+    }
+    for (const { e, part, cls } of armors) {
+      const only = (k) => (models.get(k)?.size === 1 ? [...models.get(k)][0] : null);
+      // A set's torso, arms and legs share a first word ("Carnifex Core Windfall"); helmets and backpacks do not.
+      const family = BODY_PARTS.includes(part) ? only(modelKey(e, part, 1)) : null;
+      const found = cls || only(modelKey(e, part)) || family || (part === 'Undersuit' ? null : describedClass(e));
+      const flight = part === 'Undersuit' && /flight ?suit/i.test(`${e.n} ${(e.d.attrs || {})['ARMOR TYPE'] || ''}`);
+      e.armor = armorWords(flight ? 'Flight' : found, part);
+      e.s = e.armor.join(' · ');
+    }
+    return entries;
+  }
+
+  const api = { norm, buildIndex, search, baseOf, GROUP_ORDER, labelArmors };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CompanionSearch = api;
 })(typeof window !== 'undefined' ? window : globalThis);

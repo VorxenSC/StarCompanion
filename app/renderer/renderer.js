@@ -1411,7 +1411,7 @@ function paintCompare() {
       h('span', { class: 'row-type' }, tr(TYPE_LABEL[e.t])),
       missileTags(e, 0),
       h('span', { class: 'row-name' }, e.n),
-      h('span', { class: 'row-meta' }, missileMeta(e) || e.s || ''),
+      h('span', { class: 'row-meta' }, missileMeta(e) || armorMeta(e) || e.s || ''),
       rowArrow(),
     ))));
   }
@@ -1564,7 +1564,7 @@ function renderDetail(e, opts = {}) {
         ),
         h('div', { class: 'detail-name in', delay: 40 }, e.n),
         // A faction's subtitle (type · area · focus) is the same as its Type, Area and Focus facts below.
-        e.t !== 'faction' && h('div', { class: 'detail-meta in', delay: 110 }, e.s || ''),
+        e.t !== 'faction' && h('div', { class: 'detail-meta in', delay: 110 }, armorMeta(e) || e.s || ''),
         actions?.some(Boolean) && h('div', { class: 'detail-actions in', delay: 130 }, actions),
         headline.length > 0 &&
           h(
@@ -1620,6 +1620,8 @@ function missileTags(e, delay) {
   );
 }
 // What sets one missile apart in the list: its class, damage and lock time.
+const armorMeta = (e) => (e.armor ? e.armor.map((w) => tr(w)).join(' · ') : null);
+
 function missileMeta(e) {
   const m = missileInfo(e);
   if (!m) return null;
@@ -1643,7 +1645,7 @@ function renderList() {
         h('span', { class: 'row-type in', delay: d }, tr(TYPE_LABEL[e.t])),
         missileTags(e, d),
         h('span', { class: 'row-name in', delay: d }, e.n),
-        h('span', { class: 'row-meta in', delay: d }, `${missileMeta(e) || e.s || ''}${more}`),
+        h('span', { class: 'row-meta in', delay: d }, `${missileMeta(e) || armorMeta(e) || e.s || ''}${more}`),
         rowArrow(),
       )];
     }),
@@ -2460,6 +2462,7 @@ async function load() {
   sendGeometry();
   $('hotkey').textContent = $('hotkey2').textContent = cfg.hotkey;
   const db = JSON.parse(raw);
+  CompanionSearch.labelArmors(db.entries);
   index = CompanionSearch.buildIndex(db.entries);
   dbEntries = db.entries;
   applyLiveCommodities(await companion.commoditiesLive());

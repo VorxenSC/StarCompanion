@@ -1,3 +1,12 @@
+// A test copy that crashes says so in its output and quits: no error dialog on the player's screen. It comes
+// first so that it also covers a module that cannot be found.
+if (process.env.SC_SNAPSHOT || process.env.SC_UPDATE_TEST) {
+  process.on('uncaughtException', (err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, net, shell, Tray, Menu, nativeImage, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');

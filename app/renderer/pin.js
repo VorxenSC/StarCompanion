@@ -141,3 +141,10 @@ pin.onData((data) => {
     return li;
   }));
 });
+
+// The theme (Settings → Look): from the window's address at load, so the first frame has it; later changes come by IPC.
+function applyTheme(theme) {
+  document.body.classList.toggle('theme-eclipse', theme === 'eclipse');
+}
+applyTheme(new URLSearchParams(location.search).get('theme'));
+window.pin.onTheme?.(applyTheme);

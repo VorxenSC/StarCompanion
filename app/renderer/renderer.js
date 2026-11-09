@@ -45,7 +45,8 @@ let listKey = '';
 let maxHeight = 760; // window pixels
 let zoom = 1; // text size; layout is measured in CSS px, the window in zoom × CSS px
 let gripping = false;
-let notice = false; // the "Before you start" notice is in the panel
+let notice = false; // the checklist (once "Before you start") is in the panel
+let noticePage = 'checklist'; // 'thanks' first when the thank-you page is due
 let recorder = null; // { current, pending, partial, error } while the shortcut recorder is in the panel
 let dataDate = '';
 let gameVersion = null; // the PU version the database was built for
@@ -1208,11 +1209,16 @@ function viewCommodity(e) {
   const d = e.d;
   const sells = d.locations.filter((l) => l.sell).sort((a, z) => z.sell - a.sell);
   const buys = d.locations.filter((l) => l.buy).sort((a, z) => a.buy - z.buy);
+  // Refinery prices as players report them; one under a tenth of the median is a typo ("1 aUEC") and is left out.
+  const refineryAll = (d.refinery || []).slice().sort((a, z) => z.sell - a.sell);
+  const median = refineryAll.length ? refineryAll[Math.floor(refineryAll.length / 2)].sell : 0;
+  const refinery = refineryAll.filter((l) => l.sell >= median / 10);
   const at = (price, where) => h('span', null, auec(price), h('span', { class: 'headline-where' }, shortWhere(where)));
   return {
     facts: [
       ['Best sale', sells[0] && at(sells[0].sell, sells[0].where)],
       ['Cheapest buy', buys[0] && at(buys[0].buy, buys[0].where)],
+      ['Refinery pays', refinery[0] && at(refinery[0].sell, refinery[0].where)],
       ['Code', d.code],
       ['Sell at', sells.length ? `${sells.length} terminals` : 'Nowhere listed'],
       ['Buy at', buys.length ? `${buys.length} terminals` : 'Nowhere listed'],
@@ -1221,7 +1227,8 @@ function viewCommodity(e) {
     ],
     body: [
       d.mineral && section('Mining', jump(`Where to mine ${e.n} →`, e.n, 'mineral')),
-      section(
+      !d.locations.length && !refinery.length && section('Where to trade', note(tr('UEX has no terminal price for it yet: no terminal trades it, or no player has reported one.'))),
+      d.locations.length > 0 && section(
         'Sell here · demand per location',
         sells.length
           ? table(
@@ -1230,7 +1237,7 @@ function viewCommodity(e) {
             )
           : note('No terminal buys it.'),
       ),
-      section(
+      d.locations.length > 0 && section(
         'Buy here · stock per location',
         buys.length
           ? table(
@@ -1239,7 +1246,12 @@ function viewCommodity(e) {
             )
           : note('No terminal sells it.'),
       ),
-      note('Demand and stock are UEX inventory levels reported by players; they move as people trade. AUTO LOAD: cargo is loaded and unloaded for you; ELEVATOR / DOCK: you move it by hand.'),
+      refinery.length > 0 && section(
+        'Sell at a refinery · raw',
+        table([['Refinery', ''], ['Pays / SCU', 'num']], refinery.map((l) => [l.where, auec(l.sell)])),
+        note(tr('What refinery terminals pay for it raw, as players report it to UEX.')),
+      ),
+      d.locations.length > 0 && note('Demand and stock are UEX inventory levels reported by players; they move as people trade. AUTO LOAD: cargo is loaded and unloaded for you; ELEVATOR / DOCK: you move it by hand.'),
       liveAt && note(tr('Live from UEX: updated at {time}, again every 30 minutes.', { time: new Date(liveAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })),
       links([['UEX', d.url], ['Wiki', d.wikiUrl]]),
     ],
@@ -1250,11 +1262,14 @@ function viewCommodity(e) {
 // replace each commodity's terminal list; an open commodity page is drawn again with them.
 function applyLiveCommodities(data) {
   if (!data?.commodities?.length || !dbEntries.length) return;
-  const byName = new Map(data.commodities.map((c) => [CompanionSearch.norm(c.name), c.locations]));
+  const byName = new Map(data.commodities.map((c) => [CompanionSearch.norm(c.name), c]));
   for (const e of dbEntries) {
     if (e.t !== 'commodity') continue;
-    const locations = byName.get(CompanionSearch.norm(e.n));
-    if (locations) e.d.locations = locations;
+    const live = byName.get(CompanionSearch.norm(e.n));
+    if (live) {
+      e.d.locations = live.locations;
+      if (live.refinery) e.d.refinery = live.refinery;
+    }
   }
   liveAt = data.at;
   if (detail?.t === 'commodity') {
@@ -1715,8 +1730,8 @@ function viewActivity(e) {
 
 const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, commodity: viewCommodity, faction: viewFaction, location: viewLocation, activity: viewActivity };
 
-// The item's picture, by preference: one chosen by hand (SHIP_PHOTOS), cstone's render, the wiki page's picture, then a player's photo
-// from a UEX offer. All are tried at once (a missing cstone picture can take a while to fail): the
+// The item's picture, by preference: one chosen by hand (SHIP_PHOTOS), cstone's render, the wiki page's picture (never a
+// player's photo from a UEX offer: those are theirs). All are tried at once (a missing cstone picture can take a while to fail): the
 // first to arrive shows at once and a more preferred one replaces it when it arrives; the box goes
 // away if none loads.
 // Pictures chosen by hand where the others are poor, shipped with the app (ship-photos/, about 640 px wide, WebP):
@@ -1727,7 +1742,7 @@ const SHIP_PHOTOS = {
 function imageFor(e) {
   const id = e.d.cstoneUrl?.split('/').pop();
   const own = SHIP_PHOTOS[e.n] && `ship-photos/${SHIP_PHOTOS[e.n]}`;
-  const urls = [own, id && `https://cstone.space/uifimages/${id}.png`, e.d.image, e.d.wikiImage, e.d.playerPhoto].filter(Boolean);
+  const urls = [own, id && `https://cstone.space/uifimages/${id}.png`, e.d.image, e.d.wikiImage].filter(Boolean);
   if (!urls.length) return null;
   const img = h('img', { class: 'detail-img', alt: '' });
   const state = urls.map(() => null); // null = pending, true = loaded, false = failed
@@ -1770,7 +1785,7 @@ const HEADLINE = {
   blueprint: ['Craft time'],
   mission: ['Reward', 'Cooldown'],
   mineral: ['Server base', 'Radar signature', 'Volatile'],
-  commodity: ['Best sale', 'Cheapest buy'],
+  commodity: ['Best sale', 'Cheapest buy', 'Refinery pays'],
   faction: ['Type', 'Area', 'Founded', 'Ranks'], // the short facts; Focus, Leadership and Headquarters get a row of their own
   location: ['System', 'Star'],
   activity: ['Hangar', 'Scan'],
@@ -2109,54 +2124,167 @@ function rowArrow() {
   svg.setAttribute('aria-hidden', 'true');
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   path.setAttribute('d', 'M3 8 H12 M8 4 L12 8 L8 12');
-  path.setAttribute('stroke', '#5FD4E8');
+  path.setAttribute('stroke', 'currentColor'); // the theme's accent (.row-arrow)
   path.setAttribute('stroke-width', '1.6');
   path.setAttribute('fill', 'none');
   svg.append(path);
   return svg;
 }
 
-// ---------- Startup notice: what the overlay needs to work ----------
-function renderNotice() {
+// ---------- Checklist: what the overlay needs to work, checked where the app can ----------
+// Shown at the first launch (and from Settings or the tray), and at every launch while something on it is wrong. The
+// main process reads the game's window mode and looks for the helpers an antivirus may remove; the key is tested by
+// pressing it here; the connection and the database are the bar's own state.
+let checks = null; // { game: { channels: [{ channel, dir, mode }], picked }, keys: { exe, ready, hotkey }, mining: { exe } | null }
+let keyTested = false;
+let recordsTotal = 0; // the footer's count, set when the database loads
+let checklistShown = false; // what the main process was last told
+const README_ANTIVIRUS = 'https://github.com/VorxenSC/StarCompanion#if-an-antivirus-warns';
+async function refreshChecks() {
+  checks = await companion.checklist?.();
+  if (notice) render();
+}
+companion.onChecklistHit?.(() => {
+  keyTested = true;
+  if (notice) render();
+});
+const WINDOW_MODES = { 0: 'Windowed', 1: 'Fullscreen', 2: 'Borderless' };
+// Each line: [status, title, text, action?]; status is ok, warn, bad, todo (yours to do) or wait.
+function checkItems() {
   const key = $('hotkey').textContent;
-  const items = [
-    ['Borderless window', 'Run Star Citizen in Borderless mode (Graphics → Window Mode). No overlay can appear over exclusive Fullscreen.'],
-    [`${key} to open`, `Press ${key} or click the small icon to open and close the search. To use another key, click ${key} in the search bar or use the tray menu → Change hotkey.`],
-    ['Internet', 'Search works offline. Item pictures, links, "Update database" and app updates need a connection.'],
-    ['Community data', `Prices, shops, locations and drop chances come from community sites (cstone, sc-craft.tools, scminer.rocks, starcitizen.tools, UEX) and can lag behind a new patch. Data for PU ${gameVersion || '?'}, collected ${dataDate || 'with the bundled database'}; the PU tag turns amber when a new patch is live. Check in game before a long trip.`],
-    ['Unofficial', 'A fan-made tool, not affiliated with Cloud Imperium Games or Roberts Space Industries.'],
-  ];
-  const dont = h('input', { type: 'checkbox', id: 'notice-dont' });
+  const items = [];
+  const pick = h('button', { class: 'set-btn', onclick: async () => { checks = await companion.pickGameFolder(); render(); } }, tr('Find the game folder'));
+  // The game's window mode.
+  const channels = checks?.game?.channels || [];
+  const names = (list) => list.map((c) => c.channel).join(', ');
+  if (!checks) items.push(['wait', 'Borderless window', tr('Looking for Star Citizen…')]);
+  else if (!channels.length) items.push(['todo', 'Borderless window', tr('Star Citizen was not found on this PC. In game, open Options → Graphics → Window Mode and choose Borderless: no overlay can show over Fullscreen.'), pick]);
+  else if (channels.some((c) => c.mode === 1)) items.push(['bad', 'Borderless window', tr('{channels} is in Fullscreen, and no overlay can show over it. In game: Options → Graphics → Window Mode → Borderless.', { channels: names(channels.filter((c) => c.mode === 1)) })]);
+  else if (channels.every((c) => !(c.mode in WINDOW_MODES))) items.push(['todo', 'Borderless window', tr('Found {channels}, but its graphics settings were never saved. In game: Options → Graphics → Window Mode → Borderless.', { channels: names(channels) })]);
+  else items.push(['ok', 'Borderless window', channels.filter((c) => c.mode in WINDOW_MODES).map((c) => `${c.channel}: ${tr(WINDOW_MODES[c.mode])}`).join(' · ') + (channels.some((c) => c.mode === 0) ? ` · ${tr('Windowed works too; Borderless is smoother.')}` : '')]);
+  // The shortcut key.
+  if (checks && !checks.keys.exe) items.push(['bad', tr('{key} to open', { key }), tr('The shortcut key helper (StarCompanionKeys.exe) is missing: an antivirus may have removed it. Restore it from the quarantine, add the Star Companion folder to the exceptions, then reinstall.'), h('button', { class: 'set-btn', onclick: () => companion.openLink(README_ANTIVIRUS) }, tr('How to'))]);
+  else if (keyTested) items.push(['ok', tr('{key} to open', { key }), tr('{key} works. It opens and closes the bar from anywhere, in game too; the o7 icon does the same.', { key })]);
+  else items.push(['todo', tr('{key} to open', { key }), tr('Press {key} now to test it. It opens and closes the bar from anywhere, in game too. To use another key, click {key} in the search bar.', { key })]);
+  // The Mining Assistant's reader, where the app has it.
+  if (checks?.mining) {
+    if (checks.mining.exe) items.push(['ok', 'Mining Assistant', tr('Ready. It reads the radar signature on screen, so it needs Borderless too.')]);
+    else items.push(['bad', 'Mining Assistant', tr('Its reader (MiningSidecar.exe) is missing: an antivirus may have removed it. Restore it from the quarantine, add the Star Companion folder to the exceptions, then reinstall.'), h('button', { class: 'set-btn', onclick: () => companion.openLink(README_ANTIVIRUS) }, tr('How to'))]);
+  }
+  // The connection and the database.
+  if (!navigator.onLine || barState.offline) items.push(['warn', 'Internet', tr('Offline. Search still works; prices, pictures and updates come back with the connection.')]);
+  else items.push(['ok', 'Internet', tr('Connected. Search works offline too; prices, pictures and updates need the connection.')]);
+  if (barState.error) items.push(['bad', 'Database', tr('The database did not load. Close Star Companion and open it again; if it keeps failing, reinstall it.')]);
+  else if (barState.loading) items.push(['wait', 'Database', tr('Loading…')]);
+  else items.push(['ok', 'Database', tr('{records} records for PU {version}.', { records: fmt(recordsTotal), version: gameVersion || '?' })]);
+  return items;
+}
+const CHECK_MARK = { ok: '✓', warn: '!', bad: '✕', todo: '→', wait: '…' };
+// ---------- Thanks: the sites the data comes from, before the checklist ----------
+const THANKS = [
+  ['Star Citizen Wiki', 'https://starcitizen.tools', 'starcitizen.tools', 'Ships, items, weapons, loadouts, factions, missions and locations.'],
+  ['Cornerstone Finder', 'https://finder.cstone.space', 'finder.cstone.space', 'Shops, prices and item pictures.'],
+  ['UEX Corp', 'https://uexcorp.space', 'uexcorp.space', 'Commodity and terminal prices, the player marketplace and the live PU version.'],
+  ['SC Craft Tools', 'https://sc-craft.tools', 'sc-craft.tools', 'Blueprints, their materials and crafting quality.'],
+  ['SCMDB', 'https://scmdb.net', 'scmdb.net', 'Mission details: cooldowns, ranks and reputation.'],
+  ['SC Miner', 'https://scminer.rocks', 'scminer.rocks', 'Minerals, radar signatures and where to find them.'],
+  ['Contested Zone Timers', 'https://contestedzonetimers.com', 'contestedzonetimers.com', 'The Executive Hangar timer, and the zone maps by Terada and u/Kerast.'],
+  ['EXP Carry and The Orbital Ledger', 'https://expcarry.com', 'expcarry.com', 'Contested zone routes, doors and keycards.'],
+  ['StarStrings', 'https://github.com/MrKraken/StarStrings', 'github.com/MrKraken/StarStrings', 'Mission tags that fill the gaps.'],
+  ['Roberts Space Industries', 'https://robertsspaceindustries.com', 'robertsspaceindustries.com', 'The game we all love, and the ship store prices.'],
+  ['Eclipse', 'https://eclipsegaming.net', 'eclipsegaming.net', 'A community of friends who raid, explore and play together, in Star Citizen and World of Warcraft. Thank you for the support with the design and for testing the app.'],
+];
+function renderThanks() {
   return h(
     'div',
-    { class: 'notice' },
-    h('div', { class: 'detail-type in' }, 'Before you start'),
-    h('div', { class: 'detail-name in', delay: 40 }, 'Star Companion needs'),
+    { class: 'notice thanks' },
+    h('div', { class: 'detail-type in' }, tr('Thank you')),
+    h('div', { class: 'detail-name in', delay: 40 }, tr('Built on the community’s work')),
+    h('p', { class: 'thanks-intro rise', delay: 100 }, tr('Star Companion only exists because of people who spent countless hours gathering, checking and sharing what they know about Star Citizen, freely, for everyone. Every price, blueprint, mission and signature you find here started with them. I am deeply grateful, and I try to credit and link back to each of them.')),
     h(
       'div',
-      { class: 'notice-list' },
-      items.map(([title, text], i) => {
-        const d = 140 + i * 70;
-        return h('div', { class: 'fact notice-item' }, h('div', { class: 'scan', delay: d }), h('span', { class: 'fact-label in', delay: d }, title), h('p', { class: 'notice-text rise', delay: d + 60 }, text));
+      { class: 'thanks-list' },
+      THANKS.map(([name, url, shown, what], i) => h('button', { class: 'thanks-card rise', delay: 160 + i * 40, title: tr('Open {site}', { site: shown }), onclick: () => companion.openLink(url) },
+        h('span', { class: 'thanks-name' }, name),
+        h('span', { class: 'thanks-what' }, tr(what)),
+        h('span', { class: 'thanks-url' }, `${shown} ↗`))),
+    ),
+    h('p', { class: 'thanks-outro rise', delay: 600 }, tr('And thank you, citizen, for every bug report and idea. If you enjoy what these sites do, visit them, use them and support them: they keep the ’verse mapped for all of us. o7')),
+    h(
+      'div',
+      { class: 'notice-actions rise', delay: 640 },
+      h('span', { class: 'dim' }, tr('Next: a quick checklist')),
+      h('button', { class: 'notice-ok', onclick: () => thanksDone() }, tr('Continue'), ' ', h('kbd', null, 'ENTER')),
+    ),
+  );
+}
+// From the thank-you page to the checklist; seen once is enough.
+function thanksDone() {
+  companion.thanksDone?.();
+  noticePage = 'checklist';
+  keyTested = false;
+  render();
+  scrollEl.scrollTop = 0;
+  qEl.focus();
+}
+
+function renderNotice() {
+  if (noticePage === 'thanks') return renderThanks();
+  const items = checkItems();
+  const ready = items.filter(([st]) => st === 'ok').length;
+  const dont = h('input', { type: 'checkbox', id: 'notice-dont' });
+  const help = [
+    'Check that the game is in Borderless, above: it is the most common cause.',
+    'Click the o7 icon. If the icon opens the bar but the key does not, another program may be using the key: pick another one.',
+    'If you run Star Citizen as administrator, run Star Companion as administrator too.',
+    'If an antivirus warned about Star Companion, add its folder to the exceptions.',
+  ];
+  return h(
+    'div',
+    { class: 'notice checklist' },
+    h('div', { class: 'detail-type in' }, tr('Checklist')),
+    h('div', { class: 'detail-name in', delay: 40 }, tr('Ready to fly?')),
+    h('p', { class: 'check-sum in', delay: 80 }, tr('{n} of {m} ready', { n: ready, m: items.length })),
+    h(
+      'div',
+      { class: 'check-list' },
+      items.map(([st, title, text, action], i) => {
+        const d = 140 + i * 60;
+        return h('div', { class: `check-item ${st} rise`, delay: d },
+          h('span', { class: 'check-mark', 'aria-hidden': 'true' }, CHECK_MARK[st]),
+          h('div', { class: 'check-words' }, h('span', { class: 'check-title' }, tr(title)), h('p', { class: 'check-text' }, text)),
+          action ? h('span', { class: 'check-action' }, action) : null);
       }),
     ),
     h(
+      'div',
+      { class: 'check-help rise', delay: 480 },
+      h('span', { class: 'check-help-title' }, tr('The bar does not show in game?')),
+      h('ol', null, help.map((t) => h('li', null, tr(t))), h('li', null, tr('Still stuck? '), h('a', { class: 'link', onclick: () => { notice = false; companion.checklistOpen?.(false); openFeedback(); } }, tr('Report it')), tr(': it reaches the developer.'))),
+    ),
+    h('p', { class: 'check-fine rise', delay: 520 }, tr('A fan-made tool, not affiliated with Cloud Imperium Games or Roberts Space Industries. Prices, shops and locations come from community sites and can lag behind a new patch.')),
+    h(
       'p',
-      { class: 'notice-support rise', delay: 480 },
-      'Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7',
-      h('a', { class: 'coffee', onclick: () => companion.openLink(COFFEE_URL) }, 'Buy me a coffee =) ↗'),
+      { class: 'notice-support rise', delay: 540 },
+      tr('Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7'),
+      h('a', { class: 'coffee', onclick: () => companion.openLink(COFFEE_URL) }, tr('Buy me a coffee =) ↗')),
     ),
     h(
       'div',
-      { class: 'notice-actions rise', delay: 520 },
-      h('label', { class: 'notice-check' }, dont, ' Don’t show this again'),
-      h('button', { class: 'notice-ok', onclick: () => dismissNotice() }, 'Got it ', h('kbd', null, 'ENTER')),
+      { class: 'notice-actions rise', delay: 580 },
+      h('label', { class: 'notice-check' }, dont, ' ', tr('Don’t show this again')),
+      h('span', { class: 'fb-buttons' },
+        h('button', { class: 'back', onclick: () => { checks = null; render(); refreshChecks(); } }, tr('Check again')),
+        h('button', { class: 'notice-ok', onclick: () => dismissNotice() }, tr('Got it '), h('kbd', null, 'ENTER'))),
     ),
   );
 }
 
-function showNotice() {
+function showNotice(opts) {
   notice = true;
+  noticePage = opts?.thanks ? 'thanks' : 'checklist';
+  keyTested = false;
+  refreshChecks();
   render();
   qEl.focus();
 }
@@ -2211,7 +2339,7 @@ function translateStatic() {
 
 async function settingsAction(action) {
   settings = await companion.settingsAction(action);
-  if (action === 'notice') settingsOpen = false; // the notice takes the panel
+  if (action === 'notice' || action === 'thanks') settingsOpen = false; // the notice takes the panel
   render();
 }
 
@@ -2260,11 +2388,13 @@ function renderSettings() {
     row('Icon transparency', 'How see-through the icon is while you play; 0% is solid', steps('dockTransparency', s.steps.dockTransparency, s.dockTransparency, !s.dock), i++),
     row('Transparency', '0% is solid; 100% is as see-through as stays readable', steps('transparency', s.steps.transparency, s.transparency), i++),
     row('Text size', 'Also Ctrl + = and Ctrl + -', steps('zoom', s.steps.zoom, s.zoom), i++),
+    row('Theme', 'Colours and fonts', choice('theme', [['default', 'Star Companion'], ['eclipse', 'Eclipse']], s.theme || 'eclipse'), i++),
     row('Language', 'Automatic follows Windows', choice('language', [['auto', tr('Automatic')], ['en', tr('English')], ['pt-BR', tr('Portuguese')]], s.language), i++),
     row('Position and size', 'Back to the default place and size', h('button', { class: 'set-btn', onclick: () => settingsAction('resetLayout') }, tr('Reset')), i++),
     group('Updates and help'),
     row('Check for updates at launch', tr('You have v{version}', { version: s.version }), h('span', { class: 'set-inline' }, toggle('checkUpdates', s.checkUpdates), h('button', { class: 'set-btn', onclick: () => settingsAction('checkUpdates') }, tr('Check now'))), i++),
-    row('Startup notice', 'What the overlay needs to work', h('button', { class: 'set-btn', onclick: () => settingsAction('notice') }, tr('Show')), i++),
+    row('Thanks', 'The sites the data comes from', h('button', { class: 'set-btn', onclick: () => settingsAction('thanks') }, tr('Show')), i++),
+    row('Checklist', 'What the overlay needs to work, checked', h('button', { class: 'set-btn', onclick: () => settingsAction('notice') }, tr('Show')), i++),
     row('Settings file', 'For advanced edits; opens its folder', h('button', { class: 'set-btn', onclick: () => settingsAction('showFile') }, tr('Show in folder')), i++),
     group('About Star Companion'),
     h('p', { class: cls('about-text rise'), delay: 120 + i++ * 35 }, tr(ABOUT_TEXT)),
@@ -2480,6 +2610,8 @@ function recorderKey(ev) {
 
 // ---------- State → screen ----------
 function render() {
+  const checking = notice && noticePage === 'checklist';
+  if (checking !== checklistShown) { checklistShown = checking; companion.checklistOpen?.(checking); }
   const q = qEl.value.trim();
   // Always shown, "All" included, so Tab's filter is never a guess.
   filterEl.textContent = tr('Filter · {name}', { name: tr(TYPES.find(([t]) => t === type)[1]) });
@@ -2694,6 +2826,7 @@ let timer;
 qEl.addEventListener('input', () => {
   // Typing a search means the notice has been seen (it stays on for the next launch unless ticked off).
   if (notice) {
+    if (noticePage === 'thanks') companion.thanksDone?.();
     notice = false;
     companion.noticeDone(false);
   }
@@ -2735,6 +2868,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.ctrlKey && (ev.key === '=' || ev.key === '+')) companion.zoom(1);
   else if (ev.ctrlKey && ev.key === '-') companion.zoom(-1);
   else if (ev.ctrlKey && ev.key === '0') companion.zoom(0);
+  else if (notice && noticePage === 'thanks' && (ev.key === 'Enter' || ev.key === 'Escape')) thanksDone();
   else if (notice && (ev.key === 'Enter' || ev.key === 'Escape')) dismissNotice();
   else if (ev.key === 'Escape') {
     // Detail → list → empty bar → hidden.
@@ -2956,6 +3090,23 @@ companion.onClose(() => {
 });
 
 companion.onNotice(showNotice);
+// The theme: its colours and fonts are in the stylesheet; the icons are pictures, so each theme has its own.
+const THEME_ICONS = { eclipse: { icon: 'icon-eclipse.png', mining: 'mining-icon-eclipse.svg' } };
+function applyTheme(theme) {
+  document.body.classList.toggle('theme-eclipse', theme === 'eclipse');
+  const icons = THEME_ICONS[theme] || { icon: 'icon.png', mining: 'mining-icon.svg' };
+  for (const id of ['dock', 'ghost']) {
+    const img = id === 'dock' ? $('dock').querySelector('img') : $('ghost');
+    if (img && !img.src.endsWith(icons.icon)) img.src = icons.icon;
+  }
+  const mine = $('mine-btn')?.querySelector('img');
+  if (mine && !mine.src.endsWith(icons.mining)) mine.src = icons.mining;
+  // Text widths change with the fonts: measure again.
+  widthPending = true;
+  fit();
+}
+applyTheme(new URLSearchParams(location.search).get('theme'));
+companion.onTheme?.(applyTheme);
 companion.onGameVersion(({ live }) => renderPu(live));
 companion.onHotkeyRecorder(startRecorder);
 // The hotkey shown in the bar opens the recorder too.
@@ -3058,6 +3209,7 @@ async function load() {
   barState.loading = false;
   barState.error = false;
   paintBarState();
+  recordsTotal = total;
   $('dbinfo').textContent = tr('{records} records', { records: fmt(total) });
   dataDate = oldest;
   gameVersion = db.meta.gameVersion || null;

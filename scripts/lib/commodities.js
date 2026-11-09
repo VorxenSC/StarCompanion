@@ -5,11 +5,13 @@
 const UEX = 'https://api.uexcorp.uk/2.0';
 
 async function fetchCommodities(getJson) {
-  const [commodities, prices, terminals, versions] = await Promise.all([
+  const [commodities, prices, terminals, versions, rawPrices] = await Promise.all([
     getJson(`${UEX}/commodities`),
     getJson(`${UEX}/commodities_prices_all`),
     getJson(`${UEX}/terminals`),
     getJson(`${UEX}/game_versions`),
+    // What refineries pay for raw material: the only price many raw ores have.
+    getJson(`${UEX}/commodities_raw_prices_all`).catch(() => ({ data: [] })),
   ]);
 
   const termById = new Map(terminals.data.map((t) => [t.id, t]));
@@ -40,8 +42,16 @@ async function fetchCommodities(getJson) {
     });
   }
 
+  const refineryBy = new Map();
+  for (const p of rawPrices?.data || []) {
+    if (!(p.price_sell > 0)) continue;
+    if (!refineryBy.has(p.id_commodity)) refineryBy.set(p.id_commodity, []);
+    refineryBy.get(p.id_commodity).push({ where: where(p.id_terminal, p.terminal_name), system: termById.get(p.id_terminal)?.star_system_name || null, sell: p.price_sell, updated: p.date_modified });
+  }
+
   const list = commodities.data
-    .filter((c) => c.is_visible && byCommodity.has(c.id))
+    // Every listed commodity, priced or not: one without terminal prices is still worth finding.
+    .filter((c) => c.is_visible)
     .map((c) => ({
       id: c.id,
       name: c.name,
@@ -54,7 +64,8 @@ async function fetchCommodities(getJson) {
       volatile: !!(c.is_volatile_qt || c.is_volatile_time),
       explosive: !!c.is_explosive,
       wiki: c.wiki || null,
-      locations: byCommodity.get(c.id),
+      locations: byCommodity.get(c.id) || [],
+      refinery: refineryBy.get(c.id) || [],
     }));
 
   return { gameVersion: versions.data.live, ptuVersion: versions.data.ptu, commodities: list, priceCount: prices.data.length };

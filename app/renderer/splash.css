@@ -6,13 +6,47 @@
    name is revealed behind a scan line, the icon frame and tile appear, the "o" and the "7" draw, the
    statuses run to Ready while the bar fills. The panel's fade-out (the artboard's 85–96 %) is started
    by the main process, which waits for the timeline and for the database (.out). */
-:root { --accent: #5fd4e8; --t: 5.2s; }
-html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: 'IBM Plex Mono', monospace; }
+@font-face { font-family: 'Barlow'; font-weight: 400; src: url('fonts/barlow-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-weight: 500; src: url('fonts/barlow-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-weight: 600; src: url('fonts/barlow-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 500; src: url('fonts/barlow-condensed-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url('fonts/barlow-condensed-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url('fonts/barlow-condensed-latin-700-normal.woff2') format('woff2'); }
+:root {
+  --accent: #5fd4e8;
+  --t: 5.2s;
+  --display: 'Chakra Petch', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --accent-rgb: 95, 212, 232;
+  --line-rgb: 190, 215, 235;
+  --soft-rgb: 205, 218, 230;
+  --text-rgb: 225, 235, 244;
+  --faint-rgb: 215, 226, 236;
+  --deep-rgb: 5, 10, 15;
+  --card-rgb: 8, 13, 19;
+  --glass-rgb: 9, 15, 22;
+  --price-rgb: 242, 179, 94;
+  --cmp: #ffb347; /* the comparison's second card */
+  --cmp-rgb: 255, 179, 71;
+  --sec: #ffb347; /* section titles */
+  --sec-rgb: 255, 179, 71;
+  --mark-o: #eafbff; /* the o of o7 */
+  --tile-top: #13222e; /* the o7 tile's gradient */
+  --tile-bottom: #060a0f;
+  --radius: 3px;
+}
+/* The o7 tile's colours, from the theme. */
+#spBg stop:first-child { stop-color: var(--tile-top); }
+#spBg stop:last-child { stop-color: var(--tile-bottom); }
+.sp-lframe rect { stroke: var(--accent); }
+.sp-lo circle { stroke: var(--mark-o); }
+.sp-l7 path { stroke: var(--accent); }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: var(--mono); }
 body { display: flex; align-items: center; justify-content: center; }
 
 .sp-panel {
   position: relative; width: 580px; height: 280px; box-sizing: border-box;
-  background: rgba(9, 15, 22, 0.92); border: 1px solid rgba(190, 215, 235, 0.22); border-radius: 3px;
+  background: rgba(var(--glass-rgb), 0.92); border: 1px solid rgba(var(--line-rgb), 0.22); border-radius: 3px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   animation: spPanelIn calc(var(--t) * 0.11) linear both;
 }
@@ -27,21 +61,21 @@ body { display: flex; align-items: center; justify-content: center; }
 .sp-logo { position: relative; flex: none; width: 120px; height: 120px; }
 .sp-logo > div { position: absolute; left: 0; top: 0; width: 120px; height: 120px; }
 .sp-logo svg { display: block; }
-.sp-logo > .sp-lglow { left: -30px; top: -30px; width: 180px; height: 180px; opacity: 0.25; background: radial-gradient(circle, rgba(95, 212, 232, 0.55) 0%, rgba(95, 212, 232, 0) 62%); pointer-events: none; }
+.sp-logo > .sp-lglow { left: -30px; top: -30px; width: 180px; height: 180px; opacity: 0.25; background: radial-gradient(circle, rgba(var(--accent-rgb), 0.55) 0%, rgba(var(--accent-rgb), 0) 62%); pointer-events: none; }
 .sp-titles { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .sp-wordwrap { position: relative; }
-.sp-word { font: 600 28px/1.1 'Chakra Petch', sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: #fff; white-space: nowrap; text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent); }
+.sp-word { font: 600 28px/1.1 var(--display); letter-spacing: 0.18em; text-transform: uppercase; color: #fff; white-space: nowrap; text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent); }
 .sp-sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--accent); box-shadow: 0 0 14px 2px var(--accent); opacity: 0; pointer-events: none; }
 .sp-sub { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
 .sp-rule { width: 28px; height: 1px; background: var(--accent); opacity: 0.7; }
-.sp-by { font-size: 12px; letter-spacing: 0.08em; color: rgba(205, 218, 230, 0.8); }
-.sp-vorxen { font: 600 24px/1 'Chakra Petch', sans-serif; letter-spacing: 0.32em; text-transform: uppercase; color: var(--accent); text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); }
+.sp-by { font-size: 12px; letter-spacing: 0.08em; color: rgba(var(--soft-rgb), 0.8); }
+.sp-vorxen { font: 600 24px/1 var(--display); letter-spacing: 0.32em; text-transform: uppercase; color: var(--accent); text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); }
 
 .sp-foot { position: absolute; left: 40px; right: 40px; bottom: 36px; display: flex; flex-direction: column; gap: 12px; }
 .sp-status { position: relative; height: 16px; }
-.sp-s { position: absolute; left: 0; top: 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(205, 218, 230, 0.78); opacity: 0; }
+.sp-s { position: absolute; left: 0; top: 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(var(--soft-rgb), 0.78); opacity: 0; }
 .sp-s3 { color: var(--accent); }
-.sp-track { position: relative; height: 2px; background: rgba(190, 215, 235, 0.16); }
+.sp-track { position: relative; height: 2px; background: rgba(var(--line-rgb), 0.16); }
 .sp-fill { position: absolute; inset: 0; transform-origin: left center; background: var(--accent); box-shadow: 0 0 10px 1px var(--accent); }
 
 .sp-lfill { animation: spLFill var(--t) cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -78,3 +112,98 @@ body { display: flex; align-items: center; justify-content: center; }
   .sp-s1, .sp-s2, .sp-sweep { opacity: 0; }
   .sp-s3 { opacity: 1; }
 }
+
+/* ---------- Theme: Eclipse ---------- */
+body.theme-eclipse {
+  --accent: #f89760;
+  --accent-rgb: 248, 151, 96;
+  --accent-soft: rgba(248, 151, 96, 0.12);
+  --glass: #10171f;
+  --glass-rgb: 16, 23, 31;
+  --line: #354658;
+  --line-soft: #2b3744;
+  --line-rgb: 165, 177, 189;
+  --soft-rgb: 165, 177, 189;
+  --text: #ecf0f2;
+  --text-strong: #f6f8f9;
+  --text-rgb: 236, 240, 242;
+  --muted: #a5b1bd;
+  --faint: rgba(165, 177, 189, 0.85);
+  --faint-rgb: 165, 177, 189;
+  --deep-rgb: 9, 14, 20;
+  --card-rgb: 23, 35, 48;
+  --price: #efb16e;
+  --price-rgb: 239, 177, 110;
+  --warn: #efb16e;
+  --cmp: #dce5ed;
+  --cmp-rgb: 220, 229, 237;
+  --sec: #f89760;
+  --sec-rgb: 248, 151, 96;
+  --mark-o: #ecf0f2;
+  --tile-top: #172330;
+  --tile-bottom: #090e14;
+  --radius: 5px;
+  --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --sans: 'Barlow', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Barlow', 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums; /* Barlow stands in for the monospace: figures keep their columns */
+}
+body.theme-eclipse .sp-panel { border-color: var(--line); border-radius: var(--radius); background: rgba(16, 23, 31, 0.94); }
+body.theme-eclipse .sp-word { font-size: 34px; letter-spacing: 0.16em; }
+body.theme-eclipse .sp-vorxen { font-size: 28px; }
+body.theme-eclipse .sp-s { font-size: 12px; font-weight: 500; }
+
+/* ---------- Eclipse's splash: a scene, the planet eclipsing its star ---------- */
+.sp-scene { display: none; }
+body.theme-eclipse .sp-panel { width: 960px; height: 540px; background: #090e14; }
+body.theme-eclipse .sp-scene {
+  display: block; position: absolute; inset: 0; overflow: hidden; border-radius: inherit;
+  background-color: #090e14;
+  background-image:
+    radial-gradient(1.2px 1.2px at 6% 12%, rgba(236, 240, 242, 0.5) 50%, transparent 52%),
+    radial-gradient(1px 1px at 13% 47%, rgba(236, 240, 242, 0.35) 50%, transparent 52%),
+    radial-gradient(1px 1px at 19% 78%, rgba(236, 240, 242, 0.4) 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 24% 22%, rgba(236, 240, 242, 0.55) 50%, transparent 52%),
+    radial-gradient(1px 1px at 31% 61%, rgba(236, 240, 242, 0.3) 50%, transparent 52%),
+    radial-gradient(1px 1px at 36% 9%, rgba(236, 240, 242, 0.45) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 41% 88%, rgba(236, 240, 242, 0.4) 50%, transparent 52%),
+    radial-gradient(1px 1px at 45% 35%, rgba(236, 240, 242, 0.3) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 52% 6%, rgba(236, 240, 242, 0.5) 50%, transparent 52%),
+    radial-gradient(1px 1px at 57% 52%, rgba(236, 240, 242, 0.25) 50%, transparent 52%),
+    radial-gradient(1px 1px at 9% 92%, rgba(236, 240, 242, 0.3) 50%, transparent 52%),
+    radial-gradient(1px 1px at 28% 95%, rgba(236, 240, 242, 0.35) 50%, transparent 52%),
+    radial-gradient(1px 1px at 63% 14%, rgba(236, 240, 242, 0.4) 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 69% 4%, rgba(236, 240, 242, 0.5) 50%, transparent 52%),
+    radial-gradient(1px 1px at 77% 9%, rgba(236, 240, 242, 0.35) 50%, transparent 52%),
+    radial-gradient(1px 1px at 84% 3%, rgba(236, 240, 242, 0.4) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 93% 7%, rgba(236, 240, 242, 0.45) 50%, transparent 52%),
+    radial-gradient(1px 1px at 3% 33%, rgba(236, 240, 242, 0.3) 50%, transparent 52%),
+    radial-gradient(1px 1px at 16% 31%, rgba(236, 240, 242, 0.3) 50%, transparent 52%),
+    radial-gradient(1px 1px at 48% 71%, rgba(236, 240, 242, 0.25) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 38% 44%, rgba(236, 240, 242, 0.35) 50%, transparent 52%),
+    radial-gradient(1px 1px at 21% 54%, rgba(236, 240, 242, 0.3) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 11% 66%, rgba(236, 240, 242, 0.4) 50%, transparent 52%),
+    radial-gradient(ellipse 55% 60% at 88% 18%, rgba(248, 151, 96, 0.1), transparent 70%),
+    radial-gradient(ellipse 60% 70% at 20% 50%, rgba(23, 35, 48, 0.55), transparent 75%);
+}
+/* The planet: dark, lit from behind on its upper left, so only an orange rim shows. */
+body.theme-eclipse .sp-planet {
+  position: absolute; left: 376px; top: 64px; width: 720px; height: 720px; border-radius: 50%;
+  background: radial-gradient(circle at 65% 40%, #0e151d 0%, #0a1017 55%, #070b10 100%);
+  box-shadow: inset 11px 7px 4px -4px rgba(255, 168, 116, 1), inset 30px 22px 60px -18px rgba(248, 151, 96, 0.5), -8px -5px 22px -8px rgba(248, 151, 96, 0.75), 0 0 120px rgba(248, 151, 96, 0.14);
+  animation: spPlanet var(--t) cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+body.theme-eclipse .sp-orbit { position: absolute; left: 290px; top: 120px; width: 980px; height: 980px; border-radius: 50%; border: 1px solid rgba(165, 177, 189, 0.1); animation: spPlanet var(--t) ease both; }
+@keyframes spPlanet { 0%, 6% { opacity: 0; transform: translate(40px, 24px); } 30%, 100% { opacity: 1; transform: none; } }
+/* The tile, the name and the progress stacked on the left, over the starfield. */
+body.theme-eclipse .sp-head { left: 72px; right: auto; top: 122px; flex-direction: column; align-items: flex-start; gap: 30px; }
+body.theme-eclipse .sp-logo, body.theme-eclipse .sp-logo > div { width: 112px; height: 112px; }
+body.theme-eclipse .sp-logo svg { width: 112px; height: 112px; }
+body.theme-eclipse .sp-logo > .sp-lglow { left: -34px; top: -34px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(248, 151, 96, 0.4) 0%, rgba(248, 151, 96, 0) 62%); }
+body.theme-eclipse .sp-lframe rect { stroke-opacity: 0.6; }
+body.theme-eclipse .sp-titles { gap: 12px; }
+body.theme-eclipse .sp-rule { background: #a5b1bd; opacity: 0.6; }
+body.theme-eclipse .sp-word { font-size: 32px; letter-spacing: 0.16em; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8); }
+body.theme-eclipse .sp-vorxen { font-size: 28px; letter-spacing: 0.3em; }
+body.theme-eclipse .sp-foot { left: 72px; right: auto; width: 282px; bottom: 64px; gap: 10px; }
+@media (prefers-reduced-motion: reduce) { body.theme-eclipse .sp-planet, body.theme-eclipse .sp-orbit { animation: none; } }

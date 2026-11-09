@@ -28,8 +28,6 @@ function summarise(listings) {
     sellCount: sells.length,
     buyCount: open.filter((l) => l.operation === 'buy').length,
     newest: new Date(Math.max(...sells.map((l) => l.date_added)) * 1000).toISOString().slice(0, 10),
-    // A player's photo of the item, from the newest open offer that has one (UEX's own thumbnail).
-    photo: [...sells].sort((a, z) => z.date_added - a.date_added).map((l) => String(l.photos || '').split(',')[0].trim()).find((u) => /^https:\/\//.test(u)) || undefined,
   };
 }
 

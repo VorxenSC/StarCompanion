@@ -45,10 +45,14 @@ const DEFAULT_CONFIG = {
   dock: true, // keep a discreet icon on screen while the overlay is closed
   iconSeen: false, // true once the player has opened the bar themselves; until then the icon shakes to be noticed
   dockTransparency: 0.2, // that icon, when the mouse is not over it
-  showNotice: true, // the "Before you start" notice at launch, until "Don't show this again"
+  showNotice: true, // the checklist at launch, until "Don't show this again" (it still opens while something on it is wrong)
+  gameDir: null, // Star Citizen's folder, when the player picked it in the checklist
+  thanksSeen: false, // the thank-you page to the data's sources, shown once before the checklist
+  introVersion: null, // the version whose opening pages (thanks, checklist) were last shown; a new version shows them again
   checkUpdates: true, // look for a new release on GitHub at launch and ask before installing it
   skipVersion: null, // a release the player chose not to be reminded about
   language: 'auto', // 'auto' (Windows' language), 'en' or 'pt-BR'
+  theme: 'eclipse', // 'eclipse' (the default) or 'default' (Star Companion's cyan); the installer's choice arrives in install-theme.txt
   autoClick: true, // when the shortcut opens the bar, click into the search box so typing works at once
   pinSignatures: false, // what sits beside the icon: false, 'ship', 'fps' (hand-mined), 'vehicle' (ROC), 'mineral', 'hangar' (the Executive Hangar timer) or 'map' (a contested zone map)
   pinMineral: null, // with 'mineral': the one mineral pinned, with its 1×–10× rocks
@@ -809,7 +813,7 @@ function createPin() {
   // Click-through, but mouse moves still reach the page so the map's resize corner can take the mouse
   // while the pointer is on it (pin:grip).
   pinWin.setIgnoreMouseEvents(true, { forward: true });
-  pinWin.loadFile(path.join(__dirname, 'renderer', 'pin.html'));
+  pinWin.loadFile(path.join(__dirname, 'renderer', 'pin.html'), themeQuery());
   pinWin.webContents.once('did-finish-load', () => { sendPinData(); updatePin(); });
   pinWin.on('closed', () => { pinWin = null; });
 }
@@ -986,8 +990,10 @@ let afterSplash = null;
 
 function createSplash() {
   const { workArea: a } = screen.getPrimaryDisplay();
-  const width = 640;
-  const height = 340;
+  // Eclipse's splash is a wider scene (a 960 × 540 panel); the standing one is 580 × 280. Room for the shadow around it.
+  const eclipse = config.theme === 'eclipse';
+  const width = eclipse ? 1020 : 640;
+  const height = eclipse ? 600 : 340;
   splash = new BrowserWindow({
     width, height,
     x: Math.round(a.x + (a.width - width) / 2),
@@ -998,7 +1004,7 @@ function createSplash() {
   });
   splash.setAlwaysOnTop(true, 'screen-saver');
   splash.setIgnoreMouseEvents(true);
-  splash.loadFile(path.join(__dirname, 'renderer', 'splash.html'));
+  splash.loadFile(path.join(__dirname, 'renderer', 'splash.html'), themeQuery());
   splash.webContents.once('did-finish-load', () => {
     splash?.webContents.send('splash:info', { language: i18n.getLanguage() });
   });
@@ -1050,12 +1056,94 @@ async function startup() {
       await askToUpdate(info);
     }
   }
-  if (config.showNotice) {
+  // The opening pages: on a first install and once after every update to a new version, "Don't show this again" or not.
+  const introDue = !config.thanksSeen || config.introVersion !== app.getVersion();
+  if (config.showNotice || checklistBlocking() || introDue) {
     open(false, true);
-    win.webContents.send('overlay:notice');
+    win.webContents.send('overlay:notice', { thanks: introDue });
   } else if (config.dock) dockNow();
   else open(false, true);
 }
+
+// ---------- Checklist: what the overlay needs, checked where the app can ----------
+// The game's window mode is in its own settings: <install>/<channel>/user/client/0/Profiles/default/attributes.xml,
+// <Attr name="WindowMode" value="0|1|2"/> (windowed, fullscreen, borderless); a USER.cfg r_WindowMode wins over it.
+// The install is looked for where the RSI Launcher's log says it is, then in the usual folders of every drive.
+const SC_CHANNELS = ['LIVE', 'PTU', 'EPTU', 'TECH-PREVIEW', 'HOTFIX'];
+const SC_FOLDERS = ['Program Files/Roberts Space Industries/StarCitizen', 'Roberts Space Industries/StarCitizen', 'RSI/StarCitizen', 'StarCitizen', 'Games/StarCitizen', 'Games/Roberts Space Industries/StarCitizen'];
+let checklistOpen = false; // while it is, the shortcut key is the key test instead of closing the bar
+function launcherFolders() {
+  const found = new Set();
+  try {
+    const log = path.join(app.getPath('appData'), 'rsilauncher', 'logs', 'log.log');
+    const st = fs.statSync(log);
+    // The end of the log is enough: the launcher writes the library folder at every start.
+    const fd = fs.openSync(log, 'r');
+    const len = Math.min(st.size, 4 * 1024 * 1024);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, st.size - len);
+    fs.closeSync(fd);
+    for (const m of buf.toString('latin1').matchAll(/[A-Z]:[\\/]{1,2}(?:[^"\\/,<>|\r\n]+[\\/]{1,2})*?StarCitizen(?=["\\/,]|$)/g)) found.add(m[0].replace(/[\\/]+/g, '/'));
+  } catch { /* no launcher log: the usual folders still get looked at */ }
+  return [...found];
+}
+function windowModeOf(dir) {
+  try {
+    const m = /^\s*r_WindowMode\s*=\s*(\d)/im.exec(fs.readFileSync(path.join(dir, 'USER.cfg'), 'utf8'));
+    if (m) return Number(m[1]);
+  } catch { /* no USER.cfg: the game's own settings decide */ }
+  try {
+    const m = /<Attr name="WindowMode" value="(\d+)"/.exec(fs.readFileSync(path.join(dir, 'user', 'client', '0', 'Profiles', 'default', 'attributes.xml'), 'utf8'));
+    return m ? Number(m[1]) : 'unset';
+  } catch {
+    return null; // never started, or its settings never saved
+  }
+}
+function gameChecks() {
+  const roots = new Set();
+  const add = (p) => { if (p) roots.add(path.resolve(SC_CHANNELS.includes(path.basename(p).toUpperCase()) ? path.dirname(p) : p).toLowerCase()); };
+  add(config.gameDir);
+  launcherFolders().forEach(add);
+  for (let c = 67; c <= 90; c++) {
+    const drive = `${String.fromCharCode(c)}:/`;
+    if (fs.existsSync(drive)) SC_FOLDERS.forEach((f) => add(drive + f));
+  }
+  const channels = [];
+  for (const r of roots) {
+    for (const channel of SC_CHANNELS) {
+      const dir = path.join(r, channel);
+      if (!['Bin64', 'Data.p4k', 'user'].some((f) => fs.existsSync(path.join(dir, f)))) continue;
+      channels.push({ channel, dir, mode: windowModeOf(dir) });
+    }
+  }
+  return { channels, picked: !!config.gameDir };
+}
+function checklistSnapshot() {
+  const miningExe = path.join(__dirname, 'bin', 'mining', 'MiningSidecar.exe');
+  return {
+    game: process.platform === 'win32' ? gameChecks() : { channels: [] },
+    keys: { exe: process.platform !== 'win32' || fs.existsSync(KEYS_EXE), ready: keyHelperReady, hotkey: config.hotkey },
+    // Only where the app has the Mining Assistant.
+    mining: fs.existsSync(path.join(__dirname, 'mining.js')) ? { exe: fs.existsSync(miningExe) } : null,
+  };
+}
+// Something the player has to fix: then the checklist opens at launch even after "Don't show this again".
+function checklistBlocking() {
+  if (SNAPSHOT || UPDATE_TEST) return false;
+  const c = checklistSnapshot();
+  return c.game.channels.some((ch) => ch.mode === 1) || !c.keys.exe || c.mining?.exe === false;
+}
+async function pickGameFolder() {
+  const r = await dialog.showOpenDialog(win, { title: i18n.t('Where is Star Citizen installed?'), properties: ['openDirectory'] });
+  if (!r.canceled && r.filePaths[0]) {
+    config.gameDir = r.filePaths[0];
+    saveConfig();
+  }
+  return checklistSnapshot();
+}
+ipcMain.handle('checklist:get', () => checklistSnapshot());
+ipcMain.handle('checklist:pickGame', () => pickGameFolder());
+ipcMain.on('checklist:open', (_e, open) => { checklistOpen = !!open; });
 
 function noticeDone(dontShowAgain) {
   if (dontShowAgain) {
@@ -1150,6 +1238,8 @@ function startKeyHelper() {
         keysLog(`shortcut pressed (state ${state}, game or other app in front: ${!win.isFocused()})`);
         // SC_DEBUG_KEYS: log instead of opening, so a test copy never takes over the screen.
         if (process.env.SC_DEBUG_KEYS) console.log(`[keys] HIT ${config.hotkey}`);
+        // The checklist's key test: the key reached the app, so the bar stays open to say so.
+        else if (checklistOpen && win.isVisible()) win.webContents.send('checklist:hit');
         else toggle(true);
       }
     }
@@ -1212,6 +1302,11 @@ function setStartWithWindows(enabled) {
 // ---------- Settings panel ----------
 // Everything the player can change, shown in the overlay itself (not by opening config.json, which
 // Windows hands to whatever program owns .json files). Changes apply and save at once.
+const THEMES = ['default', 'eclipse'];
+// The tray's and the window's icons, the theme's own.
+const themeIcon = (kind) => path.join(__dirname, 'renderer', `${kind}${config.theme === 'default' ? '' : '-eclipse'}.png`);
+const themeQuery = () => ({ query: { theme: THEMES.includes(config.theme) ? config.theme : 'eclipse' } });
+
 function settingsSnapshot() {
   return {
     hotkey: config.hotkey,
@@ -1229,6 +1324,7 @@ function settingsSnapshot() {
     checkUpdates: config.checkUpdates,
     language: config.language,
     languageInUse: i18n.getLanguage(),
+    theme: config.theme,
     version: app.getVersion(),
     keys: { listener: !!(keyHelper && keyHelperReady), seen: keysSeen, lastHitAt, log: KEYS_LOG },
     steps: { dockTransparency: TRANSPARENCY_STEPS, transparency: TRANSPARENCY_STEPS, zoom: ZOOM_STEPS },
@@ -1249,6 +1345,15 @@ function applySetting(key, value) {
       else setPinSignatures(value);
       break;
     case 'checkUpdates': setCheckUpdates(!!value); break;
+    case 'theme':
+      if (!THEMES.includes(value)) break;
+      config.theme = value;
+      saveConfig();
+      win?.webContents.send('overlay:theme', value);
+      tray?.setImage(nativeImage.createFromPath(themeIcon('tray')));
+      win?.setIcon(themeIcon('icon'));
+      pinWin?.webContents.send('pin:theme', value);
+      break;
     case 'language':
       if (!i18n.languages.includes(value)) break;
       config.language = value;
@@ -1266,6 +1371,7 @@ function settingsAction(action) {
   if (action === 'resetLayout') resetLayout();
   else if (action === 'checkUpdates') checkForUpdates(true);
   else if (action === 'notice') win.webContents.send('overlay:notice');
+  else if (action === 'thanks') win.webContents.send('overlay:notice', { thanks: true });
   else if (action === 'showFile') shell.showItemInFolder(CONFIG_FILE); // Explorer, never "open with"
   else if (action === 'showKeysLog') shell.showItemInFolder(fs.existsSync(KEYS_LOG) ? KEYS_LOG : CONFIG_FILE);
   return settingsSnapshot();
@@ -1329,7 +1435,7 @@ function updateData() {
 
 function buildTray() {
   if (!tray) {
-    tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'renderer', 'tray.png')));
+    tray = new Tray(nativeImage.createFromPath(themeIcon('tray')));
     tray.on('click', toggle);
   }
   tray.setToolTip(T('Star Companion — press {key} to open', { key: config.hotkey }));
@@ -1366,7 +1472,7 @@ function createWindow() {
     alwaysOnTop: true,
     fullscreenable: false,
     backgroundColor: '#00000000',
-    icon: path.join(__dirname, 'renderer', 'icon.png'),
+    icon: themeIcon('icon'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -1378,7 +1484,7 @@ function createWindow() {
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.setOpacity(opacityFor(config.transparency));
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.loadFile(path.join(__dirname, 'renderer', 'index.html'), themeQuery());
   win.webContents.on('did-finish-load', () => win.webContents.setZoomFactor(config.zoom));
   win.on('focus', () => { if (state === 'open') focusGained = true; });
   // The first moments after opening are ignored: while focus is being handed over from the game,
@@ -1420,6 +1526,7 @@ function snapshotMode(spec) {
       if (step === '@mid') { midNext = true; continue; }
       const [query, type = 'all', view = 'detail'] = step.split(';');
       if (step === '@notice') win.webContents.send('overlay:notice');
+      if (step === '@thanks') win.webContents.send('overlay:notice', { thanks: true });
       else if (step === '@version') await checkGameVersion();
       else if (step === '@live') await refreshCommodities(); // live commodity demand from UEX
       else if (step === '@tray') { // the tray's Pin to Screen menu, as indented text in tray.txt (labels, checks)
@@ -1532,6 +1639,12 @@ ipcMain.on('overlay:grip', (_e, phase) => (phase === 'start' ? startGrip() : end
 ipcMain.on('overlay:zoom', (_e, direction) => stepZoom(Math.sign(Number(direction))));
 ipcMain.on('dock:pointer', (_e, phase) => dockPointer(phase));
 ipcMain.on('notice:done', (_e, dontShowAgain) => noticeDone(!!dontShowAgain));
+ipcMain.on('thanks:done', () => {
+  if (config.thanksSeen && config.introVersion === app.getVersion()) return;
+  config.thanksSeen = true;
+  config.introVersion = app.getVersion();
+  saveConfig();
+});
 ipcMain.on('hotkey:recording', (_e, active) => setHotkeyRecording(active));
 ipcMain.handle('hotkey:set', (_e, accelerator) => setHotkey(accelerator));
 ipcMain.handle('feedback:send', (_e, f) => {
@@ -1555,6 +1668,13 @@ if (!SNAPSHOT && !UPDATE_TEST && !app.requestSingleInstanceLock()) {
   app.on('second-instance', () => open()); // starting it again opens the bar
   app.whenReady().then(() => {
     config = loadConfig();
+    // The theme picked in the installer: taken once, then the file goes (an update never brings it back).
+    const installTheme = path.join(app.getPath('userData'), 'install-theme.txt');
+    try {
+      const picked = fs.readFileSync(installTheme, 'utf8').trim();
+      fs.unlinkSync(installTheme);
+      if (THEMES.includes(picked)) { config.theme = picked; saveConfig(); }
+    } catch { /* no choice waiting */ }
     if (process.env.SC_LANG) config.language = process.env.SC_LANG; // dev aid for snapshots
     applyLanguage();
     setupUpdater();

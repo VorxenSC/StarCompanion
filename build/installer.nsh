@@ -39,3 +39,59 @@
   Quit
   sc_init_done:
 !macroend
+
+; The theme to start with: a page after the install folder, two choices. The app reads the answer at its next
+; start (install-theme.txt in its settings folder) and deletes the file; Settings > Look > Theme changes it later.
+; Silent runs (the in-app updater) skip the page and write nothing, so an update keeps the player's theme.
+!ifndef BUILD_UNINSTALLER
+  !include nsDialogs.nsh
+  !include LogicLib.nsh
+  Var scThemeDefault
+  Var scThemeEclipse
+  Var scTheme
+
+  !macro customPageAfterChangeDir
+    Page custom scThemePageCreate scThemePageLeave
+
+    Function scThemePageCreate
+      IfSilent 0 +2
+      Abort
+      !insertmacro MUI_HEADER_TEXT "Choose a theme" "How Star Companion looks. Settings > Look > Theme changes it at any time."
+      nsDialogs::Create 1018
+      Pop $0
+      ${If} $0 == error
+        Abort
+      ${EndIf}
+      ${NSD_CreateLabel} 0 0 100% 20u "Both themes have the same features; only the colours and the fonts change."
+      Pop $0
+      ${NSD_CreateRadioButton} 10u 30u 100% 14u "Star Companion: cyan on dark blue, the original look"
+      Pop $scThemeDefault
+      ${NSD_CreateRadioButton} 10u 50u 100% 14u "Eclipse: orange on slate, Barlow fonts (by eclipsegaming.net)"
+      Pop $scThemeEclipse
+      ${If} $scTheme == "default"
+        ${NSD_Check} $scThemeDefault
+      ${Else}
+        ${NSD_Check} $scThemeEclipse
+      ${EndIf}
+      nsDialogs::Show
+    FunctionEnd
+
+    Function scThemePageLeave
+      ${NSD_GetState} $scThemeEclipse $0
+      ${If} $0 == ${BST_CHECKED}
+        StrCpy $scTheme "eclipse"
+      ${Else}
+        StrCpy $scTheme "default"
+      ${EndIf}
+    FunctionEnd
+  !macroend
+
+  !macro customInstall
+    StrCmp $scTheme "" sc_theme_done
+    CreateDirectory "$APPDATA\Star Companion"
+    FileOpen $0 "$APPDATA\Star Companion\install-theme.txt" w
+    FileWrite $0 $scTheme
+    FileClose $0
+    sc_theme_done:
+  !macroend
+!endif

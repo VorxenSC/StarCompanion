@@ -26,10 +26,16 @@ contextBridge.exposeInMainWorld('companion', {
   onPinChanged: (fn) => ipcRenderer.on('pin:changed', () => fn()), // the pinned map was closed with its ×
   onHangarAnchor: (fn) => ipcRenderer.on('hangar:anchor', (_e, anchor) => fn(anchor)),
   noticeDone: (dontShowAgain) => ipcRenderer.send('notice:done', dontShowAgain),
+  checklist: () => ipcRenderer.invoke('checklist:get'), // what the checklist found: the game's window mode, the helpers
+  pickGameFolder: () => ipcRenderer.invoke('checklist:pickGame'),
+  checklistOpen: (open) => ipcRenderer.send('checklist:open', open),
+  thanksDone: () => ipcRenderer.send('thanks:done'),
+  onChecklistHit: (fn) => ipcRenderer.on('checklist:hit', () => fn()),
   hotkeyRecording: (active) => ipcRenderer.send('hotkey:recording', active),
   setHotkey: (accelerator) => ipcRenderer.invoke('hotkey:set', accelerator),
   onHotkeyRecorder: (fn) => ipcRenderer.on('overlay:hotkey', (_e, current) => fn(current)),
-  onNotice: (fn) => ipcRenderer.on('overlay:notice', () => fn()),
+  onTheme: (fn) => ipcRenderer.on('overlay:theme', (_e, theme) => fn(theme)), // Settings → Look → Theme
+  onNotice: (fn) => ipcRenderer.on('overlay:notice', (_e, opts) => fn(opts)), // { thanks }: the thank-you page first
   onGameVersion: (fn) => ipcRenderer.on('game:version', (_e, v) => fn(v)),
   sendFeedback: (f) => ipcRenderer.invoke('feedback:send', f),
   getSettings: () => ipcRenderer.invoke('settings:get'),

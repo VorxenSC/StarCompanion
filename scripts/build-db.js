@@ -403,9 +403,8 @@ for (const it of items.values()) {
   }
   delete it.d.uuid;
   if (isJunk(it.d.manufacturer)) delete it.d.manufacturer;
-  // Pictures when cstone has none: the wiki page's image, then a player's photo from a UEX offer.
+  // Pictures when cstone has none: the wiki page's image. Never a player's photo from a UEX offer: those are theirs.
   if (wikiImages[it.n]) it.d.wikiImage = wikiImages[it.n];
-  if (it.d.market?.photo) it.d.playerPhoto = it.d.market.photo;
   if (it.d.market) delete it.d.market.photo;
   const tip = tipFor(it.n);
   if (tip) it.d.tips = tip;
@@ -660,6 +659,7 @@ for (const c of commodities?.commodities || []) {
       illegal: c.illegal,
       mineral: mineralNames.has(norm(c.name)), // links to the mining entry
       locations: c.locations.map((l) => ({ ...l, updated: isoDay(l.updated) })),
+      refinery: (c.refinery || []).map((l) => ({ ...l, updated: isoDay(l.updated) })), // what refineries pay for it raw
       wikiUrl: c.wiki,
       url: `https://uexcorp.space/commodities/info/name/${encodeURIComponent(c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}/`,
     },

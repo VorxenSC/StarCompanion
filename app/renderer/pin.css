@@ -2,23 +2,52 @@
 @font-face { font-family: 'IBM Plex Mono'; font-weight: 400; src: url('fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Sans'; font-weight: 500; src: url('fonts/ibm-plex-sans-latin-500-normal.woff2') format('woff2'); }
 
-:root { --accent: #5fd4e8; }
+@font-face { font-family: 'Barlow'; font-weight: 400; src: url('fonts/barlow-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-weight: 500; src: url('fonts/barlow-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-weight: 600; src: url('fonts/barlow-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 500; src: url('fonts/barlow-condensed-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url('fonts/barlow-condensed-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url('fonts/barlow-condensed-latin-700-normal.woff2') format('woff2'); }
+:root {
+  --accent: #5fd4e8;
+  --text: #eef4f9;
+  --display: 'Chakra Petch', sans-serif;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --accent-rgb: 95, 212, 232;
+  --line-rgb: 190, 215, 235;
+  --soft-rgb: 205, 218, 230;
+  --text-rgb: 225, 235, 244;
+  --faint-rgb: 215, 226, 236;
+  --deep-rgb: 5, 10, 15;
+  --card-rgb: 8, 13, 19;
+  --glass-rgb: 9, 15, 22;
+  --price-rgb: 242, 179, 94;
+  --cmp: #ffb347; /* the comparison's second card */
+  --cmp-rgb: 255, 179, 71;
+  --sec: #ffb347; /* section titles */
+  --sec-rgb: 255, 179, 71;
+  --mark-o: #eafbff; /* the o of o7 */
+  --tile-top: #13222e; /* the o7 tile's gradient */
+  --tile-bottom: #060a0f;
+  --radius: 3px;
+}
 html, body { margin: 0; background: transparent; overflow: hidden; }
 .pin {
   box-sizing: border-box; width: 100%; padding: 8px 10px 8px;
-  background: rgb(9, 15, 22); /* solid: the pin's slider sets the window's transparency */ border: 1px solid rgba(190, 215, 235, 0.2); border-radius: 3px;
-  color: #eef4f9; font: 12px/1.3 'IBM Plex Sans', sans-serif;
+  background: rgb(var(--glass-rgb)); /* solid: the pin's slider sets the window's transparency */ border: 1px solid rgba(var(--line-rgb), 0.2); border-radius: 3px;
+  color: var(--text); font: 12px/1.3 var(--sans);
 }
-.pin-head { display: flex; justify-content: space-between; margin-bottom: 4px; font: 500 10px 'IBM Plex Mono', monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.pin-head { display: flex; justify-content: space-between; margin-bottom: 4px; font: 500 10px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
 .pin-head #title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-head .pin-unit { flex: none; margin-left: 8px; }
 .is-hangar .pin-head { letter-spacing: 0.05em; } /* "Hangar Executivo" and its status on one line */
-.pin-unit { color: rgba(205, 218, 230, 0.6); }
+.pin-unit { color: rgba(var(--soft-rgb), 0.6); }
 .pin-list { list-style: none; margin: 0; padding: 0; }
 .pin-list li { display: flex; align-items: center; gap: 6px; height: 17px; white-space: nowrap; }
 .pin-list .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--tier); }
 .pin-list .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.pin-list .rs { font: 12px 'IBM Plex Mono', monospace; color: rgba(235, 242, 248, 0.92); }
+.pin-list .rs { font: 12px var(--mono); color: rgba(var(--text-rgb), 0.92); }
 /* A contested zone map, the window's width. */
 .pin-map { display: block; width: 100%; height: auto; border-radius: 2px; }
 .pin-map[hidden] { display: none; }
@@ -26,7 +55,7 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .pin { position: relative; zoom: var(--s, 1); }
 /* The map's resize corner, at the bottom corner away from the icon. */
 .pin-grip { position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; cursor: nwse-resize;
-  background: linear-gradient(135deg, transparent 0 55%, rgba(205, 218, 230, 0.55) 55% 62%, transparent 62% 72%, rgba(205, 218, 230, 0.55) 72% 79%, transparent 79%); }
+  background: linear-gradient(135deg, transparent 0 55%, rgba(var(--soft-rgb), 0.55) 55% 62%, transparent 62% 72%, rgba(var(--soft-rgb), 0.55) 72% 79%, transparent 79%); }
 .pin-grip[data-side='left'] { right: auto; left: 2px; cursor: nesw-resize; transform: scaleX(-1); }
 .pin-grip[hidden] { display: none; }
 /* The opacity slider on every pin: small, bottom right (left of the map's resize corner when that is on the right). */
@@ -34,51 +63,91 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .pin-alpha[data-side='right'] { right: 24px; }
 .pin:not(.is-map) { padding-bottom: 20px; } /* room under the list or the timer for the slider and corner */
 .pin-alpha[hidden] { display: none; }
-.pin-alpha::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: rgba(205, 218, 230, 0.35); }
-.pin-alpha::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; margin-top: -3px; border-radius: 50%; background: #5fd4e8; border: 0; }
+.pin-alpha::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: rgba(var(--soft-rgb), 0.35); }
+.pin-alpha::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; margin-top: -3px; border-radius: 50%; background: var(--accent); border: 0; }
 
 /* Every pin's close button, top right. */
-.pin-close { position: absolute; top: 4px; right: 5px; width: 20px; height: 20px; padding: 0; border: 1px solid rgba(205, 218, 230, 0.25); border-radius: 2px;
-  background: rgba(9, 15, 22, 0.85); color: rgba(235, 242, 248, 0.85); font: 15px/18px 'IBM Plex Sans', sans-serif; cursor: pointer; }
+.pin-close { position: absolute; top: 4px; right: 5px; width: 20px; height: 20px; padding: 0; border: 1px solid rgba(var(--soft-rgb), 0.25); border-radius: 2px;
+  background: rgba(var(--glass-rgb), 0.85); color: rgba(var(--text-rgb), 0.85); font: 15px/18px var(--sans); cursor: pointer; }
 .pin-close:hover { color: #ff8a8f; border-color: #ff8a8f; }
 .pin-close[hidden] { display: none; }
 /* Shown while the pointer is over the pin, over the end of the title line: the pin keeps all its room. */
 .pin-close { opacity: 0; transition: opacity 0.12s; }
 .pointer-in .pin-close, .pin-close:focus-visible { opacity: 1; }
-.pin-credit { margin: -2px 0 5px; font: 10px 'IBM Plex Mono', monospace; color: rgba(205, 218, 230, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pin-credit { margin: -2px 0 5px; font: 10px var(--mono); color: rgba(var(--soft-rgb), 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pin-credit[hidden] { display: none; }
 
 /* The Executive Hangar timer: its five lights, the countdown, when it next opens or closes. */
 .pin-hangar[hidden], .pin-list[hidden] { display: none; }
 .ph-row { display: flex; align-items: center; justify-content: space-between; }
 .ph-lights { display: inline-flex; gap: 5px; }
-.ph-light { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(205, 218, 230, 0.25); background: #10181f; }
+.ph-light { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(var(--soft-rgb), 0.25); background: #10181f; }
 .ph-light.ph-red { background: #e5484d; border-color: #e5484d; }
 .ph-light.ph-green { background: #46d07a; border-color: #46d07a; }
-.ph-clock { font: 600 20px/1.2 'IBM Plex Mono', monospace; }
-.ph-line { margin-top: 2px; font: 11px 'IBM Plex Mono', monospace; color: rgba(205, 218, 230, 0.7); }
+.ph-clock { font: 600 20px/1.2 var(--mono); }
+.ph-line { margin-top: 2px; font: 11px var(--mono); color: rgba(var(--soft-rgb), 0.7); }
 .ph-closed { color: #ff8a8f; }
 .ph-open { color: #6fe39a; }
 .ph-reset { color: #ffd166; }
 /* The Mining Assistant's reading: what it is, how many, how good. Colour repeats the words, never replaces them. */
 .pin-mining[hidden] { display: none; }
-.pin-mining { --tone: #eef4f9; }
+.pin-mining { --tone: var(--text); }
 .pin-mining[data-tone='top'] { --tone: #6fe39a; }
 .pin-mining[data-tone='high'] { --tone: #5fd4e8; }
 .pin-mining[data-tone='mid'] { --tone: #ffd166; }
 .pin-mining[data-tone='ambiguous'] { --tone: #f2b35e; }
 .pin-mining[data-tone='unknown'] { --tone: #b48cff; }
 .pin-mining.held { opacity: 0.55; } /* no longer on screen: the last one seen */
-.pm-headline { font: 600 22px/1.2 'Chakra Petch', sans-serif; color: var(--tone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pin-mining[data-tone='idle'] .pm-headline { font: 500 12px/1.4 'IBM Plex Sans', sans-serif; color: rgba(205, 218, 230, 0.6); }
-.pm-line { display: flex; justify-content: space-between; gap: 8px; font: 12px/1.5 'IBM Plex Mono', monospace; color: rgba(235, 242, 248, 0.92); }
-.pm-status { font: 11px/1.4 'IBM Plex Mono', monospace; color: var(--tone); }
-.pm-alts { list-style: none; margin: 3px 0 0; padding: 0; font: 11px/17px 'IBM Plex Mono', monospace; color: rgba(235, 242, 248, 0.85); }
+.pm-headline { font: 600 22px/1.2 var(--display); color: var(--tone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-mining[data-tone='idle'] .pm-headline { font: 500 12px/1.4 var(--sans); color: rgba(var(--soft-rgb), 0.6); }
+.pm-line { display: flex; justify-content: space-between; gap: 8px; font: 12px/1.5 var(--mono); color: rgba(var(--text-rgb), 0.92); }
+.pm-status { font: 11px/1.4 var(--mono); color: var(--tone); }
+.pm-alts { list-style: none; margin: 3px 0 0; padding: 0; font: 11px/17px var(--mono); color: rgba(var(--text-rgb), 0.85); }
 .pm-alts li { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
 .pm-alts li span:first-child { overflow: hidden; text-overflow: ellipsis; }
 .pm-line:empty, .pm-status:empty, .pm-alts:empty { display: none; }
-.tier-common { --tier: rgba(205, 218, 230, 0.55); }
+.tier-common { --tier: rgba(var(--soft-rgb), 0.55); }
 .tier-uncommon { --tier: #8fe3a4; }
 .tier-rare { --tier: #5fd4e8; }
 .tier-epic { --tier: #b48cff; }
 .tier-legendary { --tier: #f2b35e; }
+
+/* ---------- Theme: Eclipse ---------- */
+body.theme-eclipse {
+  --accent: #f89760;
+  --accent-rgb: 248, 151, 96;
+  --accent-soft: rgba(248, 151, 96, 0.12);
+  --glass: #10171f;
+  --glass-rgb: 16, 23, 31;
+  --line: #354658;
+  --line-soft: #2b3744;
+  --line-rgb: 165, 177, 189;
+  --soft-rgb: 165, 177, 189;
+  --text: #ecf0f2;
+  --text-strong: #f6f8f9;
+  --text-rgb: 236, 240, 242;
+  --muted: #a5b1bd;
+  --faint: rgba(165, 177, 189, 0.85);
+  --faint-rgb: 165, 177, 189;
+  --deep-rgb: 9, 14, 20;
+  --card-rgb: 23, 35, 48;
+  --price: #efb16e;
+  --price-rgb: 239, 177, 110;
+  --warn: #efb16e;
+  --cmp: #dce5ed;
+  --cmp-rgb: 220, 229, 237;
+  --sec: #f89760;
+  --sec-rgb: 248, 151, 96;
+  --mark-o: #ecf0f2;
+  --tile-top: #172330;
+  --tile-bottom: #090e14;
+  --radius: 5px;
+  --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --sans: 'Barlow', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Barlow', 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums; /* Barlow stands in for the monospace: figures keep their columns */
+}
+body.theme-eclipse .pin { border-color: var(--line); border-radius: var(--radius); }
+body.theme-eclipse .pin-head { font: 600 11px var(--sans); }
+body.theme-eclipse .pm-headline { font: 600 24px/1.2 var(--display); text-transform: uppercase; }
+body.theme-eclipse .ph-clock { font: 600 22px/1.2 var(--display); }

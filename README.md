@@ -176,7 +176,7 @@ row with "+N variants"; the detail lists them all.
 | UEX marketplace | approximate player asking price of items listed now; a link to the marketplace filtered for each item. Items with offers at the last update are checked again, so listings older than the public feed's ~2 days are kept; UEX entries that differ only by spacing ("Torrent Compensator 2" / "Compensator2") count as one item | `marketplace_listings` |
 | starcitizen.tools weapons | damage per shot by type, fire modes, rate and DPS for 760 personal and ship weapons; the real manufacturer where the game files have a placeholder | `api.star-citizen.wiki` items |
 | starcitizen.tools factions | 57 factions: summary, area, focus, leadership and reputation ladder (standing names and reputation needed) | `api.star-citizen.wiki` factions |
-| Pictures | cstone's render first; else the item's or ship's wiki page image (5,585 names); else a player's photo from an open UEX offer. All are requested at once, the first to arrive shows and a preferred one replaces it | `uifimages`, MediaWiki `pageimages` (`collect-images.js`), UEX listing photos |
+| Pictures | cstone's render first; else the item's or ship's wiki page image (5,585 names); (players' photos on UEX marketplace listings are never used: they are their own pictures of their offers). All are requested at once, the first to arrive shows and a preferred one replaces it | `uifimages`, MediaWiki `pageimages` (`collect-images.js`), UEX listing photos |
 | Curated notes | where players report finding things (`scripts/curated/tips.json`) and system overviews (`scripts/curated/systems.json`) | written by hand |
 
 Blueprints include a crafting simulator with the same rules as sc-craft.tools: a quality slider (0–1000)

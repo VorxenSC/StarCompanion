@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld('companion', {
   commoditiesLive: () => ipcRenderer.invoke('commodities:live'),
   pinRows: (rows) => ipcRenderer.send('pin:rows', rows), // mineral signatures for the pinned list
   hangarAnchor: () => ipcRenderer.invoke('hangar:anchor'), // the Executive Hangar cycle's start (s)
+  mining: () => ipcRenderer.invoke('mining:get'), // the Mining Assistant: its state, start/stop, where you are
+  setMining: (on) => ipcRenderer.invoke('mining:set', on),
+  miningContext: (context) => ipcRenderer.send('mining:context', context),
+  onMining: (fn) => ipcRenderer.on('mining:update', (_e, state) => fn(state)),
   onPinChanged: (fn) => ipcRenderer.on('pin:changed', () => fn()), // the pinned map was closed with its ×
   onHangarAnchor: (fn) => ipcRenderer.on('hangar:anchor', (_e, anchor) => fn(anchor)),
   noticeDone: (dontShowAgain) => ipcRenderer.send('notice:done', dontShowAgain),
@@ -38,5 +42,7 @@ contextBridge.exposeInMainWorld('companion', {
   onClose: (fn) => ipcRenderer.on('overlay:close', () => fn()),
   onDocked: (fn) => ipcRenderer.on('overlay:docked', (_e, info) => fn(info)),
   onLayout: (fn) => ipcRenderer.on('overlay:layout', (_e, layout) => fn(layout)),
+  retryNet: () => ipcRenderer.invoke('net:retry'), // ask for the live data again (PU version, commodity prices)
+  onDbUpdating: (fn) => ipcRenderer.on('db:updating', () => fn()), // "Update database" started
   onDbUpdated: (fn) => ipcRenderer.on('db:updated', (_e, info) => fn(info)),
 });

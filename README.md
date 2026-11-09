@@ -34,6 +34,21 @@ Run Star Citizen in **Borderless** mode. No overlay can draw over exclusive full
 launch shows a short "Before you start" notice with these requirements; tick "Don't show this
 again" to skip it (the tray menu can show it again).
 
+### If an antivirus warns
+
+Star Companion is free and not code-signed (a signing certificate is a yearly fee), so some antivirus programs
+(Avast, AVG and others that rate files by how many of their users have them) may call a new version "suspicious"
+until enough players have it. It is a false positive: the source is public on this page and the installer comes only
+from [Releases](https://github.com/VorxenSC/StarCompanion/releases/latest).
+
+- Download the installer only from Releases, never from elsewhere.
+- In Avast or AVG, choose to run it anyway, or add the "Star Companion" folder to the exceptions.
+- What may look unusual to an antivirus: `StarCompanionKeys.exe` listens to the keyboard (only for the shortcut key,
+  passively, never recording keys), and it can click once into the search box when the shortcut opens it (Settings →
+  Click into the search box turns that off). Both are explained under the key table below.
+
+Each new version is reported to Avast and Microsoft as a false positive, which clears it within a few days.
+
 ### Updates
 
 Every time the installed app starts it checks this repository's Releases, while the splash plays (a few
@@ -92,7 +107,7 @@ version) in its subject and body, besides what you write.
 
 Settings (gear button in the search bar, or tray → Settings…) has: shortcut, key listener status,
 start with Windows, close when clicking the game, show icon when closed, icon transparency, transparency
-(0% solid to 100% in 20% steps; the bar and the icon start at 40%, the pins at 0%), text size, language (Automatic follows
+(0% solid to 100% in 20% steps; the bar and the icon start at 20%, the pins at 0%), text size, language (Automatic follows
 Windows' display language: Portuguese → Português (Brasil), anything else → English), reset position
 and size, updates, the startup notice and the settings file's folder. Everything is saved in
 `config.json` (`hotkey`, `hideOnBlur`, `transparency`, `zoom`, `language`, `dock`, `dockTransparency`,

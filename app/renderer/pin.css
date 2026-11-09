@@ -12,7 +12,6 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .pin-head { display: flex; justify-content: space-between; margin-bottom: 4px; font: 500 10px 'IBM Plex Mono', monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
 .pin-head #title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-head .pin-unit { flex: none; margin-left: 8px; }
-.is-map .pin-head { padding-right: 24px; } /* clear of the map's × */
 .is-hangar .pin-head { letter-spacing: 0.05em; } /* "Hangar Executivo" and its status on one line */
 .pin-unit { color: rgba(205, 218, 230, 0.6); }
 .pin-list { list-style: none; margin: 0; padding: 0; }
@@ -38,11 +37,14 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .pin-alpha::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: rgba(205, 218, 230, 0.35); }
 .pin-alpha::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; margin-top: -3px; border-radius: 50%; background: #5fd4e8; border: 0; }
 
-/* The map's close button, top right. */
+/* Every pin's close button, top right. */
 .pin-close { position: absolute; top: 4px; right: 5px; width: 20px; height: 20px; padding: 0; border: 1px solid rgba(205, 218, 230, 0.25); border-radius: 2px;
   background: rgba(9, 15, 22, 0.85); color: rgba(235, 242, 248, 0.85); font: 15px/18px 'IBM Plex Sans', sans-serif; cursor: pointer; }
 .pin-close:hover { color: #ff8a8f; border-color: #ff8a8f; }
 .pin-close[hidden] { display: none; }
+/* Shown while the pointer is over the pin, over the end of the title line: the pin keeps all its room. */
+.pin-close { opacity: 0; transition: opacity 0.12s; }
+.pointer-in .pin-close, .pin-close:focus-visible { opacity: 1; }
 .pin-credit { margin: -2px 0 5px; font: 10px 'IBM Plex Mono', monospace; color: rgba(205, 218, 230, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pin-credit[hidden] { display: none; }
 
@@ -58,6 +60,23 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .ph-closed { color: #ff8a8f; }
 .ph-open { color: #6fe39a; }
 .ph-reset { color: #ffd166; }
+/* The Mining Assistant's reading: what it is, how many, how good. Colour repeats the words, never replaces them. */
+.pin-mining[hidden] { display: none; }
+.pin-mining { --tone: #eef4f9; }
+.pin-mining[data-tone='top'] { --tone: #6fe39a; }
+.pin-mining[data-tone='high'] { --tone: #5fd4e8; }
+.pin-mining[data-tone='mid'] { --tone: #ffd166; }
+.pin-mining[data-tone='ambiguous'] { --tone: #f2b35e; }
+.pin-mining[data-tone='unknown'] { --tone: #b48cff; }
+.pin-mining.held { opacity: 0.55; } /* no longer on screen: the last one seen */
+.pm-headline { font: 600 22px/1.2 'Chakra Petch', sans-serif; color: var(--tone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-mining[data-tone='idle'] .pm-headline { font: 500 12px/1.4 'IBM Plex Sans', sans-serif; color: rgba(205, 218, 230, 0.6); }
+.pm-line { display: flex; justify-content: space-between; gap: 8px; font: 12px/1.5 'IBM Plex Mono', monospace; color: rgba(235, 242, 248, 0.92); }
+.pm-status { font: 11px/1.4 'IBM Plex Mono', monospace; color: var(--tone); }
+.pm-alts { list-style: none; margin: 3px 0 0; padding: 0; font: 11px/17px 'IBM Plex Mono', monospace; color: rgba(235, 242, 248, 0.85); }
+.pm-alts li { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
+.pm-alts li span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.pm-line:empty, .pm-status:empty, .pm-alts:empty { display: none; }
 .tier-common { --tier: rgba(205, 218, 230, 0.55); }
 .tier-uncommon { --tier: #8fe3a4; }
 .tier-rare { --tier: #5fd4e8; }

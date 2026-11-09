@@ -71,6 +71,7 @@ function h(tag, attrs, ...kids) {
     if (v == null || v === false) continue;
     if (k === 'class') el.className = v;
     else if (k === 'delay') el.style.setProperty('--d', `${v}ms`); // CSSOM: allowed by the CSP
+    else if (k === 'style') el.style.cssText = v; // the same: a style attribute would be blocked by the CSP
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v);
   }
@@ -190,6 +191,10 @@ function viewItem(e) {
   const uexUrl = d.uexId && `https://uexcorp.space/marketplace/?id_item=${d.uexId}`;
   const w = d.weapon;
   const topDps = w && Math.max(0, ...w.modes.map((x) => x.dps || 0));
+  // A ship weapon's damage, rate and range all come from the wiki's figures, which nearly all of them have: cstone
+  // has them for some, and differs on a few, so two weapons side by side are always measured the same way.
+  const shipFigures = w && kindKey(e) === 'ship-weapon';
+  const shipRate = shipFigures && w.modes.length ? w.modes.map((x) => (x.rpm ? `${fmt(x.rpm)} rpm` : tr('continuous'))).join(' / ') : null;
   return {
     facts: [
       ['Damage', w?.perShot && h('span', null, h('span', { class: 'price' }, fmt(round1(w.perShot))), tr(' per shot'))],
@@ -203,7 +208,14 @@ function viewItem(e) {
       ['UEX market price', m && h('span', null, h('span', { class: 'price' }, `~${fmt(m.approx)} aUEC`))],
       ['Craftable', d.craftable],
       ['Loot', d.lootable ? tr('Can be found as loot') : null],
-      ...attrs,
+      ...(shipFigures
+        ? [
+            ['Subtype', w.type || attrs.find(([label]) => label === 'Subtype')?.[1]],
+            ['Fire rate', shipRate],
+            ['Weapon range', w.range ? `${fmt(w.range)} m` : null],
+            ...attrs.filter(([label]) => !['Alpha', 'Base dps', 'Firerate', 'Firerange', 'Subtype'].includes(label)),
+          ]
+        : attrs),
     ],
     body: [
       tipsSection(d.tips),
@@ -315,8 +327,37 @@ function shipSpecCards(sp) {
   return cards.length ? [section('Specifications', h('div', { class: 'spec-grid' }, cards)), sp.loaner?.length > 0 && note(`${tr('Loaner ships')}: ${sp.loaner.join(', ')}`)] : [];
 }
 
+// The modules a modular ship takes (Retaliator, Apollo, Aurora Mk II…): items of the Module kind named after it,
+// each sold and fitted on its own. Matched on the ship's short name, or its first word for a family of ships
+// that share modules ("Apollo Tier 1 Module Left" for the Apollo Medivac and Triage).
+function shipModules(e) {
+  const short = CompanionSearch.norm(e.d.shortName || e.n);
+  const family = short.split(' ')[0];
+  if (!family) return [];
+  // A module that starts with another ship's longer short name is that ship's (Aurora Mk II's, not Mk I's).
+  const others = dbEntries.filter((x) => x.t === 'ship' && x !== e).map((x) => CompanionSearch.norm(x.d.shortName || x.n)).filter((n) => n !== short && n.startsWith(`${family} `));
+  return dbEntries.filter((x) => {
+    if (x.t !== 'item' || !(/^Module\b/.test(x.d.type || '') || x.d.category === 'MODULE')) return false;
+    const n = CompanionSearch.norm(x.n);
+    return n.startsWith(`${short} `) || (n.startsWith(`${family} `) && !others.some((o) => n.startsWith(`${o} `)));
+  });
+}
+function modulesSection(e) {
+  const mods = sortedBy(shipModules(e), (m) => m.n);
+  if (!mods.length) return null;
+  const cheapest = (m) => (m.d.shops || []).filter((s) => s.price > 0).sort((a, z) => a.price - z.price)[0];
+  return section('Modules',
+    note('Sold separately and fitted to the ship; it flies with one in each place.'),
+    table([['Module', ''], ['Lowest price', 'num'], ['Where', 'dim']], mods.map((m) => {
+      const c = cheapest(m);
+      const stock = !c && /\bUnladen\b/i.test(m.n); // the empty module the ship is sold with
+      return [jump(m.n, m.n, 'item'), c ? auec(c.price) : stock ? '—' : tr('Not sold'), c ? c.where : stock ? tr('Comes with the ship') : ''];
+    })));
+}
+
 function viewShip(e) {
   const d = e.d;
+  const lo = shipLoadout(e);
   // The ship's price in the RSI store, one line: read from its store page when that worked (d.rsi),
   // else the wiki's most recent standalone listing (never a package), else the RSI MSRP.
   const listings = (d.store || []).filter((s) => s.standalone && !s.pack).sort((a, z) => (z.checked || '').localeCompare(a.checked || ''));
@@ -346,7 +387,10 @@ function viewShip(e) {
     ],
     body: [
       // What the ship flies with comes first, right after the overview; prices follow.
-      d.loadout?.length > 0 && section('Default components', loadoutTable(d.loadout)),
+      // Right after the overview: what the fitted components add up to, then the components, each one changeable.
+      lo.stats,
+      lo.components,
+      modulesSection(e),
       ...shipSpecCards(d.specs),
       section(
         'Price in USD (RSI store)',
@@ -419,6 +463,273 @@ function groupLoadout(loadout) {
 
 // Left out of the table: decoy and noise launchers (countermeasures) say little about a ship.
 const LOADOUT_HIDDEN = new Set(['WeaponDefensive']);
+
+// ---------- Components and loadout stats: change a ship's components in its own list, as erkul.games does ----------
+// The components list keeps its look: each changeable component (guns, shields, power plants, coolers, quantum
+// drive, radar, life support) is a link like the others, with a ▾ beside it that opens a menu of the components of
+// the same kind and size; once one is picked, or the menu is left, it is a link again. The stats sit above, beside the
+// stock figures. Up to three loadouts per ship can be saved under a name, on this PC.
+let allComps = null;
+let allCompsFrom = null;
+function componentList() {
+  if (allCompsFrom !== dbEntries) {
+    allCompsFrom = dbEntries;
+    allComps = dbEntries.filter((x) => x.t === 'item' && x.d.comp).map((x) => ({ name: x.n, ...x.d.comp }));
+  }
+  return allComps;
+}
+const CALC_FIGURES = [
+  // [key, label, format, which way is better: 1 more, -1 less]
+  ['alpha', 'Alpha damage', (v) => fmt(Math.round(v)), 1],
+  ['burst', 'Burst DPS', (v) => fmt(Math.round(v)), 1],
+  ['sustained', 'Sustained DPS (60 s)', (v) => fmt(Math.round(v)), 1],
+  ['shieldHp', 'Shield HP', (v) => fmt(Math.round(v)), 1],
+  ['shieldRegen', 'Shield regen', (v) => `${fmt(Math.round(v))} HP/s`, 1],
+  ['em', 'EM signature', (v) => fmt(Math.round(v)), -1],
+  ['ir', 'IR signature', (v) => fmt(Math.round(v)), -1],
+  ['quantumSpeed', 'Quantum speed', (v) => `${(v / 1e6).toLocaleString('en-US', { maximumFractionDigits: 1 })} Mm/s`, 1],
+];
+// Saved loadouts: { "<ship>": [{ name, picks: { "<row key>": "<component>" } }, …] } in this PC's storage, three
+// per ship at most. The first version kept them as { "1": picks, … }: read as "Loadout 1"….
+const LOADOUTS_KEY = 'ship-loadouts';
+const LOADOUTS_MAX = 3;
+function readLoadouts() {
+  let all = {};
+  try { all = JSON.parse(localStorage.getItem(LOADOUTS_KEY)) || {}; } catch { /* none */ }
+  for (const [ship, v] of Object.entries(all)) {
+    if (!Array.isArray(v)) all[ship] = Object.entries(v).map(([n, picks]) => ({ name: `Loadout ${n}`, picks }));
+  }
+  return all;
+}
+const writeLoadouts = (all) => { try { localStorage.setItem(LOADOUTS_KEY, JSON.stringify(all)); } catch { /* kept for this visit only */ } };
+const rowKey = (l) => `${l.type}|${l.item}|${l.mount || ''}|${l.control || ''}`;
+// A component's class as a tag after its name in the menu: Blizzard [M]. Guns have none.
+const CLASS_TAGS = { Military: 'M', Civilian: 'C', Industrial: 'I', Stealth: 'S', Competition: 'CO' };
+const withClass = (c) => (CLASS_TAGS[c.class] ? `${c.name} [${CLASS_TAGS[c.class]}]` : c.name);
+// The menu, as calculators show it: grouped by type (a gun's kind, Laser Repeater…; any other component's class,
+// Military…), the group with the strongest component first, and inside a group grade A to D, then the strongest.
+// "Strongest" is the figure that kind is chosen for; a radar has none, so its groups go by name.
+const MENU_FIGURE = {
+  WeaponGun: (c) => c.weapon?.burst,
+  Shield: (c) => c.shield?.hp,
+  PowerPlant: (c) => c.genPower,
+  Cooler: (c) => c.genCoolant,
+  QuantumDrive: (c) => c.quantum?.speed,
+};
+const GRADES = ['A', 'B', 'C', 'D'];
+function menuGroups(slot, options) {
+  const figure = MENU_FIGURE[slot] || (() => 0);
+  const groupOf = (c) => (slot === 'WeaponGun' ? c.weapon?.type || 'Other' : c.class || 'Other');
+  const grade = (c) => { const i = GRADES.indexOf(c.grade); return i < 0 ? GRADES.length : i; };
+  const groups = new Map();
+  for (const c of options) {
+    const g = groupOf(c);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(c);
+  }
+  const best = (list) => Math.max(0, ...list.map((c) => figure(c) || 0));
+  return [...groups]
+    .map(([name, list]) => ({ name, list: list.sort((a, z) => grade(a) - grade(z) || (figure(z) || 0) - (figure(a) || 0) || a.name.localeCompare(z.name)) }))
+    .sort((a, z) => best(z.list) - best(a.list) || a.name.localeCompare(z.name));
+}
+// What each ship's page has picked this session: kept when the page is left for a component's and Esc comes back.
+const shipPicks = new Map(); // ship name → { picks: Map(row key → component), active: loadout name | null }
+
+// Returns { stats, components }: the stats section and the components section of a ship's page.
+function shipLoadout(e) {
+  const loadout = (e.d.loadout || []).filter((l) => !LOADOUT_HIDDEN.has(l.type));
+  if (!loadout.length) return { stats: null, components: null };
+  const comps = componentList();
+  const byName = new Map(comps.map((c) => [c.name, c]));
+  const calc = (l) => CompanionLoadout.SLOTS.includes(l.type) && comps.length > 0;
+  if (!shipPicks.has(e.n)) shipPicks.set(e.n, { picks: new Map(), active: null });
+  const state = shipPicks.get(e.n);
+  const picks = state.picks;
+  const pickOf = (l) => picks.get(rowKey(l)) || l.item;
+  const parts = () => loadout.filter(calc).map((l) => ({ slot: l.type, control: l.control, name: pickOf(l), comp: byName.get(pickOf(l)) || null }));
+  const base = CompanionLoadout.totals(loadout.filter(calc).map((l) => ({ slot: l.type, control: l.control, name: l.item, comp: byName.get(l.item) || null })));
+
+  // ----- Stats -----
+  const tiles = h('div', { class: 'calc-totals' });
+  const missing = h('p', { class: 'note' });
+  const paintStats = () => {
+    const t = CompanionLoadout.totals(parts());
+    const tile = (label, value, ...more) => h('div', { class: 'calc-tile' }, h('span', { class: 'calc-label' }, tr(label)), h('span', { class: 'calc-value' }, value), ...more);
+    const diff = (v, b, better, show) => {
+      const d = v - b;
+      if (!d || Math.abs(d) < 0.5) return null;
+      return h('span', { class: `calc-delta ${d * better > 0 ? 'up' : 'down'}` }, `${d > 0 ? '+' : '−'}${show(Math.abs(d))}`);
+    };
+    // What the components draw, from all at their least to all at their most, against what is generated.
+    const budget = (label, rawMin, rawMax, rawGen, bMin, bMax, bGen) => {
+      const [min, max, gen] = [rawMin, rawMax, rawGen].map(Math.round);
+      const st = CompanionLoadout.budget(min, max, gen);
+      const pct = (v) => (gen ? Math.min(100, (v / gen) * 100) : 100);
+      const words = { ok: tr('Headroom of {n} at full draw', { n: fmt(gen - max) }), tight: tr('Full draw is {n} over generation', { n: fmt(max - gen) }), over: tr('Least draw is already {n} over generation', { n: fmt(min - gen) }) };
+      const changed = min !== Math.round(bMin) || max !== Math.round(bMax) || gen !== Math.round(bGen);
+      return h('div', { class: `calc-tile calc-budget ${st}` },
+        h('span', { class: 'calc-label' }, tr(label)),
+        h('span', { class: 'calc-value' }, `${fmt(min)}–${fmt(max)} / ${fmt(gen)}`),
+        h('span', { class: 'calc-bar' }, h('b', { style: `width: ${pct(max)}%` }), h('i', { style: `width: ${pct(min)}%` })),
+        h('span', { class: 'calc-note' }, words[st]),
+        changed ? h('span', { class: 'calc-was' }, tr('stock {use} / {gen}', { use: `${fmt(Math.round(bMin))}–${fmt(Math.round(bMax))}`, gen: fmt(Math.round(bGen)) })) : null);
+    };
+    tiles.replaceChildren(
+      ...CALC_FIGURES.filter(([k]) => t[k] || base[k]).map(([k, label, show, better]) => tile(label, show(t[k] || 0), diff(t[k] || 0, base[k] || 0, better, show),
+        // The ship pools two shield generators at most: said when it fits more.
+        k === 'shieldHp' && t.shieldsFitted > t.shieldsActive ? h('span', { class: 'calc-note' }, tr('{n} of {m} generators active', { n: t.shieldsActive, m: t.shieldsFitted }))
+          : k === 'alpha' && t.guns ? h('span', { class: 'calc-note' }, tr('{n} guns, turrets included', { n: t.guns })) : null)),
+      budget('Power (segments)', t.powerMin, t.powerMax, t.powerGen, base.powerMin, base.powerMax, base.powerGen),
+      budget('Cooling (segments)', t.coolMin, t.coolMax, t.coolGen, base.coolMin, base.coolMax, base.coolGen),
+    );
+    missing.textContent = t.missing.length ? tr('No figures for: {names}. They are left out of the totals.', { names: [...new Set(t.missing)].join(', ') }) : '';
+  };
+
+  // ----- Components list: the same table as before; a changeable component is a link with a ▾ that opens a menu -----
+  const rows = groupLoadout(loadout);
+  const label = (t) => tr((LOADOUT_GROUPS.find(([g]) => g === t) || [t, t])[1]);
+  const refreshers = [];
+  const gradeCell = (c) => (c?.grade ? h('span', { class: `grade grade-${c.grade.toLowerCase()}` }, c.grade) : '');
+  const tableRows = rows.map((l, i) => {
+    const extra = [l.count > 1 ? ` ×${l.count}` : '', l.mount && h('span', { class: 'dim' }, ` · ${tr('on {mount}', { mount: l.mount })}`)];
+    const tail = (cells) => (!l.grade && !l.class && CONTROLS[l.control]
+      ? [{ span: 2, content: h('span', { class: `control control-${l.control}`, title: CONTROL_HINTS[l.control] ? tr(CONTROL_HINTS[l.control]) : null }, tr(CONTROLS[l.control])) }]
+      : cells);
+    const slotCell = i === 0 || rows[i - 1].type !== l.type ? label(l.type) : '';
+    const size = l.size != null ? `S${l.size}` : '';
+    if (!calc(l)) return [slotCell, h('span', null, jump(l.item, l.item, 'item'), ...extra), size, ...tail([gradeCell(l), l.class ? tr(l.class) : ''])];
+    const options = sortedBy(CompanionLoadout.choices(l.type, l.size, comps), (c) => c.name);
+    const stockComp = byName.get(l.item);
+    if (stockComp && !options.includes(stockComp)) options.unshift(stockComp);
+    const link = h('span', { class: 'link comp-link' });
+    link.addEventListener('click', () => goTo(pickOf(l), 'item'));
+    const sel = h('select', { class: 'comp-select', hidden: 'hidden', 'aria-label': `${label(l.type)}: ${l.item}` },
+      !stockComp && h('option', { value: l.item }, `${l.item} — ${tr('no figures')}`),
+      // Only the components of this slot's kind and size: the header says which size, and how many fit.
+      // Which size, and how many fit; then the groups.
+      h('option', { disabled: 'disabled', class: 'menu-head' }, tr('Size {size} · {n} that fit', { size: l.size, n: options.length })),
+      menuGroups(l.type, options).map((g) => h('optgroup', { label: tr(g.name) }, g.list.map((c) => h('option', { value: c.name }, [withClass(c), c.grade ? ` · ${c.grade}` : ''].join(''))))));
+    const edit = h('button', { class: 'comp-edit', title: tr('Change this component'), 'aria-label': tr('Change this component') }, '▾');
+    const grade = h('span');
+    const cls = h('span');
+    const show = () => {
+      const pick = pickOf(l);
+      const c = byName.get(pick);
+      link.textContent = pick;
+      link.classList.toggle('changed', pick !== l.item);
+      link.title = pick !== l.item ? tr('Stock: {name}', { name: l.item }) : '';
+      grade.replaceChildren(gradeCell(c || l));
+      cls.textContent = (c ? c.class : l.class) ? tr(c ? c.class : l.class) : '';
+    };
+    // The menu shows only while it is used: picking a component, or leaving it, turns it back into the link.
+    const closeMenu = () => { sel.hidden = true; link.hidden = false; edit.hidden = false; };
+    edit.addEventListener('click', () => {
+      sel.value = pickOf(l);
+      sel.hidden = false;
+      link.hidden = true;
+      edit.hidden = true;
+      sel.focus();
+      try { sel.showPicker(); } catch { /* the menu is focused; the arrows open it */ }
+    });
+    sel.addEventListener('change', () => {
+      if (sel.value === l.item) picks.delete(rowKey(l));
+      else picks.set(rowKey(l), sel.value);
+      show();
+      paintStats();
+      markSaved();
+      closeMenu();
+    });
+    sel.addEventListener('blur', closeMenu);
+    sel.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); closeMenu(); edit.focus(); } });
+    refreshers.push(show);
+    show();
+    return [slotCell, h('span', { class: 'comp-cell' }, link, sel, edit, ...extra), size, ...tail([grade, cls])];
+  });
+  const apply = (saved) => {
+    picks.clear();
+    for (const [k, v] of Object.entries(saved || {})) if (rows.some((l) => rowKey(l) === k)) picks.set(k, v);
+    refreshers.forEach((f) => f());
+    paintStats();
+  };
+
+  // ----- Saved loadouts: a button each, by its name, beside the title; Save and Stock at the right -----
+  const mine = () => readLoadouts()[e.n] || [];
+  const store = (list) => {
+    const all = readLoadouts();
+    if (list.length) all[e.n] = list;
+    else delete all[e.n];
+    writeLoadouts(all);
+  };
+  const named = h('span', { class: 'loadout-names' });
+  const nameInput = h('input', { class: 'loadout-name', type: 'text', maxlength: '24', placeholder: tr('Loadout name'), hidden: 'hidden', 'aria-label': tr('Loadout name') });
+  const save = h('button', { class: 'slot-act' }, tr('Save'));
+  const stock = h('button', { class: 'slot-act', onclick: () => { state.active = null; apply({}); markSaved(); } }, tr('Stock'));
+  const same = (a, b) => JSON.stringify(Object.entries(a || {}).sort()) === JSON.stringify(Object.entries(b || {}).sort());
+  function markSaved() {
+    const list = mine();
+    if (state.active && !list.some((x) => x.name === state.active)) state.active = null;
+    named.replaceChildren(...list.map((x) => {
+      const btn = h('button', { class: `slot-btn${state.active === x.name ? ' active' : ''}`, title: tr('Load {name}: {k} changed', { name: x.name, k: Object.keys(x.picks).length }), onclick: () => {
+        // A second click on the loaded one lets go of it: Save then makes a new loadout.
+        if (state.active === x.name) { state.active = null; markSaved(); return; }
+        state.active = x.name;
+        apply(x.picks);
+        markSaved();
+      } }, x.name);
+      const del = h('button', { class: 'slot-del', title: tr('Delete {name}', { name: x.name }), 'aria-label': tr('Delete {name}', { name: x.name }), onclick: () => {
+        store(mine().filter((y) => y.name !== x.name));
+        if (state.active === x.name) state.active = null;
+        markSaved();
+      } }, '×');
+      return h('span', { class: 'slot-wrap' }, btn, del);
+    }));
+    const current = list.find((x) => x.name === state.active);
+    const full = list.length >= LOADOUTS_MAX && !current;
+    save.disabled = full || (!current && !picks.size);
+    save.classList.toggle('pending', current ? !same(Object.fromEntries(picks), current.picks) : picks.size > 0 && !full);
+    save.textContent = current ? tr('Save {name}', { name: current.name }) : tr('Save');
+    save.title = full ? tr('Three loadouts at most: delete one to save another') : current ? tr('Save these components as {name}', { name: current.name }) : tr('Save these components under a name');
+  }
+  const finishName = (ok) => {
+    const name = nameInput.value.trim().slice(0, 24);
+    nameInput.hidden = true;
+    save.hidden = false;
+    if (!ok || !name) return;
+    const list = mine().filter((x) => x.name !== name);
+    if (list.length >= LOADOUTS_MAX) return markSaved();
+    store([...list, { name, picks: Object.fromEntries(picks) }]);
+    state.active = name;
+    markSaved();
+  };
+  save.addEventListener('click', () => {
+    const current = mine().find((x) => x.name === state.active);
+    if (current) {
+      store(mine().map((x) => (x.name === current.name ? { name: x.name, picks: Object.fromEntries(picks) } : x)));
+      return markSaved();
+    }
+    nameInput.value = tr('Loadout {n}', { n: mine().length + 1 });
+    nameInput.hidden = false;
+    save.hidden = true;
+    nameInput.focus();
+    nameInput.select();
+  });
+  nameInput.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); finishName(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); finishName(false); }
+  });
+  nameInput.addEventListener('blur', () => { if (!nameInput.hidden) finishName(true); });
+  markSaved();
+  paintStats();
+
+  const head = h('div', { class: 'sec-title sec-head' },
+    h('span', { class: 'sec-head-left' }, h('span', null, tr('Components')), named),
+    h('span', { class: 'loadout-slots', role: 'group', 'aria-label': tr('Saved loadouts') }, nameInput, save, stock));
+  return {
+    stats: [h('div', { class: 'sec-title' }, tr('Loadout stats')), tiles, missing],
+    components: [h('div', { id: 'ship-components' }), head, table([['Slot', 'dim'], ['Component', ''], ['Size', 'num'], ['Grade', 'grade-col'], ['Class', 'dim']], tableRows, 't-loadout'),
+      note('▾ changes every slot of its row; the stats above follow, beside the stock figures. Power and cooling are in game segments, from every component at its least to every one at its most.')],
+  };
+}
 function loadoutTable(loadout) {
   const rows = groupLoadout(loadout.filter((l) => !LOADOUT_HIDDEN.has(l.type)));
   const label = (t) => tr((LOADOUT_GROUPS.find(([g]) => g === t) || [t, t])[1]);
@@ -436,6 +747,24 @@ function loadoutTable(loadout) {
     't-loadout',
   );
 }
+
+// The lowest reputation level a blueprint's mission asks for: from scmdb.net's contracts, else the wiki's
+// minimum. A title can be several missions, so it looks only at those that reward this blueprint.
+let missionsByTitle = null;
+let missionsFrom = null;
+function missionRank(title, blueprint) {
+  if (missionsFrom !== dbEntries) {
+    missionsFrom = dbEntries;
+    missionsByTitle = new Map();
+    for (const x of dbEntries) if (x.t === 'mission') missionsByTitle.set(x.n, [...(missionsByTitle.get(x.n) || []), x]);
+  }
+  const ranks = (missionsByTitle.get(title) || [])
+    .filter((m) => m.d.blueprints?.some((b) => b.name === blueprint))
+    .map((m) => m.d.scm?.minRank || (m.d.minStanding ? { name: m.d.minStanding } : null))
+    .filter(Boolean);
+  return ranks.sort((a, z) => (a.min ?? Infinity) - (z.min ?? Infinity))[0] || null;
+}
+const rankCell = (r) => (r ? h('span', { title: r.min != null ? tr('{n} reputation points', { n: fmt(r.min) }) : null }, r.name) : '—');
 
 function viewBlueprint(e) {
   const d = e.d;
@@ -459,6 +788,7 @@ function viewBlueprint(e) {
         h('div', { class: 'best-drop-facts' }, [
           ['Drop chance', h('span', { class: 'best-drop-chance' }, `${Math.round(best.chance * 100)}%`)],
           ['Faction', best.factions?.join(', ')],
+          ['Minimum reputation', missionRank(best.name, e.n) && rankCell(missionRank(best.name, e.n))],
           ['Mission type', kinds(best)],
           ['Systems', best.systems?.join(', ')],
         ].filter(([, v]) => v).map(([label, v]) => h('div', { class: 'fact' }, h('span', { class: 'fact-label' }, tr(label)), h('span', { class: 'fact-value' }, v)))),
@@ -482,10 +812,10 @@ function viewBlueprint(e) {
           ? [
               !real.length && note('This blueprint comes from a reward table in the game files: the missions that use it are not known.'),
               table(
-                [['Mission', ''], ['Faction', ''], ['Type', 'dim'], ['Drop chance', 'num']],
+                [['Mission', ''], ['Faction', ''], ['Minimum reputation', ''], ['Type', 'dim'], ['Drop chance', 'num']],
                 [
-                  ...sortedBy(real, (m) => m.name).map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', kinds(m), `${Math.round(m.chance * 100)}%`]),
-                  ...sortedBy(tables, (m) => m.name).map((m) => [h('span', { class: 'dim' }, `${tr('Reward table')}: ${m.name}`), '', '', `${Math.round(m.chance * 100)}%`]),
+                  ...sortedBy(real, (m) => m.name).map((m) => [jump(m.name, m.name, 'mission'), m.factions?.join(', ') || '', rankCell(missionRank(m.name, e.n)), kinds(m), `${Math.round(m.chance * 100)}%`]),
+                  ...sortedBy(tables, (m) => m.name).map((m) => [h('span', { class: 'dim' }, `${tr('Reward table')}: ${m.name}`), '', '', '', `${Math.round(m.chance * 100)}%`]),
                 ],
               ),
             ]
@@ -1218,7 +1548,129 @@ function hangarPinButton() {
   return btn;
 }
 
+// ---------- Mining Assistant ----------
+// The scan's switch, what it reads now, what it has read since it started (each ore links to its mineral
+// page) and whether this PC can do it. The reading itself sits in the pin beside the icon, over the game.
+const MINING_ENTRY = {
+  t: 'activity', n: 'Mining Assistant', id: 'mining-assistant', s: 'Reads the radar signature on screen and names the ore',
+  d: { kind: 'mining', aliases: ['Mining', 'Mining scan', 'Mineração', 'Assistente de mineração', 'RS scanner', 'Radar signature'] },
+};
+const MINING_NAMES = { Aluminum: 'Aluminium' }; // the signature table's spelling and the database's
+const miningListeners = new Set();
+companion.onMining((s) => { for (const fn of miningListeners) fn(s); });
+const onMiningState = (node, fn) => {
+  const listener = (s) => (node.isConnected ? fn(s) : miningListeners.delete(listener));
+  miningListeners.add(listener);
+  companion.mining().then(fn);
+};
+const miningWord = (name) => jump(name, MINING_NAMES[name] || name, 'mineral');
+
+// The switch beside the version: on or off in one click. If it cannot start, the page says why.
+let miningButtonState = null;
+function renderMiningButton() {
+  const on = !!miningButtonState?.on;
+  $('mine-label').textContent = tr('Mining Assistant');
+  $('mine-btn').classList.toggle('on', on);
+  $('mine-btn').setAttribute('aria-pressed', String(on));
+  $('mine-btn').title = tr(on ? 'Mining Assistant is on: it reads the radar signature while the bar is closed. Click to stop.' : 'Turn on the Mining Assistant: it reads the radar signature while the bar is closed.');
+}
+function setupMiningButton() {
+  if ($('mine-btn').onclick) return;
+  $('mine-btn').onclick = async () => {
+    const s = await companion.setMining(!miningButtonState?.on);
+    if (s.error) goTo(MINING_ENTRY.n, 'all');
+  };
+  onMiningState($('mine-btn'), (s) => { miningButtonState = s; renderMiningButton(); });
+}
+
+function miningPanel() {
+  const big = h('div', { class: 'mpanel-big' });
+  const line = h('div', { class: 'mpanel-line' });
+  const panel = h('div', { class: 'mpanel' }, big, line);
+  onMiningState(panel, (s) => {
+    const shown = s.reading && s.reading.kind !== 'idle' ? s.reading : s.last;
+    const v = CompanionMining.view(shown, tr);
+    panel.dataset.tone = shown ? v.tone : 'idle';
+    panel.classList.toggle('held', shown !== s.reading);
+    big.textContent = shown ? v.headline : tr(s.on ? 'Nothing read yet: close the bar and point the scanner at a rock.' : 'Nothing read yet.');
+    line.replaceChildren(...(shown ? [v.rs, v.count && ` · ${v.count}`, v.status && h('span', { class: 'mpanel-status' }, v.status), v.alternatives.length ? ` ${v.alternatives.map((a) => `${a.label} ${a.share}`).join(' · ')}` : ''].filter(Boolean) : []));
+  });
+  return panel;
+}
+
+function miningStatus() {
+  const el = h('span');
+  onMiningState(el, (s) => {
+    const bad = s.error && { missing: 'The reading engine is not installed', ocr: 'Windows OCR is missing', failed: 'The reading engine could not start', fatal: 'The reading engine stopped', scan: 'Could not read the screen' }[s.error.code];
+    el.className = bad ? 'mstatus-bad' : s.on ? 'mstatus-on' : 'mstatus-off';
+    el.textContent = tr(bad || (!s.on ? 'Off' : s.scanning ? 'Scanning' : 'On: it reads when you close the bar'));
+  });
+  return el;
+}
+
+function miningButton() {
+  const btn = h('button', { class: 'set-btn copy-btn', onclick: async () => { await companion.setMining(btn.dataset.on !== '1'); } });
+  onMiningState(btn, (s) => {
+    btn.dataset.on = s.on ? '1' : '';
+    btn.textContent = tr(s.on ? 'Stop scan' : 'Start scan');
+    btn.classList.toggle('done', s.on);
+  });
+  return btn;
+}
+
+function miningContext() {
+  const seg = h('span', { class: 'seg', role: 'group' });
+  onMiningState(seg, (s) => {
+    seg.replaceChildren(...[['auto', 'Automatic'], ['space', 'Space'], ['surface', 'Surface']].map(([v, label]) => h('button', { class: `seg-btn${s.context === v ? ' on' : ''}`, onclick: () => companion.miningContext(v) }, tr(label))));
+  });
+  return seg;
+}
+
+function miningHistory() {
+  const box = h('div');
+  onMiningState(box, (s) => {
+    box.replaceChildren(s.history.length
+      ? table([['Time', ''], ['Reading', ''], ['Count', ''], ['RS', 'num']], s.history.map((r) => {
+        const v = CompanionMining.view(r, tr);
+        return [localTime(r.at / 1000), v.name ? miningWord(v.name) : v.headline, v.count || v.alternatives.map((a) => a.label).join(' · '), CompanionMining.rsText(r.rs)];
+      }))
+      : note('What the scan reads shows here, each ore linked to its page.'));
+  });
+  return box;
+}
+
+function miningChecks() {
+  const box = h('div');
+  onMiningState(box, (s) => {
+    const m = s.ready?.monitor;
+    const row = (what, value) => [tr(what), value];
+    box.replaceChildren(table([['Needs', ''], ['This PC', '']], [
+      row('Borderless or windowed game', tr('Set it in the game')),
+      row('Windows text recognition (OCR)', s.ready ? s.ready.ocr : tr('Checked when the scan starts')),
+      row('Screen at 1080p or more', m ? `${m.width} × ${m.height}${m.height < 1080 ? ` · ${tr('too small to read')}` : ''}` : tr('Checked when the scan starts')),
+    ]));
+  });
+  return box;
+}
+
+function viewMining() {
+  return {
+    actions: [miningButton()],
+    facts: [
+      ['Scan', miningStatus()],
+      ['Where you are', miningContext(), { wide: true }],
+    ],
+    body: [
+      section('Reading', miningPanel()),
+      section('This scan', miningHistory()),
+      section('Before you start', miningChecks()),
+      note('It only looks at the screen, like a screenshot, and only while the bar is closed. It never touches the game, sends keys or uses the network; everything stays on this PC.'),
+    ],
+  };
+}
+
 function viewActivity(e) {
+  if (e.d.kind === 'mining') return viewMining();
   const d = e.d;
   // A station's name shows its zone map; places without a map open their page.
   const maps = zoneMapPanel(d.maps);
@@ -1263,13 +1715,19 @@ function viewActivity(e) {
 
 const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, mission: viewMission, mineral: viewMineral, commodity: viewCommodity, faction: viewFaction, location: viewLocation, activity: viewActivity };
 
-// The item's picture, by preference: cstone's render, the wiki page's picture, then a player's photo
+// The item's picture, by preference: one chosen by hand (SHIP_PHOTOS), cstone's render, the wiki page's picture, then a player's photo
 // from a UEX offer. All are tried at once (a missing cstone picture can take a while to fail): the
 // first to arrive shows at once and a more preferred one replaces it when it arrives; the box goes
 // away if none loads.
+// Pictures chosen by hand where the others are poor, shipped with the app (ship-photos/, about 640 px wide, WebP):
+// the entry's exact name → the file. They come before every other source.
+const SHIP_PHOTOS = {
+  'Drake Ironclad': 'drake-ironclad.webp',
+};
 function imageFor(e) {
   const id = e.d.cstoneUrl?.split('/').pop();
-  const urls = [id && `https://cstone.space/uifimages/${id}.png`, e.d.image, e.d.wikiImage, e.d.playerPhoto].filter(Boolean);
+  const own = SHIP_PHOTOS[e.n] && `ship-photos/${SHIP_PHOTOS[e.n]}`;
+  const urls = [own, id && `https://cstone.space/uifimages/${id}.png`, e.d.image, e.d.wikiImage, e.d.playerPhoto].filter(Boolean);
   if (!urls.length) return null;
   const img = h('img', { class: 'detail-img', alt: '' });
   const state = urls.map(() => null); // null = pending, true = loaded, false = failed
@@ -1315,7 +1773,7 @@ const HEADLINE = {
   commodity: ['Best sale', 'Cheapest buy'],
   faction: ['Type', 'Area', 'Founded', 'Ranks'], // the short facts; Focus, Leadership and Headquarters get a row of their own
   location: ['System', 'Star'],
-  activity: ['Hangar'],
+  activity: ['Hangar', 'Scan'],
 };
 
 // ---------- Compare: two ships or two weapons side by side ----------
@@ -1331,11 +1789,13 @@ function pictureColumn(e, opts) {
   return h('div', { class: 'img-col' }, pic, btn);
 }
 let cmp = null; // { left, el, input, content, panel, results, idx, detail }
-// What an item is compared against: hand weapons carry their kind in `category` on some records and only in `type`
-// ("FPS Weapon / Medium") on others, so both spellings land in one group; anything else groups by category or type.
+// What an item is compared against: hand and ship weapons carry their kind in `category` on some records and only in
+// `type` ("FPS Weapon / Medium", "Weapon Gun / Gun") on others, so both spellings land in one group; anything else
+// groups by category or type.
 const kindKey = (e) => {
   const cat = e.d?.category || '', type = (e.d?.type || '').split(' / ')[0];
   if (/^FPS (RANGED )?WEAPON$/i.test(cat) || /^FPS Weapon$/i.test(type)) return 'fps-weapon';
+  if (/^VEHICLE WEAPON$/i.test(cat) || /^Weapon Gun$/i.test(type)) return 'ship-weapon';
   return (cat || type).toLowerCase();
 };
 const sameKind = (a, z) => a.t === z.t && (a.t !== 'item' || (kindKey(a) !== '' && kindKey(a) === kindKey(z)));
@@ -1373,9 +1833,16 @@ function startCompare(left) {
   fit();
   setTimeout(() => input.focus(), 60);
 }
+// Every item the main search can find can be picked here too, each colour on its own row. Those of the same kind as
+// the one on the left come first: they are the likely choice, not the only one.
+function compareResults(left, q) {
+  if (!q.trim()) return [];
+  const found = CompanionSearch.search(index, q, { type: left.t, limit: 300 }).filter((e) => e !== left);
+  return [...found.filter((e) => sameKind(left, e)), ...found.filter((e) => !sameKind(left, e))];
+}
 function searchCompare() {
   const q = cmp.input.value;
-  cmp.results = q.trim() ? CompanionSearch.search(index, q, { type: cmp.left.t, collapseVariants: true }).filter((e) => e !== cmp.left && sameKind(cmp.left, e)) : [];
+  cmp.results = compareResults(cmp.left, q);
   cmp.idx = 0;
   paintCompare();
 }
@@ -1392,7 +1859,7 @@ function paintCompare() {
       h('span', { class: 'row-type' }, tr(TYPE_LABEL[e.t])),
       missileTags(e, 0),
       h('span', { class: 'row-name' }, e.n),
-      h('span', { class: 'row-meta' }, missileMeta(e) || e.s || ''),
+      h('span', { class: 'row-meta' }, missileMeta(e) || armorMeta(e) || e.s || ''),
       rowArrow(),
     ))));
   }
@@ -1545,7 +2012,7 @@ function renderDetail(e, opts = {}) {
         ),
         h('div', { class: 'detail-name in', delay: 40 }, e.n),
         // A faction's subtitle (type · area · focus) is the same as its Type, Area and Focus facts below.
-        e.t !== 'faction' && h('div', { class: 'detail-meta in', delay: 110 }, e.s || ''),
+        e.t !== 'faction' && h('div', { class: 'detail-meta in', delay: 110 }, armorMeta(e) || e.s || ''),
         actions?.some(Boolean) && h('div', { class: 'detail-actions in', delay: 130 }, actions),
         headline.length > 0 &&
           h(
@@ -1601,6 +2068,8 @@ function missileTags(e, delay) {
   );
 }
 // What sets one missile apart in the list: its class, damage and lock time.
+const armorMeta = (e) => (e.armor ? e.armor.map((w) => tr(w)).join(' · ') : null);
+
 function missileMeta(e) {
   const m = missileInfo(e);
   if (!m) return null;
@@ -1624,7 +2093,7 @@ function renderList() {
         h('span', { class: 'row-type in', delay: d }, tr(TYPE_LABEL[e.t])),
         missileTags(e, d),
         h('span', { class: 'row-name in', delay: d }, e.n),
-        h('span', { class: 'row-meta in', delay: d }, `${missileMeta(e) || e.s || ''}${more}`),
+        h('span', { class: 'row-meta in', delay: d }, `${missileMeta(e) || armorMeta(e) || e.s || ''}${more}`),
         rowArrow(),
       )];
     }),
@@ -1733,9 +2202,10 @@ async function changeSetting(key, value) {
 // Text written in index.html: elements marked data-i18n, plus the search box's placeholder.
 function translateStatic() {
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = tr(el.dataset.i18n);
+  renderMiningButton();
   qEl.placeholder = tr('Search items, ships, blueprints, missions, minerals…');
   $('settings-btn').title = $('settings-btn').ariaLabel = tr('Settings');
-  $('suggest').title = tr('Send an idea, a bug or a data fix to the developer');
+  $('report-bug').title = $('report-bug').ariaLabel = tr('Report a bug');
   $('coffee').title = tr('Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7');
 }
 
@@ -1826,6 +2296,13 @@ function openFeedback(page) {
   setTimeout(() => $('fb-message')?.focus(), 50);
 }
 
+// The footer's Report: the form set to Bug, about the page on screen if there is one. Its other kinds stay a click away.
+function openBugReport() {
+  openFeedback(detail ? pageRef(detail) : null);
+  feedback.kind = 'Bug';
+  render();
+}
+
 function closeFeedback() {
   if (!feedback) return;
   feedback.open = false;
@@ -1891,7 +2368,7 @@ function renderFeedback() {
   return h(
     'div',
     { class: 'notice feedback' },
-    h('div', { class: 'detail-type in' }, f.page ? tr('Bug report') : 'Suggestions'),
+    h('div', { class: 'detail-type in' }, f.page || f.kind === 'Bug' ? tr('Bug report') : 'Suggestions'),
     h('div', { class: 'detail-name in', delay: 40 }, f.page ? tr('Report a bug') : 'Help shape Star Companion'),
     f.page
       ? h('div', { class: 'fb-page rise', delay: 100 }, h('span', { class: 'fact-label' }, tr('About this page')), h('span', { class: 'fb-page-name' }, `${tr(f.page.type)} · ${f.page.name}`), h('span', { class: 'dim' }, tr('The page is sent with your message, so the developer knows which one it is.')))
@@ -2004,7 +2481,8 @@ function recorderKey(ev) {
 // ---------- State → screen ----------
 function render() {
   const q = qEl.value.trim();
-  filterEl.textContent = type === 'all' ? '' : tr('Filter · {name}', { name: tr(TYPES.find(([t]) => t === type)[1]) });
+  // Always shown, "All" included, so Tab's filter is never a guess.
+  filterEl.textContent = tr('Filter · {name}', { name: tr(TYPES.find(([t]) => t === type)[1]) });
   if (recorder) {
     listKey = '';
     contentEl.replaceChildren(renderRecorder());
@@ -2024,6 +2502,9 @@ function render() {
   } else if (detail) {
     listKey = '';
     contentEl.replaceChildren(renderDetail(detail));
+  } else if (barState.loading) {
+    listKey = '';
+    contentEl.replaceChildren(h('div', { class: 'list' }, [150, 110, 180].map((w) => h('div', { class: 'row skel-row', 'aria-hidden': 'true' }, h('i', { class: 'skel', style: 'width: 70px; height: 12px' }), h('i', { class: 'skel', style: `width: ${w}px; height: 18px` }), h('i', { class: 'skel skel-fill', style: 'height: 12px' })))));
   } else if (results.length) {
     // Same result set as on screen: keep the rows (and their finished animation), just move the highlight.
     const key = `${type}|${results.map((e) => e.id).join()}`;
@@ -2036,6 +2517,7 @@ function render() {
       h('div', { class: 'empty' }, h('span', { class: 'empty-tag in' }, tr('No signal')), h('span', { class: 'empty-text in', delay: 60 }, tr('Nothing matches “{q}”', { q }))),
     );
   }
+  stateLead(q);
   scrollEl.scrollTop = 0;
   widthPending = true;
   fit();
@@ -2117,6 +2599,8 @@ function fit() {
 
 function search() {
   closeCompare(true);
+  trail = [];
+  ahead = [];
   results = CompanionSearch.search(index, qEl.value, { type, collapseVariants: true });
   idx = 0;
   detail = null;
@@ -2133,13 +2617,37 @@ function setIdx(i, scroll = true) {
 
 function open(i) {
   if (!results[i]) return;
+  ahead = [];
   idx = i;
   detail = results[i];
   render();
 }
 
+// The pages opened by links from other pages (a ship's component, a blueprint's mission…), so Esc and Back go back
+// to the page the link was on, scrolled where it was. A new search starts afresh.
+let trail = [];
+// The pages Back left, for the mouse's Forward button; newest last.
+let ahead = [];
+const snapshot = () => ({ query: qEl.value, type, results, idx, detail, scroll: scrollEl.scrollTop });
+function restore(prev) {
+  qEl.value = prev.query;
+  type = prev.type;
+  results = prev.results;
+  idx = prev.idx;
+  detail = prev.detail;
+  render();
+  // After the page is laid out: its own scroll position, not the top.
+  requestAnimationFrame(() => requestAnimationFrame(() => { scrollEl.scrollTop = prev.scroll; }));
+  qEl.focus();
+}
 function back() {
   closeCompare(true);
+  if (detail) ahead.push(snapshot());
+  const prev = trail.pop();
+  if (prev) {
+    restore(prev);
+    return;
+  }
   detail = null;
   render();
   setIdx(idx);
@@ -2147,7 +2655,18 @@ function back() {
 }
 
 // Cross-links inside a detail jump straight to the named entry.
+// The mouse's Forward: the page Back left. From a page, that page goes on the trail, so Back returns to it.
+function forward() {
+  const next = ahead.pop();
+  if (!next) return;
+  closeCompare(true);
+  if (detail) trail.push(snapshot());
+  restore(next);
+}
+
 function goTo(query, t) {
+  if (detail && !settingsOpen) trail.push(snapshot());
+  ahead = [];
   settingsOpen = false;
   qEl.value = query;
   type = t;
@@ -2158,6 +2677,17 @@ function goTo(query, t) {
   render();
   qEl.focus();
 }
+
+// The mouse's side buttons (Back is button 3, Forward 4), over the panel. Not while a panel of its own is open
+// (settings, the report form, the shortcut recorder, the first notice): those close with Esc.
+window.addEventListener('mouseup', (ev) => {
+  if (ev.button !== 3 && ev.button !== 4) return;
+  ev.preventDefault();
+  if (settingsOpen || feedback?.open || recorder || notice) return;
+  if (ev.button === 3) { if (detail) back(); } else forward();
+});
+// Chromium would otherwise read them as the page's own Back and Forward.
+window.addEventListener('mousedown', (ev) => { if (ev.button === 3 || ev.button === 4) ev.preventDefault(); });
 
 // ---------- Input ----------
 let timer;
@@ -2227,9 +2757,9 @@ document.addEventListener('keydown', (ev) => {
 companion.onFeedback(openFeedback);
 companion.onSettings(openSettings);
 $('settings-btn').addEventListener('click', () => (settingsOpen ? closeSettings() : openSettings()));
-$('suggest').addEventListener('click', (ev) => {
+$('report-bug').addEventListener('click', (ev) => {
   ev.preventDefault();
-  openFeedback();
+  openBugReport();
 });
 $('coffee').addEventListener('click', (ev) => {
   ev.preventDefault();
@@ -2238,6 +2768,82 @@ $('coffee').addEventListener('click', (ev) => {
 $('clear').addEventListener('click', () => {
   if (qEl.value) { qEl.value = ''; type = 'all'; search(); qEl.focus(); } else companion.hide();
 });
+// ---------- The bar's state: offline, updating, the database not loaded (the design's States board) ----------
+const STATE_ICONS = {
+  offline: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M1 5 Q7 0 13 5 M3.5 8 Q7 5 10.5 8 M7 11.5 L7 11.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2 13 L12 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  updating: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M12 7 A5 5 0 1 1 9.5 2.7 M12 1.5 L12 4.5 L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  error: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1.5 L13 12 H1 Z M7 5.5 V8.5 M7 10.3 V10.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+const STATE_WORDS = {
+  offline: ['Offline', 'No connection: the data shown is the last saved. Live prices and the PU version wait for the connection.'],
+  updating: ['Updating', 'The database is updating: results may be out of date until it finishes.'],
+  error: ['Error', 'The database could not be loaded.'],
+};
+const barState = { offline: !navigator.onLine, updating: false, error: false, loading: true };
+function paintBarState() {
+  const which = barState.error ? 'error' : barState.updating ? 'updating' : barState.offline ? 'offline' : null;
+  const el = $('bar-state');
+  el.hidden = !which;
+  document.querySelector('.bar').classList.toggle('err', which === 'error');
+  $('bar-run').hidden = !barState.loading;
+  if (!which) return;
+  el.className = `bar-state${which === 'error' ? ' err' : ''}`;
+  el.innerHTML = STATE_ICONS[which];
+  el.append(tr(STATE_WORDS[which][0]));
+  el.title = tr(STATE_WORDS[which][1]);
+}
+window.addEventListener('online', () => { barState.offline = false; paintBarState(); });
+window.addEventListener('offline', () => { barState.offline = true; paintBarState(); });
+companion.onDbUpdating?.(() => { barState.updating = true; paintBarState(); render(); });
+paintBarState();
+
+// What the bar's state means, over the results (the design's States board): offline and a database that did not
+// load say so in a panel with Retry; while the database updates, a line says the results may be out of date.
+function stateLead(q) {
+  contentEl.querySelector('.state-lead')?.remove();
+  if (recorder || settingsOpen || feedback?.open || notice) return;
+  let lead = null;
+  if (barState.error) {
+    lead = statePanel('err', 'The database did not load', 'Something went wrong while loading the data. Try again in a moment.', retryLoad);
+  } else if (q && barState.offline) {
+    lead = statePanel('warn', 'No connection', 'Showing the last saved data: live prices and the PU version may be out of date.', retryNet);
+  } else if (q && barState.updating) {
+    lead = h('div', { class: 'state-lead state-note' }, tr('Data may be out of date while it updates.'));
+  }
+  if (lead) contentEl.prepend(lead);
+}
+function statePanel(kind, title, text, retry) {
+  const btn = h('button', { class: 'state-retry', onclick: async () => { btn.disabled = true; btn.textContent = tr('Retrying…'); await retry(); } }, tr('Retry'));
+  return h('div', { class: `state-lead state-panel ${kind}` },
+    h('div', { class: 'state-words' }, h('span', { class: 'state-title' }, tr(title)), h('span', { class: 'state-text' }, tr(text))),
+    btn);
+}
+// Offline: ask for the live data again; the panel goes once the connection is back.
+async function retryNet() {
+  await companion.retryNet?.();
+  barState.offline = !navigator.onLine;
+  paintBarState();
+  render();
+}
+// The database did not load: load it again.
+async function retryLoad() {
+  barState.error = false;
+  barState.loading = true;
+  paintBarState();
+  render();
+  try {
+    await load();
+  } catch (err) {
+    barState.loading = false;
+    barState.error = true;
+    paintBarState();
+    $('dbinfo').textContent = `Could not load the database: ${err.message}`;
+  }
+  render();
+}
+window.addEventListener('online', () => render());
+window.addEventListener('offline', () => render());
+
 // ---------- Icon ⇄ bar ----------
 const body = document.body;
 const wrapEl = $('wrap');
@@ -2420,6 +3026,9 @@ companion.onLayout((layout) => {
   fit();
 });
 companion.onDbUpdated(({ ok }) => {
+  barState.updating = false;
+  paintBarState();
+  render();
   $('dbinfo').textContent = ok ? 'Database updated — reloading…' : 'Some sources failed to update; previous data kept.';
   load();
 });
@@ -2428,12 +3037,15 @@ async function load() {
   const [raw, cfg] = await Promise.all([companion.loadDb(), companion.config()]);
   CompanionI18n.setLanguage(cfg.language);
   translateStatic();
+  setupMiningButton();
   maxHeight = cfg.maxHeight;
   zoom = cfg.zoom || 1;
   applyLayoutVars(cfg.dockOpacity);
   sendGeometry();
   $('hotkey').textContent = $('hotkey2').textContent = cfg.hotkey;
   const db = JSON.parse(raw);
+  db.entries.push({ ...MINING_ENTRY, s: tr(MINING_ENTRY.s) }); // part of the app, not of the data: it works with any database
+  CompanionSearch.labelArmors(db.entries);
   index = CompanionSearch.buildIndex(db.entries);
   dbEntries = db.entries;
   applyLiveCommodities(await companion.commoditiesLive());
@@ -2443,7 +3055,10 @@ async function load() {
   const total = Object.values(db.meta.counts).reduce((a, b) => a + b, 0);
   const sources = Object.entries(db.meta.sources).filter(([, s]) => s);
   const oldest = sources.map(([, s]) => s.fetchedAt.slice(0, 10)).sort()[0];
-  $('dbinfo').textContent = tr('{records} records · data {date}', { records: fmt(total), date: oldest });
+  barState.loading = false;
+  barState.error = false;
+  paintBarState();
+  $('dbinfo').textContent = tr('{records} records', { records: fmt(total) });
   dataDate = oldest;
   gameVersion = db.meta.gameVersion || null;
   dataBuiltAt = db.meta.builtAt || null;
@@ -2455,5 +3070,5 @@ async function load() {
 
 fit();
 load()
-  .catch((err) => { $('dbinfo').textContent = `Could not load the database: ${err.message}`; })
+  .catch((err) => { barState.loading = false; barState.error = true; paintBarState(); $('dbinfo').textContent = `Could not load the database: ${err.message}`; })
   .finally(() => companion.ready());

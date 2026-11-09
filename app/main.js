@@ -1,3 +1,12 @@
+// A test copy that crashes says so in its output and quits: no error dialog on the player's screen. It comes
+// first so that it also covers a module that cannot be found.
+if (process.env.SC_SNAPSHOT || process.env.SC_UPDATE_TEST) {
+  process.on('uncaughtException', (err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, net, shell, Tray, Menu, nativeImage, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
@@ -5,6 +14,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 const i18n = require('./renderer/i18n.js');
 const hangar = require('./renderer/hangar.js');
+const miningText = require('./renderer/mining.js');
+const { createEngine } = require('./mining.js');
 const T = i18n.t;
 
 const REPO = { owner: 'VorxenSC', repo: 'StarCompanion' };
@@ -26,14 +37,14 @@ const DEFAULT_CONFIG = {
   hotkey: 'PageDown', // the single key that shows/hides the overlay (Electron Accelerator format)
   hideOnBlur: true, // close when you click back into the game
   // Each window's transparency goes from 0 (solid) to 1 (as see-through as stays usable) in 20% steps.
-  // The search bar and the icon start at 40%; the pins start solid.
-  transparency: 0.4, // the search bar and its results
+  // The search bar and the icon start at 20%; the pins start solid.
+  transparency: 0.2, // the search bar and its results
   height: 1520, // maximum height (capped to the screen); the window shrinks to fit shorter results
-  windowWidth: 720, // the design's 680px column plus room for its glow; changed with the resize grip
+  windowWidth: 812, // a 772px column plus room for its glow; changed with the resize grip
   zoom: 1, // text size: Ctrl+= / Ctrl+- / Ctrl+0 in the overlay, or the tray menu
   dock: true, // keep a discreet icon on screen while the overlay is closed
   iconSeen: false, // true once the player has opened the bar themselves; until then the icon shakes to be noticed
-  dockTransparency: 0.4, // that icon, when the mouse is not over it
+  dockTransparency: 0.2, // that icon, when the mouse is not over it
   showNotice: true, // the "Before you start" notice at launch, until "Don't show this again"
   checkUpdates: true, // look for a new release on GitHub at launch and ask before installing it
   skipVersion: null, // a release the player chose not to be reminded about
@@ -706,13 +717,17 @@ const PIN_MODES = ['ship', 'fps', 'vehicle', 'mineral', 'hangar', 'map'];
 // laid out at the kind's base width and scaled to the width dragged, text and all, so a bigger pin
 // reads more easily. The map is also fainter than the icon so the game shows through.
 const PIN_MAP_WIDTH = 420;
+const PIN_MINING_WIDTH = 230;
 const PIN_SCALE = { min: 0.75, max: 4 };
 // Each kind of pin keeps its own transparency (its small slider): the map, the hangar timer, the lists.
-const pinKind = (mode) => (mode === 'map' || mode === 'hangar' ? mode : 'list');
-const pinTransparency = (kind = pinKind(config.pinSignatures)) => toStep(config.pinTransparency?.[kind]);
-const pinBaseWidth = (kind) => (kind === 'map' ? PIN_MAP_WIDTH : PIN_WIDTH);
+const pinKind = (mode) => (mode === 'map' || mode === 'hangar' || mode === 'mining' ? mode : 'list');
+// While the Mining Assistant scans its reading takes the pin; whatever was pinned comes back when it stops.
+const pinMode = () => (mining.on ? 'mining' : config.pinSignatures);
+const pinIsOn = () => mining.on || PIN_MODES.includes(config.pinSignatures);
+const pinTransparency = (kind = pinKind(pinMode())) => toStep(config.pinTransparency?.[kind]);
+const pinBaseWidth = (kind) => (kind === 'map' ? PIN_MAP_WIDTH : kind === 'mining' ? PIN_MINING_WIDTH : PIN_WIDTH);
 // The height a view takes at its base width.
-const pinBaseHeight = (view) => (view.map ? 52 + ((PIN_MAP_WIDTH - 22) * view.map.h) / view.map.w : view.hangar ? 98 : 48 + view.rows.length * 17);
+const pinBaseHeight = (view) => (view.mining ? 136 + view.mining.alternatives.length * 17 : view.map ? 52 + ((PIN_MAP_WIDTH - 22) * view.map.h) / view.map.w : view.hangar ? 98 : 48 + view.rows.length * 17);
 const pinWantedWidth = (kind) => Number(config.pinWidths?.[kind]) || (kind === 'map' && Number(config.pinMapWidth)) || pinBaseWidth(kind);
 const ZONE_MAP_URL = 'https://contestedzonetimers.com/maps/';
 // A zone map sent by the overlay, kept only if it is one of contestedzonetimers.com's maps.
@@ -756,7 +771,8 @@ let pinRows = []; // [{ n, tier, category, sig, rs: [1×…10×] }] from the ove
 // What the list shows now: { title, unit, rows: [{ label, value, tier }] }, the hangar timer
 // ({ hangar: anchor, title, labels }, which the pin counts down itself), or null.
 function pinView() {
-  const mode = config.pinSignatures;
+  const mode = pinMode();
+  if (mode === 'mining') return { mining: miningText.view(mining.reading, T), title: T('Mining'), unit: miningText.view(mining.reading, T).context };
   if (!PIN_MODES.includes(mode)) return null;
   if (mode === 'map') {
     const m = config.pinMap;
@@ -800,13 +816,14 @@ function createPin() {
 
 function sendPinData() {
   const view = pinView();
-  if (view) pinWin?.webContents.send('pin:data', { ...view, transparency: pinTransparency(), transparencyLabel: T('Transparency') });
+  if (view) pinWin?.webContents.send('pin:data', { ...view, transparency: pinTransparency(), transparencyLabel: T('Transparency'), closeLabel: T('Close') });
 }
 
 // Beside the icon, on the side facing the middle of the screen, top-aligned with it.
 function updatePin() {
   const view = pinView();
-  const wanted = view && state !== 'open' && state !== 'closing' && !SNAPSHOT && !splash;
+  syncMining();
+  const wanted = view && !splash && (SNAPSHOT ? mining.on : state !== 'open' && state !== 'closing'); // a test copy only shows the mining pin
   if (!wanted) {
     if (pinWin?.isVisible()) pinWin.hide();
     return;
@@ -815,8 +832,9 @@ function updatePin() {
   const dock = dockPosition();
   const { workArea: a } = screen.getDisplayNearestPoint({ x: dock.x + DOCK_SIZE / 2, y: dock.y + DOCK_SIZE / 2 });
   pinWin.setOpacity(smallOpacityFor(pinTransparency())); // what the pin's own slider says
+  pinWin.setContentProtection(mining.on); // the reading engine must never read its own card
   // As wide as dragged, keeping its proportions, and never wider or taller than the screen allows.
-  const kind = pinKind(config.pinSignatures);
+  const kind = pinKind(pinMode());
   const base = pinBaseWidth(kind);
   const baseHeight = pinBaseHeight(view);
   const fits = Math.min((a.width - DOCK_SIZE) / base, a.height / baseHeight, PIN_SCALE.max);
@@ -839,23 +857,27 @@ let pinDrag = null;
 ipcMain.on('pin:grip', (_e, over) => pinWin?.setIgnoreMouseEvents(!over, { forward: true }));
 // A pin's transparency slider (0% to 100% in 20% steps): applied while it moves, saved when let go.
 ipcMain.on('pin:alpha', (_e, value, done) => {
-  if (!pinWin || !PIN_MODES.includes(config.pinSignatures) || !TRANSPARENCY_STEPS.includes(value)) return;
-  const kind = pinKind(config.pinSignatures);
+  if (!pinWin || !pinIsOn() || !TRANSPARENCY_STEPS.includes(value)) return;
+  const kind = pinKind(pinMode());
   config.pinTransparency = { ...config.pinTransparency, [kind]: value };
   pinWin.setOpacity(smallOpacityFor(value));
   if (done) saveConfig();
 });
-// The map's close button: unpins it (Settings, the tray or the page's Pin map bring it back).
+// Every pin's close button: unpins it (Settings, the tray or the page's Pin button bring it back).
 ipcMain.on('pin:close', () => {
-  if (config.pinSignatures !== 'map') return;
+  if (mining.on) {
+    pinWin?.setIgnoreMouseEvents(true, { forward: true });
+    return setMining(false);
+  }
+  if (!PIN_MODES.includes(config.pinSignatures)) return;
   pinWin?.setIgnoreMouseEvents(true, { forward: true });
   setPinSignatures(false);
   win?.webContents.send('pin:changed');
 });
 const setPinWidth = (kind, width) => { config.pinWidths = { ...config.pinWidths, [kind]: width }; };
 ipcMain.on('pin:resize', (_e, phase, screenX) => {
-  if (!pinWin || !PIN_MODES.includes(config.pinSignatures)) return;
-  const kind = pinKind(config.pinSignatures);
+  if (!pinWin || !pinIsOn()) return;
+  const kind = pinKind(pinMode());
   if (phase === 'reset') {
     setPinWidth(kind, pinBaseWidth(kind));
     saveConfig();
@@ -885,6 +907,71 @@ function setPinSignatures(mode, detail) {
   buildTray();
   sendPinData();
   updatePin();
+}
+
+// ---------- Mining Assistant ----------
+// Reads the radar signature off the screen and says what it is, in the pin beside the icon. It only reads
+// while the bar is closed: with the bar open the player is looking at it, not at a rock. The reading
+// engine is a helper program (app/mining.js) that starts with the scan and ends with it.
+const MINING_REPLAY = process.env.SC_MINING_REPLAY; // dev aid: read images from a folder, not the screen
+const MINING_HISTORY = 12;
+const mining = { on: false, scanning: false, ready: null, error: null, reading: null, last: null, history: [], context: 'auto' };
+const engine = createEngine({ replay: MINING_REPLAY, onMessage: miningMessage });
+
+function miningSnapshot() {
+  const { on, scanning, ready, error, reading, last, history, context } = mining;
+  return { on, scanning, ready, error, reading, last, history, context };
+}
+
+function miningChanged() {
+  win?.webContents.send('mining:update', miningSnapshot());
+  sendPinData();
+  updatePin();
+}
+
+function miningMessage(m) {
+  if (m.type === 'ready') { mining.ready = { ocr: m.ocr, monitor: m.monitor }; mining.error = null; }
+  else if (m.type === 'scanning') mining.scanning = !!m.on;
+  else if (m.type === 'reading') {
+    mining.reading = m.reading;
+    const r = m.reading;
+    if (r && r.kind !== 'idle') {
+      if (!r.held && r.rs !== mining.last?.rs) mining.history = [{ ...r, at: Date.now() }, ...mining.history].slice(0, MINING_HISTORY);
+      mining.last = r;
+    }
+  }
+  else if (m.type === 'error') {
+    mining.error = m.code === 'ocr' ? { code: m.code, message: m.message } : { code: m.code };
+    if (m.code !== 'scan') stopMining();
+  }
+  else if (m.type === 'exit') stopMining();
+  miningChanged();
+}
+
+function stopMining() {
+  mining.on = false;
+  mining.scanning = false;
+  mining.reading = null;
+  engine.stop();
+}
+
+let miningAsked = false; // what the engine was last told, so it hears each change once
+function syncMining() {
+  const want = mining.on && (SNAPSHOT ? !!MINING_REPLAY : state === 'docked' || state === 'hidden');
+  if (want === miningAsked || !engine.running()) { if (!engine.running()) miningAsked = false; return; }
+  miningAsked = want;
+  engine.send(want ? 'start' : 'stop');
+}
+
+function setMining(on) {
+  if (on === mining.on) return miningSnapshot();
+  if (on) {
+    mining.error = null;
+    if (engine.start()) mining.on = true;
+  } else stopMining();
+  buildTray();
+  miningChanged();
+  return miningSnapshot();
 }
 
 // ---------- Splash ----------
@@ -1226,6 +1313,7 @@ function updateData() {
   if (updating) return;
   updating = true;
   buildTray();
+  win?.webContents.send('db:updating');
   // Runs the collectors with Electron's bundled Node, so no separate Node install is needed.
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'update-all.js')], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', SC_DATA_DIR: DATA_DIR },
@@ -1250,6 +1338,7 @@ function buildTray() {
       { label: T('Show / hide ({key})', { key: config.hotkey }), click: toggle },
       { label: T('Settings…'), click: openSettings },
       { label: T('Pin to Screen'), submenu: pinMenu() },
+      { label: T(mining.on ? 'Stop mining scan' : 'Start mining scan'), click: () => setMining(!mining.on) },
       { type: 'separator' },
       updateStatus
         ? { label: updateStatus, enabled: false }
@@ -1364,6 +1453,16 @@ function snapshotMode(spec) {
         const mods = Object.fromEntries(parts.map((m) => [`${m}Key`, true]));
         await win.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({ code, key: code, ...mods })}))`);
       }
+      else if (step === '@mining-on') setMining(true);
+      else if (step === '@mining-off') setMining(false);
+      else if (step.startsWith('@mining-fake:')) miningMessage({ type: 'reading', reading: JSON.parse(step.slice(13)) }); // a reading of any kind, to see how it looks
+      else if (step.startsWith('@wait:')) await new Promise((r) => setTimeout(r, Number(step.slice(6))));
+      else if (step === '@pin-shot') {
+        // The pin instead of the overlay, in the next snapshot's number.
+        await new Promise((r) => setTimeout(r, 500));
+        fs.writeFileSync(path.join(dir, `snap-${++n}-pin.png`), (await pinWin.webContents.capturePage()).toPNG());
+        continue;
+      }
       else if (step === '@dock') close();
       else if (step === '@open') open();
       else if (step === '@left' || step === '@right') {
@@ -1394,8 +1493,21 @@ function snapshotMode(spec) {
 }
 
 ipcMain.handle('db:load', () => fs.promises.readFile(dbFile(), 'utf8'));
-ipcMain.handle('commodities:live', () => liveCommodities); // the latest fetch, for a database reloaded later
+ipcMain.handle('commodities:live', () => liveCommodities);
+// The overlay's Retry when offline: the PU version and the commodity prices, asked for again.
+ipcMain.handle('net:retry', async () => {
+  await Promise.allSettled([checkGameVersion(), refreshCommodities()]);
+  return true;
+}); // the latest fetch, for a database reloaded later
 ipcMain.handle('hangar:anchor', () => hangarAnchor());
+ipcMain.handle('mining:get', () => miningSnapshot());
+ipcMain.handle('mining:set', (_e, on) => setMining(!!on));
+ipcMain.on('mining:context', (_e, context) => {
+  if (!['auto', 'space', 'surface'].includes(context)) return;
+  mining.context = context;
+  engine.send(`context ${context}`);
+  miningChanged();
+});
 ipcMain.handle('app:config', () => ({ language: i18n.getLanguage(), hotkey: config.hotkey, maxHeight: maxHeight(), zoom: config.zoom, dockOpacity: dockOpacity(), liveGameVersion }));
 ipcMain.on('overlay:hide', () => close());
 ipcMain.on('overlay:closed', () => finishClose());
@@ -1467,6 +1579,7 @@ if (!SNAPSHOT && !UPDATE_TEST && !app.requestSingleInstanceLock()) {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     stopKeyHelper();
+    engine.stop();
   });
   app.on('window-all-closed', (e) => e.preventDefault());
 }

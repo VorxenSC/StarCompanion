@@ -1,28 +1,30 @@
 {
   "name": "star-companion",
   "productName": "Star Companion",
-  "version": "0.4.54",
+  "version": "0.5.2",
   "description": "In-game search overlay for Star Citizen: items, ships, blueprints, missions and minerals.",
   "author": "Vorxen",
   "repository": "github:VorxenSC/StarCompanion",
   "main": "app/main.js",
   "private": true,
   "scripts": {
-    "start": "node scripts/build-keys.js && electron .",
+    "start": "node scripts/build-keys.js && node scripts/build-mining.js && electron .",
     "collect:craft": "node scripts/collect-craft.js",
     "collect:miner": "node scripts/collect-miner.js",
     "collect:cstone": "node scripts/collect-cstone.js",
     "collect:wiki": "node scripts/collect-wiki.js",
+    "collect:components": "node scripts/collect-components.js",
     "collect:ships": "node scripts/collect-ships.js",
     "collect:market": "node scripts/collect-market.js",
     "collect:commodities": "node scripts/collect-commodities.js",
     "collect:factions": "node scripts/collect-factions.js",
     "collect:images": "node scripts/collect-images.js",
     "collect:rsi-prices": "node scripts/collect-rsi-prices.js",
+    "build:mining": "node scripts/build-mining.js",
     "build:db": "node scripts/build-db.js",
     "update-data": "node scripts/update-all.js",
-    "dist": "node scripts/archive-old.js && node scripts/build-keys.js && electron-builder --win nsis",
-    "dist:portable": "node scripts/archive-old.js && node scripts/build-keys.js && electron-builder --win portable",
+    "dist": "node scripts/archive-old.js && node scripts/build-keys.js && node scripts/build-mining.js && electron-builder --win nsis",
+    "dist:portable": "node scripts/archive-old.js && node scripts/build-keys.js && node scripts/build-mining.js && electron-builder --win portable",
     "test": "node --test test/*.test.js"
   },
   "build": {
@@ -37,7 +39,8 @@
       "scripts/**",
       "package.json",
       "!scripts/probe-blobs.js",
-      "!scripts/archive-old.js"
+      "!scripts/archive-old.js",
+      "!app/bin/StarCompanionKeys.info.cs"
     ],
     "asar": false,
     "publish": [

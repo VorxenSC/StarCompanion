@@ -1,9 +1,28 @@
 /* global pin, CompanionHangar */
 // The main process sends what to show: { title, unit, rows: [{ label, value, tier }] } for a list of
 // signatures, { hangar: anchor, title, labels } for the Executive Hangar timer, counted down here, or
-// { map: { url, w, h }, title, credit } for a contested zone map.
+// { map: { url, w, h }, title, credit } for a contested zone map, or { mining, title, unit } for what the
+// Mining Assistant is reading now.
 const $ = (id) => document.getElementById(id);
 let ticker = null;
+
+function showMining(m) {
+  $('mining').dataset.tone = m.tone;
+  $('mining').classList.toggle('held', m.held);
+  $('pm-headline').textContent = m.headline;
+  $('pm-rs').textContent = m.rs;
+  $('pm-count').textContent = m.count;
+  $('pm-status').textContent = [m.status, m.confidence].filter(Boolean).join(' · ');
+  $('pm-alts').replaceChildren(...m.alternatives.map((a) => {
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.textContent = a.label;
+    const share = document.createElement('span');
+    share.textContent = a.share;
+    li.append(name, share);
+    return li;
+  }));
+}
 
 function showHangar(anchor, labels, lang) {
   const time = (s) => new Date(s * 1000).toLocaleTimeString(lang || [], { hour: '2-digit', minute: '2-digit' });
@@ -28,7 +47,7 @@ function showHangar(anchor, labels, lang) {
   ticker = setInterval(tick, 1000);
 }
 
-// Every pin's resize corner and opacity slider, and the map's close button: while the pointer is on one
+// Every pin's resize corner, opacity slider and close button: while the pointer is on one
 // of them the window takes the mouse (it is click-through otherwise). A drag on the corner sends the
 // pointer's screen position to the main process, which sizes the window (the content scales with it);
 // the slider sets the pin's transparency (0% solid … 100%); the × unpins the map.
@@ -43,11 +62,15 @@ const onHot = (e) => [...document.querySelectorAll('.pin-hot')].some((el) => {
   return e.clientX >= r.left - 4 && e.clientX <= r.right + 4 && e.clientY >= r.top - 4 && e.clientY <= r.bottom + 4;
 });
 document.addEventListener('mousemove', (e) => {
+  document.body.classList.add('pointer-in'); // the pin's × shows
   if (dragging) return;
   const over = onHot(e);
   if (over !== overHot) { overHot = over; pin.grip(over); }
 });
-document.addEventListener('mouseleave', () => { if (!dragging && overHot) { overHot = false; pin.grip(false); } });
+document.addEventListener('mouseleave', () => {
+  document.body.classList.remove('pointer-in');
+  if (!dragging && overHot) { overHot = false; pin.grip(false); }
+});
 $('close').addEventListener('click', () => { overHot = false; pin.close(); });
 grip.addEventListener('pointerdown', (e) => {
   dragging = true;
@@ -72,18 +95,26 @@ document.addEventListener('pointerup', () => { if (sliding) { sliding = false; d
 pin.onData((data) => {
   clearInterval(ticker);
   $('title').textContent = data.title;
-  $('list').hidden = !!(data.hangar || data.map);
+  $('list').hidden = !!(data.hangar || data.map || data.mining);
+  $('mining').hidden = !data.mining;
   $('hangar').hidden = !data.hangar;
   $('map').hidden = !data.map;
   $('credit').hidden = !data.map;
-  $('close').hidden = !data.map;
+  $('close').hidden = false; // every pin can be closed from the pin itself
+  $('close').title = $('close').ariaLabel = data.closeLabel || 'Close';
   $('pin').classList.toggle('is-map', !!data.map);
   $('pin').classList.toggle('is-hangar', !!data.hangar);
+  $('pin').classList.toggle('is-mining', !!data.mining);
   alpha.value = String(data.transparency ?? 0);
   const transparencyTitle = () => `${data.transparencyLabel || ''} ${Math.round(alpha.value * 100)}%`;
   alpha.title = transparencyTitle();
   alpha.oninput = () => { alpha.title = transparencyTitle(); };
   if (data.hangar) return showHangar(data.hangar, data.labels, data.lang);
+  if (data.mining) {
+    $('unit').textContent = data.unit || '';
+    $('unit').className = 'pin-unit';
+    return showMining(data.mining);
+  }
   if (data.map) {
     $('unit').textContent = '';
     $('unit').className = 'pin-unit';

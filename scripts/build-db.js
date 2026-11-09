@@ -826,6 +826,23 @@ add({
   },
 });
 
+// ---------- Ship components in full (collect-components.js), for the loadout calculator ----------
+// Matched to the item of the same name; an item a ship flies with that only the wiki lists still gets its figures.
+const componentsRaw = load('components.json');
+if (componentsRaw) {
+  const byName = new Map(componentsRaw.components.map((c) => [norm(c.name), c]));
+  let matched = 0;
+  for (const e of entries) {
+    if (e.t !== 'item') continue;
+    const c = byName.get(norm(e.n));
+    if (!c) continue;
+    const { uuid, name, ...comp } = c;
+    e.d.comp = comp;
+    matched++;
+  }
+  console.log(`components: ${matched} items with full figures, of ${componentsRaw.components.length} read`);
+}
+
 // ---------- Write ----------
 const meta = {
   builtAt: new Date().toISOString(),
@@ -836,6 +853,7 @@ const meta = {
     'scminer.rocks': miner && { version: miner.version, fetchedAt: miner.fetchedAt },
     'finder.cstone.space': cstone && { fetchedAt: cstone.fetchedAt },
     'starcitizen.tools': wiki && { fetchedAt: wiki.fetchedAt },
+    'starcitizen.tools components': componentsRaw && { fetchedAt: componentsRaw.fetchedAt },
     'uexcorp.space (prices, as used by spviewer)': ships && { fetchedAt: ships.fetchedAt },
     'robertsspaceindustries.com ship matrix': ships?.rsiMatrix?.length ? { fetchedAt: ships.fetchedAt } : undefined,
     'robertsspaceindustries.com store prices': rsiPrices && { fetchedAt: rsiPrices.fetchedAt },

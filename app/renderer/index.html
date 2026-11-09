@@ -18,24 +18,17 @@
       <span class="brand-name">Star Companion</span>
       <span class="brand-by">by Vorxen</span>
       <span class="brand-filter" id="filter"></span>
+      <button class="mine-btn" id="mine-btn" type="button"><img src="mining-icon.svg" alt="" draggable="false" /><span id="mine-label"></span></button>
       <span class="pu" id="pu" hidden></span>
     </div>
 
     <div class="bar">
       <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-      <svg class="bar-icon" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="scTail" gradientUnits="userSpaceOnUse" x1="18" y1="18" x2="26" y2="26">
-            <stop offset="0" stop-color="#5FD4E8" />
-            <stop offset="1" stop-color="#5FD4E8" stop-opacity="0" />
-          </linearGradient>
-        </defs>
-        <circle cx="12" cy="12" r="8" stroke="#5FD4E8" stroke-width="2" />
-        <path d="M12 7 C12.3 10 14 11.7 17 12 C14 12.3 12.3 14 12 17 C11.7 14 10 12.3 7 12 C10 11.7 11.7 10 12 7 Z" fill="#EAFBFF" />
-        <path d="M18 18 L26 26" stroke="url(#scTail)" stroke-width="2.4" stroke-linecap="round" />
-      </svg>
+      <span class="bar-grip" aria-hidden="true"><svg width="10" height="18" viewBox="0 0 10 18" fill="currentColor"><circle cx="2" cy="3" r="1.4"/><circle cx="8" cy="3" r="1.4"/><circle cx="2" cy="9" r="1.4"/><circle cx="8" cy="9" r="1.4"/><circle cx="2" cy="15" r="1.4"/><circle cx="8" cy="15" r="1.4"/></svg></span>
+      <svg class="bar-icon" width="30" height="30" viewBox="87 89 346 346" fill="none" aria-hidden="true"><circle cx="182" cy="287" r="72" stroke="#EAFBFF" stroke-width="38"/><path d="M242 153 H402 L328 367" stroke="#5FD4E8" stroke-width="38" stroke-linecap="square" stroke-linejoin="miter"/></svg>
       <label for="q" class="sr-only" data-i18n="Search Star Companion">Search Star Companion</label>
       <input id="q" type="text" autocomplete="off" spellcheck="false" autofocus placeholder="Search items, ships, blueprints, missions, minerals…" />
+      <span class="bar-state" id="bar-state" hidden></span>
       <div class="bar-key"><kbd id="hotkey">PageDown</kbd><span data-i18n="hide">hide</span></div>
       <button class="icon-btn" id="settings-btn" aria-label="Settings" title="Settings">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -45,6 +38,7 @@
       </button>
     </div>
 
+    <div class="bar-run" id="bar-run" hidden><i></i></div>
     <div class="panel" id="panel">
       <div class="panel-scroll" id="scroll"><div class="panel-content" id="content"></div></div>
     </div>
@@ -55,7 +49,7 @@
       <span><b>TAB</b> <i data-i18n="filter">filter</i></span>
       <span><b id="hotkey2">PageDown</b> <i data-i18n="hide">hide</i></span>
       <span class="hints-data" id="dbinfo">Loading database…</span>
-      <a class="suggest" id="suggest" href="#" title="Send an idea, a bug or a data fix to the developer" data-i18n="Suggest">Suggest</a>
+      <a class="report-link" id="report-bug" href="#" title="Report a bug" aria-label="Report a bug"><span data-i18n="Report">Report</span><svg width="17" height="17" viewBox="0 0 64 64" fill="none" aria-hidden="true"><defs><mask id="bugTraces" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><g stroke="#000" stroke-width="2.8" stroke-linejoin="round"><path d="M32 60 V35"/><path d="M24 60 V50 L21 47 V43"/><path d="M40 60 V50 L43 47 V43"/><circle cx="32" cy="31" r="3.6"/><circle cx="21" cy="39" r="3.6"/><circle cx="43" cy="39" r="3.6"/></g></mask></defs><g stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M26 9 C25 5 22 3 18 3"/><path d="M38 9 C39 5 42 3 46 3"/><path d="M15 27 L8 23 V15"/><path d="M14 38 H4"/><path d="M15 48 L8 52 V60"/><path d="M49 27 L56 23 V15"/><path d="M50 38 H60"/><path d="M49 48 L56 52 V60"/></g><path d="M21 19 C21 12 26 8 32 8 C38 8 43 12 43 19 Z" fill="currentColor"/><path d="M14 23 H50 V38 C50 51 42 60 32 60 C22 60 14 51 14 38 Z" fill="currentColor" mask="url(#bugTraces)"/></svg></a>
       <a class="coffee" id="coffee" href="#" title="Star Companion is free and built in my spare time. If it saved you a trip, a hunt or a few million aUEC, a coffee helps keep it updated every patch. Thank you, citizen — o7">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 6h9v4.5a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V6Z" stroke="currentColor" stroke-width="1.4"/><path d="M11.5 7.5h1a1.75 1.75 0 0 1 0 3.5h-1.2" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 1.8c-.6.7.6 1.3 0 2.2M8.5 1.8c-.6.7.6 1.3 0 2.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
         <span data-i18n="Buy me a coffee =)">Buy me a coffee =)</span>
@@ -68,6 +62,8 @@
   <script src="i18n.js"></script>
   <script src="search.js"></script>
   <script src="hangar.js"></script>
+  <script src="loadout.js"></script>
+  <script src="mining.js"></script>
   <script src="hotkey.js"></script>
   <script src="renderer.js"></script>
 </body>

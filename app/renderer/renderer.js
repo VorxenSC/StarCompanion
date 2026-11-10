@@ -11,8 +11,18 @@ const filterEl = $('filter');
 const COFFEE_URL = 'https://buymeacoffee.com/fpessoau';
 const REPO_URL = 'https://github.com/VorxenSC/StarCompanion';
 // Why the app exists, shown in Settings → About (and in the README).
-const ABOUT_TEXT =
-  "I built Star Companion for players whose PCs struggle to leave Star Citizen: on many machines, a quick Alt+Tab to check a price turns into a long freeze, stutters or even a crash. Here, everything you'd look up sits right on top of the game: press a key, find it, keep flying. And even on a powerful rig, it's simply faster than leaving the cockpit.";
+// The thank-you page opens with the author's own words: who he is, why he made it, what it is for.
+const ABOUT_TEXT = [
+  "Hi! I'm Vorxen, a 44-year-old construction worker, a passionate Star Citizen player and a proud dad to my daughter, Cathy.",
+  "Star Companion came from a need of my own and, of course, from my love for the game. It always bothered me that on my PC, a quick Alt+Tab to check a price or look something up was enough to bring freezes, slowdowns and sometimes even crashes.",
+  "So I set out to build a tool to make my own life easier. Over time, I realised many other players faced the same problem, and I decided to share the project with the community.",
+  "The idea is simple: the information you need, without leaving the game. Just press a key, find what you're looking for and carry on with your journey through the Star Citizen universe.",
+];
+// The thank-you page's second paragraph: a passion project; a coffee helps, with no obligation at all.
+const ABOUT_TEXT_2 =
+  "It's a passion project, made in my spare time. If Star Companion has made your journey a little easier and you'd like to help me keep improving it, buying me a coffee would mean a lot. But there's absolutely no obligation: your feedback, suggestions, or simply sharing it with other pilots are already wonderful ways to support it.";
+// The thank-you page's last line, after the cards.
+const ABOUT_FAREWELL = "Thank you for being part of this journey. See you in the 'verse, pilots! o7";
 // Translate: the English text is the key (see i18n.js). Section titles, notes, table headers, fact
 // labels and link labels are translated by the helpers below; call sites wrap only other text.
 const tr = (key, vars) => CompanionI18n.t(key, vars);
@@ -1824,7 +1834,8 @@ function startCompare(left) {
   close.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" /></svg>';
   const el = h('div', { class: 'wrap2' },
     h('div', { class: 'brand' }, h('span', { class: 'brand-name cmp-title' }, tr('Compare')), h('span', { class: 'brand-filter' }, left.n)),
-    h('div', { class: 'bar' }, corners, input, close),
+    // The main bar's grip and o7 mark, copied, so the text starts where the main bar's does.
+    h('div', { class: 'bar' }, corners, document.querySelector('.wrap .bar-grip')?.cloneNode(true), document.querySelector('.wrap .bar-icon')?.cloneNode(true), input, close),
     panel,
   );
   cmp = { left, el, input, content, panel, results: [], idx: 0, detail: null };
@@ -1841,6 +1852,9 @@ function startCompare(left) {
   scrollEl.addEventListener('scroll', cmp.scrollMain);
   body.classList.add('comparing');
   document.body.append(el);
+  // The brand line as tall as the main one (its version and mining boxes), so the two cards start at the same height.
+  const mainBrand = document.querySelector('.wrap .brand');
+  if (mainBrand) el.querySelector('.brand').style.minHeight = `${mainBrand.offsetHeight}px`;
   companion.compare(true);
   input.addEventListener('input', () => { cmp.detail = null; searchCompare(); });
   el.addEventListener('keydown', compareKey);
@@ -2192,7 +2206,7 @@ const THANKS = [
   ['EXP Carry and The Orbital Ledger', 'https://expcarry.com', 'expcarry.com', 'Contested zone routes, doors and keycards.'],
   ['StarStrings', 'https://github.com/MrKraken/StarStrings', 'github.com/MrKraken/StarStrings', 'Mission tags that fill the gaps.'],
   ['Roberts Space Industries', 'https://robertsspaceindustries.com', 'robertsspaceindustries.com', 'The game we all love, and the ship store prices.'],
-  ['Eclipse', 'https://eclipsegaming.net', 'eclipsegaming.net', 'A community of friends who raid, explore and play together, in Star Citizen and World of Warcraft. Thank you for the support with the design and for testing the app.'],
+  ['Eclipse Gaming', 'https://eclipsegaming.net', 'eclipsegaming.net', 'A community of friends who raid, explore and play together, in Star Citizen and World of Warcraft. Thank you for the support with the design and for testing the app.'],
 ];
 function renderThanks() {
   return h(
@@ -2200,6 +2214,8 @@ function renderThanks() {
     { class: 'notice thanks' },
     h('div', { class: 'detail-type in' }, tr('Thank you')),
     h('div', { class: 'detail-name in', delay: 40 }, tr('Built on the community’s work')),
+    ABOUT_TEXT.map((t, i) => h('p', { class: 'thanks-intro rise', delay: 70 + i * 10 }, tr(t))),
+    h('p', { class: 'thanks-intro rise', delay: 90 }, tr(ABOUT_TEXT_2)),
     h('p', { class: 'thanks-intro rise', delay: 100 }, tr('Star Companion only exists because of people who spent countless hours gathering, checking and sharing what they know about Star Citizen, freely, for everyone. Every price, blueprint, mission and signature you find here started with them. I am deeply grateful, and I try to credit and link back to each of them.')),
     h(
       'div',
@@ -2209,7 +2225,8 @@ function renderThanks() {
         h('span', { class: 'thanks-what' }, tr(what)),
         h('span', { class: 'thanks-url' }, `${shown} ↗`))),
     ),
-    h('p', { class: 'thanks-outro rise', delay: 600 }, tr('And thank you, citizen, for every bug report and idea. If you enjoy what these sites do, visit them, use them and support them: they keep the ’verse mapped for all of us. o7')),
+    h('p', { class: 'thanks-outro rise', delay: 600 }, tr('And thank you, citizen, for every bug report and idea. If you enjoy what these sites do, visit them, use them and support them: they keep the ’verse mapped for all of us.')),
+    h('p', { class: 'thanks-outro thanks-farewell rise', delay: 620 }, tr(ABOUT_FAREWELL)),
     h(
       'div',
       { class: 'notice-actions rise', delay: 640 },
@@ -2397,7 +2414,6 @@ function renderSettings() {
     row('Checklist', 'What the overlay needs to work, checked', h('button', { class: 'set-btn', onclick: () => settingsAction('notice') }, tr('Show')), i++),
     row('Settings file', 'For advanced edits; opens its folder', h('button', { class: 'set-btn', onclick: () => settingsAction('showFile') }, tr('Show in folder')), i++),
     group('About Star Companion'),
-    h('p', { class: cls('about-text rise'), delay: 120 + i++ * 35 }, tr(ABOUT_TEXT)),
     h(
       'div',
       { class: cls('about-links rise'), delay: 120 + i++ * 35 },

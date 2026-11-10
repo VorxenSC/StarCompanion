@@ -283,12 +283,8 @@ body.side-right.comparing { flex-direction: row-reverse; }
 body.comparing .wrap, .wrap2 { flex: 1 1 0; min-width: 0; width: auto; }
 .wrap2 { position: relative; display: flex; flex-direction: column; animation: compareIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .wrap2 .brand { cursor: default; }
-.cmp-title { color: var(--cmp); }
-.wrap2 .brand-filter { color: rgba(var(--soft-rgb), 0.7); text-transform: none; letter-spacing: 0.04em; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wrap2 .bar { border-color: rgba(var(--cmp-rgb), 0.55); }
-.wrap2 .bar:focus-within { border-color: var(--cmp); box-shadow: 0 0 0 1px var(--cmp), 0 0 24px -8px var(--cmp), var(--shadow); }
-.wrap2 .corner { border-color: var(--cmp); }
-.wrap2 #q2 { caret-color: var(--cmp); }
+.wrap2 .brand-filter { max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
+.wrap2 .bar-grip { cursor: default; } /* a copy for the spacing: this card does not move on its own */
 @keyframes compareIn { from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(-28px); } to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; } }
 body.side-right .wrap2 { animation-name: compareInRight; }
 @keyframes compareInRight { from { opacity: 0; clip-path: inset(0 0 0 100%); transform: translateX(28px); } to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; } }
@@ -849,6 +845,8 @@ td .down { color: #ff9b8a; }
 .check-fine { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
 
 /* ---------- Thanks: the data's sources, before the checklist ---------- */
+.thanks-intro + .thanks-intro { margin-top: 10px !important; }
+.thanks-outro.thanks-farewell { margin-top: 12px; font-weight: 600; color: var(--accent); }
 .thanks-intro, .thanks-outro { margin: 0; font-size: 15px; line-height: 1.55; color: rgba(var(--text-rgb), 0.9); }
 .thanks-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
 .thanks-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; text-align: left; background: rgba(var(--card-rgb), 0.45); border: 1px solid var(--line-soft); border-radius: 3px; color: inherit; font: inherit; cursor: pointer; }

@@ -153,6 +153,13 @@ for (const c of wikeloRaw?.contracts || []) {
   wikeloShips++;
 }
 console.log(`wikelo: ${wikeloShips} ship contracts attached`);
+// Ships a patch just put on sale, before UEX and Cornerstone list them (scripts/ship-prices-extra.json): only
+// while the ship has no shop price of its own, so their data takes over as soon as it exists.
+const shipExtra = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'ship-prices-extra.json'), 'utf8')); } catch { return null; } })();
+for (const p of shipExtra?.ships || []) {
+  const ship = shipByName.get(norm(p.name));
+  if (ship && !ship.d.buy.some((b) => b.src !== 'patch')) ship.d.buy.push({ where: p.where, price: p.price, src: 'patch', patch: shipExtra.version });
+}
 for (const p of ships?.shipRent || []) shipByName.get(norm(p.name))?.d.rent.push({ where: p.where, price: p.price, verified: isoDay(p.updated), src: 'uex' });
 
 // ---------- Items: cstone (shops) + wiki (metadata) + scminer mining gear, merged by name ----------
@@ -169,6 +176,7 @@ for (const c of cstone?.items || []) {
   const ship = shipByName.get(norm(c.name));
   if (ship) {
     ship.d.cstoneUrl = `https://finder.cstone.space/Search/${c.id}`;
+    if (c.shops?.length) ship.d.buy = ship.d.buy.filter((b) => b.src !== 'patch'); // Cornerstone's own shops win
     const known = new Set(ship.d.buy.map((b) => norm(b.where)));
     for (const s of c.shops || []) if (!known.has(norm(s.location))) ship.d.buy.push({ where: s.location, price: s.price, verified: realDate(s.verified), src: 'cstone' });
     continue;
@@ -846,8 +854,11 @@ if (componentsRaw) {
 // ---------- Write ----------
 const meta = {
   builtAt: new Date().toISOString(),
-  // The Star Citizen PU version the data is for, as UEX reports it (sc-craft/scminer agree on it).
-  gameVersion: commodities?.gameVersion || craft?.version?.match(/\d+\.\d+(\.\d+)?/)?.[0] || null,
+  // The Star Citizen PU version the data is for: the newest that UEX or scmdb.net report (scmdb.net reads the
+  // game's own files, so it often has a new patch before UEX does; sc-craft/scminer as a fallback).
+  gameVersion: [commodities?.gameVersion, scmdbRaw?.version, craft?.version]
+    .map((v) => String(v || '').match(/\d+\.\d+(\.\d+)?/)?.[0]).filter(Boolean)
+    .sort((a, z) => versionNum(z) - versionNum(a))[0] || null,
   sources: {
     'sc-craft.tools': craft && { version: craft.version, fetchedAt: craft.fetchedAt },
     'scminer.rocks': miner && { version: miner.version, fetchedAt: miner.fetchedAt },

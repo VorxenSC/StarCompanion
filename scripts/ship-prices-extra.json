@@ -1,0 +1,12 @@
+{
+  "about": "In-game shop prices UEX and Cornerstone did not list yet when a patch put the ship on sale. Used only while a ship has no shop price from them; drop an entry once they list it. Shop names follow UEX's.",
+  "version": "4.10.3",
+  "source": "https://ggwtb.com/blog/star-citizen-4-10-3-ptu-ship-prices-and-dealer-locations (prices); Orbituary seen in game by Vorxen",
+  "ships": [
+    { "name": "Origin M80", "where": "Stanton - ArcCorp - Area 18 - Astro Armada", "price": 7980000 },
+    { "name": "Aegis Tiburon", "where": "Stanton - Hurston - Lorville - New Deal Lorville", "price": 37001732 },
+    { "name": "Drake Ironclad Assault", "where": "Pyro - Bloom - Orbituary - Buy and Fly Orbituary", "price": 42880220 },
+    { "name": "Drake Ironclad Assault", "where": "Pyro - Monox - Checkmate Station - Buy and Fly Checkmate", "price": 42880220 },
+    { "name": "Drake Ironclad Assault", "where": "Pyro - Terminus - Ruin Station - Buy and Fly Ruin Station", "price": 42880220 }
+  ]
+}

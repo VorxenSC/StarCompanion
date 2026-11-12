@@ -413,6 +413,11 @@
   "bp": true
  },
  {
+  "title": "Counterstrike Against Vanduul Raiders",
+  "rep": 300,
+  "bp": true
+ },
+ {
   "title": "Crash some ships",
   "rep": 300,
   "bp": true
@@ -536,6 +541,11 @@
   "rep": 25
  },
  {
+  "title": "Draw Out Maulers",
+  "rep": 300,
+  "bp": true
+ },
+ {
   "title": "Driving CFP out",
   "rep": 150,
   "bp": true
@@ -571,6 +581,10 @@
   "title": "Emergency: Blinding Hope in Trouble",
   "rep": 800,
   "bp": true
+ },
+ {
+  "title": "Engage Shattered Blade and Vanduul",
+  "rep": 300
  },
  {
   "title": "ENTRY LVL. COURIER NEEDED IN NYX",
@@ -891,8 +905,18 @@
   "rep": 50
  },
  {
+  "title": "Intercept Vanduul Fleet",
+  "rep": 300,
+  "bp": true
+ },
+ {
   "title": "Intercepted Supply Run",
   "rep": 100,
+  "bp": true
+ },
+ {
+  "title": "Interdict Vanduul Maulers",
+  "rep": 300,
   "bp": true
  },
  {
@@ -982,6 +1006,10 @@
  {
   "title": "Ling Shipment Recovery",
   "rep": 100
+ },
+ {
+  "title": "Living Vanduul Sample",
+  "bp": true
  },
  {
   "title": "Locate Missing Clients",
@@ -1194,6 +1222,11 @@
  {
   "title": "Neutralize UEE Threat: ~mission(TargetName)",
   "rep": 150,
+  "bp": true
+ },
+ {
+  "title": "Neutralize Vanduul and Shattered Blade Threat",
+  "rep": 300,
   "bp": true
  },
  {
@@ -1712,6 +1745,10 @@
   "rep": 300
  },
  {
+  "title": "Retake Boarded Vessel",
+  "rep": 300
+ },
+ {
   "title": "Retake Platforms From Nine Tails",
   "bp": true
  },
@@ -1852,6 +1889,10 @@
  {
   "title": "SEEK AND DESTROY ASD DATA",
   "rep": 50
+ },
+ {
+  "title": "Seek and Destroy Super Stingers",
+  "rep": 300
  },
  {
   "title": "Seeking Experienced Combat Pilots",
@@ -2006,6 +2047,11 @@
   "rep": 3200
  },
  {
+  "title": "Stop Vanduul and Shattered Blade Hostilities",
+  "rep": 300,
+  "bp": true
+ },
+ {
   "title": "Stopping the Competition",
   "rep": 150
  },
@@ -2089,6 +2135,11 @@
  {
   "title": "Target at ~mission(Location)",
   "rep": 50,
+  "bp": true
+ },
+ {
+  "title": "Target Shattered Blade: ~mission(TargetName)",
+  "rep": 150,
   "bp": true
  },
  {
@@ -2206,6 +2257,10 @@
  {
   "title": "UWC'S HIRING REFUELERS",
   "rep": 200
+ },
+ {
+  "title": "Vanduul Strike Group Detected",
+  "rep": 300
  },
  {
   "title": "Vanduul-Tech Smugglers",

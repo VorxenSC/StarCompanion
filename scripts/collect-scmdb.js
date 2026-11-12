@@ -37,6 +37,12 @@ async function main() {
 
   const byId = new Map([...(data.contracts || []), ...(data.legacyContracts || [])].map((c) => [c.id, c]));
   const poolName = (guid) => data.blueprintPools?.[guid]?.name || null;
+  // A pool's blueprints by name, with their weights: one of them is drawn when the pool pays out.
+  const poolsByName = new Map(Object.values(data.blueprintPools || {}).map((p) => [p.name, p]));
+  const poolItems = (b) => {
+    const p = data.blueprintPools?.[b.blueprintPool] || poolsByName.get(b.poolName);
+    return (p?.blueprints || []).filter((x) => x.name).map((x) => ({ name: x.name, weight: x.weight || 1 }));
+  };
 
   const record = (c, legacy) => {
     // The enemy ships: each group (the target, its reinforcements…) with how many and which ships.
@@ -89,7 +95,7 @@ async function main() {
       enemies,
       cargo: cargoOk,
       items: (c.itemRewards || []).map((i) => ({ name: i.name, amount: i.amount })).filter((i) => i.name),
-      blueprintPools: (c.blueprintRewards || []).map((b) => ({ pool: b.poolName || poolName(b.blueprintPool), chance: b.chance, on: b.trigger })).filter((b) => b.pool),
+      blueprintPools: (c.blueprintRewards || []).map((b) => ({ pool: b.poolName || poolName(b.blueprintPool), chance: b.chance, on: b.trigger, items: poolItems(b) })).filter((b) => b.pool),
       next: uniq((c.subContractIds || []).map((id) => byId.get(id)?.title)),
       after: uniq([c.parentDebugName ? byId.get(c.parentId)?.title : null, ...(c.requiredIntros || []).map((r) => r.title)]),
       firstSeen: hist?.first_seen || null,

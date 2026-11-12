@@ -525,6 +525,26 @@ const normC = (s) => norm(String(s || ''));
 // of a mission it lists none for, and a blueprint mission it has no blueprint pool for.
 const starTags = new Map(((() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'starstrings-tags.json'), 'utf8')); } catch { return []; } })()).map((t) => [titleKey(t.title), t]));
 let starRep = 0, starBp = 0;
+// The blueprints a mission gives, from scmdb.net's pools (one blueprint drawn per pool, by weight): used only
+// when sc-craft.tools lists none for the mission, as for a patch it has not caught up with yet.
+let scmBpMissions = 0;
+function scmBlueprints(list) {
+  const best = new Map();
+  for (const c of list) for (const p of c.blueprintPools || []) {
+    if (p.on && p.on !== 'complete') continue;
+    const total = (p.items || []).reduce((a, i) => a + i.weight, 0);
+    for (const i of p.items || []) {
+      const chance = (p.chance ?? 1) * (i.weight / total);
+      if (chance > (best.get(i.name) || 0)) best.set(i.name, chance);
+    }
+  }
+  return [...best].map(([name, chance]) => ({ name, chance: Math.round(chance * 1000) / 1000 }));
+}
+function scmFillBlueprints(d, list) {
+  if (d.blueprints?.length) return;
+  const bps = scmBlueprints(list);
+  if (bps.length) { d.blueprints = bps; scmBpMissions++; }
+}
 function starFill(scm, list, giver, hasBlueprints) {
   const t = starTags.get(titleKey(list[0]?.title));
   if (!t) return;
@@ -558,6 +578,7 @@ for (const e of entries) {
   }
   if (!list.length) continue;
   e.d.scm = scmGroup(list);
+  scmFillBlueprints(e.d, list);
   starFill(e.d.scm, list, e.d.giver, e.d.blueprints?.length);
   scmEnriched++;
   const givers = uniq(list.map((c) => c.contractor));
@@ -611,12 +632,13 @@ for (const list of scmNew.values()) {
       onceOnly: list.every((x) => x.onceOnly) || undefined,
       kinds: uniq(list.map((x) => missionKind(x.debugName))),
       scmdbOnly: true,
-      scm: (() => { const g = scmGroup(list); starFill(g, list, giver, false); return g; })(),
+      blueprints: (() => { const b = scmBlueprints(list); if (b.length) scmBpMissions++; return b.length ? b : undefined; })(),
+      scm: (() => { const g = scmGroup(list); starFill(g, list, giver, scmBlueprints(list).length); return g; })(),
     },
   });
 }
 console.log(`StarStrings tags used: ${starRep} reputations, ${starBp} blueprint marks`);
-console.log(`missions: ${scmEnriched} enriched from scmdb.net, ${scmNew.size} added that only scmdb.net has`);
+console.log(`missions: ${scmEnriched} enriched from scmdb.net, ${scmNew.size} added that only scmdb.net has, ${scmBpMissions} with blueprints from scmdb.net`);
 
 // ---------- Minerals (scminer.rocks) ----------
 // scminer lists some minerals twice in its price data (ore and refined); the entry with a price wins.

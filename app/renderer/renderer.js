@@ -62,11 +62,14 @@ let dataDate = '';
 let gameVersion = null; // the PU version the database was built for
 let dataBuiltAt = null; // when that database was built (ISO), sent with a bug report
 
-// "PU 4.10.2" beside the brand; turns amber with a hint when UEX reports a newer live version.
+// "PU 4.10.2" beside the brand; turns amber with a hint when UEX reports a newer live version. Only newer: the
+// data can be ahead of UEX (scmdb.net reads a new patch's files before UEX moves to it), and that is not stale.
+const puNum = (v) => String(v || '').split('.').map((n) => parseInt(n, 10) || 0).reduce((a, n) => a * 1000 + n, 0);
 function renderPu(live) {
   const el = $('pu');
   if (!gameVersion) return;
   el.hidden = false;
+  if (live && puNum(live) < puNum(gameVersion)) live = null; // UEX has not caught up yet
   const stale = live && live !== gameVersion;
   el.classList.toggle('stale', !!stale);
   el.textContent = stale ? tr('Data PU {data} · PU {live} live', { data: gameVersion, live }) : `PU ${gameVersion}`;
@@ -1345,9 +1348,51 @@ function systemMap(name, o) {
 // The source says "Information Blocked" where it has nothing to show.
 const realValue = (v) => (/^information blocked$/i.test(String(v ?? '').trim()) ? null : v);
 
+// A faction's missions: those it gives (the contractor) or pays reputation with. A mission names its contractor
+// a little differently at times ("Covalex Independent Contractors", "BlacJac Security"): a name that is no
+// faction of its own goes to the faction whose name it starts with.
+let factionMissionsFrom = null;
+let factionMissionsMap = null;
+const nameKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function factionMissions(name) {
+  if (factionMissionsFrom !== dbEntries) {
+    factionMissionsFrom = dbEntries;
+    factionMissionsMap = new Map();
+    const factions = dbEntries.filter((x) => x.t === 'faction').map((x) => nameKey(x.n));
+    const known = new Set(factions);
+    const owner = (n) => {
+      const k = nameKey(n);
+      if (!k) return null;
+      if (known.has(k)) return k;
+      return factions.filter((f) => k.startsWith(`${f} `)).sort((a, z) => z.length - a.length)[0] || null;
+    };
+    for (const m of dbEntries) {
+      if (m.t !== 'mission') continue;
+      const owners = new Set([m.d.giver, m.d.faction, ...(m.d.scm?.rep || []).map((r) => r.faction)].map(owner).filter(Boolean));
+      for (const f of owners) factionMissionsMap.set(f, [...(factionMissionsMap.get(f) || []), m]);
+    }
+  }
+  const key = nameKey(name);
+  // One row per title: the same mission in other systems or difficulties is merged, its reputation as a range
+  // and its rank the lowest that unlocks any of them.
+  const rows = new Map();
+  for (const m of factionMissionsMap.get(key) || []) {
+    const rep = (m.d.scm?.rep || []).filter((r) => nameKey(r.faction) === key || nameKey(r.faction).startsWith(`${key} `));
+    const rank = m.d.scm?.minRank || (m.d.minStanding ? { name: m.d.minStanding } : null);
+    const row = rows.get(m.n) || { name: m.n, repMin: Infinity, repMax: 0, rank: null };
+    for (const r of rep) { row.repMin = Math.min(row.repMin, r.min); row.repMax = Math.max(row.repMax, r.max); }
+    if (rank && (!row.rank || (rank.min ?? Infinity) < (row.rank.min ?? Infinity))) row.rank = rank;
+    rows.set(m.n, row);
+  }
+  // From the first rank to the last, as a player climbs; by name within a rank.
+  return [...rows.values()].sort((a, z) => (a.rank?.min ?? -Infinity) - (z.rank?.min ?? -Infinity) || alpha((r) => r.name)(a, z));
+}
+const repText = (r) => (!r.repMax ? '—' : r.repMin === r.repMax ? `+${fmt(r.repMax)}` : `+${fmt(r.repMin)} – ${fmt(r.repMax)}`);
+
 function viewFaction(e) {
   const d = e.d;
   const ranks = d.ranks || [];
+  const missions = factionMissions(e.n);
   return {
     facts: [
       ['Type', d.type],
@@ -1357,6 +1402,7 @@ function viewFaction(e) {
       ['Headquarters', d.headquarters],
       ['Founded', realValue(d.founded)],
       ['Ranks', ranks.filter((r) => r.min >= 0).length || null],
+      ['Missions', missions.length || null],
     ],
     body: [
       d.description && section('About', h('p', { class: 'desc' }, d.description)),
@@ -1367,6 +1413,12 @@ function viewFaction(e) {
             note('Reputation is earned by completing this faction\'s contracts; each standing unlocks better-paid ones.'),
           )
         : note('No reputation ladder: this faction does not track standing with players.'),
+      missions.length > 0 &&
+        section(
+          'Missions',
+          table([['Mission', ''], ['Reputation', 'num'], ['Rank needed', '']], missions.map((m) => [jump(m.name, m.name, 'mission'), repText(m), rankCell(m.rank)])),
+          note('Reputation is what a mission adds to your standing with this faction when completed; the rank is the lowest that unlocks it.'),
+        ),
       links([['Wiki', d.url], ['Logo', d.logo?.page]]),
     ],
   };

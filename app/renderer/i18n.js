@@ -117,6 +117,8 @@
     'Check now': 'Procurar agora', 'Startup notice': 'Aviso inicial', 'What the overlay needs to work': 'O que o overlay precisa para funcionar', Show: 'Mostrar',
     'Settings file': 'Arquivo de configurações', 'For advanced edits; opens its folder': 'Para edições avançadas; abre a pasta dele', 'Show in folder': 'Mostrar na pasta',
     'About Star Companion': 'Sobre o Star Companion',
+    'Reputation is what a mission adds to your standing with this faction when completed; the rank is the lowest that unlocks it.':
+      'A reputação é o que a missão soma à sua posição com esta facção ao ser concluída; o nível é o mais baixo que a libera.',
     "Hi! I'm Vorxen, a 44-year-old construction worker, a passionate Star Citizen player and a proud dad to my daughter, Cathy.":
       "Olá! Sou o Vorxen, trabalhador da construção civil de 44 anos, jogador apaixonado de Star Citizen e pai orgulhoso da minha filha, Cathy.",
     "Star Companion came from a need of my own and, of course, from my love for the game. It always bothered me that on my PC, a quick Alt+Tab to check a price or look something up was enough to bring freezes, slowdowns and sometimes even crashes.":

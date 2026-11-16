@@ -117,6 +117,8 @@
     'Check now': 'Procurar agora', 'Startup notice': 'Aviso inicial', 'What the overlay needs to work': 'O que o overlay precisa para funcionar', Show: 'Mostrar',
     'Settings file': 'Arquivo de configurações', 'For advanced edits; opens its folder': 'Para edições avançadas; abre a pasta dele', 'Show in folder': 'Mostrar na pasta',
     'About Star Companion': 'Sobre o Star Companion',
+    "The ship loadout calculator that inspired our components and missile racks, and its changelog of every patch.":
+      "A calculadora de loadouts de naves que inspirou nossos componentes e racks de mísseis, e o changelog de cada patch.",
     'Change this missile': 'Trocar este míssil', Standard: 'Padrão', Fixed: 'Fixo', 'This rack is part of the ship: it cannot be changed': 'Este rack faz parte da nave: não pode ser trocado', 'Change this rack': 'Trocar este rack', Rack: 'Rack', Filter: 'Filtro',
     '{n} × S{size}': '{n} × S{size}', '{racks} racks of {load}': '{racks} racks de {load}',
     'Reputation is what a mission adds to your standing with this faction when completed; the rank is the lowest that unlocks it.':
@@ -191,7 +193,7 @@
     "You have {current}. The portable version can't update itself: download the new one from GitHub.": 'Você tem a {current}. A versão portátil não se atualiza sozinha: baixe a nova no GitHub.',
     'You have {current}. Update now? It downloads (about 100 MB), installs and restarts Star Companion.': 'Você tem a {current}. Atualizar agora? Ele baixa (cerca de 100 MB), instala e reinicia o Star Companion.',
     'Open download page': 'Abrir a página de download', 'Update now': 'Atualizar agora', Later: 'Depois', "Don't remind me about this version": 'Não lembrar desta versão',
-    'You have the latest version.': 'Você tem a versão mais recente.', 'Could not check for updates.': 'Não foi possível procurar atualizações.',
+    'You have the latest version.': 'Você tem a versão mais recente.', 'Could not check for updates.': 'Não foi possível procurar atualizações.', 'Could not download the update.': 'Não foi possível baixar a atualização.', 'Download it from GitHub instead.': 'Baixe pelo GitHub.', 'Check your connection and try again in a moment, or see the releases on GitHub.': 'Confira sua conexão e tente de novo em instantes, ou veja as versões no GitHub.',
     'Updates are checked by the installed app.': 'As atualizações são verificadas pelo app instalado.', 'You are running from source; use git pull.': 'Você está rodando pelo código-fonte; use git pull.',
   };
 

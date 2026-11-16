@@ -2408,6 +2408,7 @@ function checkItems() {
 const CHECK_MARK = { ok: '✓', warn: '!', bad: '✕', todo: '→', wait: '…' };
 // ---------- Thanks: the sites the data comes from, before the checklist ----------
 const THANKS = [
+  ['erkul.games', 'https://erkul.games', 'erkul.games', "The ship loadout calculator that inspired our components and missile racks, and its changelog of every patch."],
   ['Star Citizen Wiki', 'https://starcitizen.tools', 'starcitizen.tools', 'Ships, items, weapons, loadouts, factions, missions and locations.'],
   ['Cornerstone Finder', 'https://finder.cstone.space', 'finder.cstone.space', 'Shops, prices and item pictures.'],
   ['UEX Corp', 'https://uexcorp.space', 'uexcorp.space', 'Commodity and terminal prices, the player marketplace and the live PU version.'],

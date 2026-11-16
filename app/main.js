@@ -8,7 +8,6 @@ if (process.env.SC_SNAPSHOT || process.env.SC_UPDATE_TEST) {
 }
 
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, net, shell, Tray, Menu, nativeImage, screen } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -479,8 +478,9 @@ function resetLayout() {
 }
 
 // ---------- Updates (GitHub releases) ----------
-// The installed app downloads and installs a new release after asking. The portable exe can't replace
-// itself, so it only offers the download page.
+// The installed app asks GitHub for the latest release and, after asking the player, downloads its setup exe and
+// runs it over the current install (the releases carry only the exe, no latest.yml). The portable exe can't
+// replace itself, so it only offers the download page.
 const PORTABLE = !!process.env.PORTABLE_EXECUTABLE_FILE;
 const UPDATE_TEST = process.env.SC_UPDATE_TEST; // dev aid: pretend to be this version, log the result, quit
 let updateStatus = ''; // shown in the tray menu while a download runs
@@ -498,76 +498,78 @@ function updateLog(...parts) {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'update.log'), line); } catch { /* logging must never break updates */ }
 }
 
-function setupUpdater() {
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.logger = { info: (m) => updateLog('info', m), warn: (m) => updateLog('warn', m), error: (m) => updateLog('error', m), debug: () => {} };
-  // The portable build ships without app-update.yml (only the installer gets one), so it is told where
-  // the releases are; it still only checks, and offers the download page.
-  if (app.isPackaged && !fs.existsSync(path.join(process.resourcesPath, 'app-update.yml'))) {
-    autoUpdater.setFeedURL({ provider: 'github', ...REPO });
+function setupUpdater() { /* nothing to set up: checkForUpdates() asks GitHub directly */ }
+
+// The latest release as GitHub's API lists it: its version and its setup exe (the releases carry no latest.yml).
+const LATEST_API = `https://api.github.com/repos/${REPO.owner}/${REPO.repo}/releases/latest`;
+const versionNum = (v) => String(v || '').replace(/^v/, '').split('-')[0].split('.').map((n) => parseInt(n, 10) || 0).reduce((a, n) => a * 1000 + n, 0);
+async function latestRelease() {
+  const res = await net.fetch(LATEST_API, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'StarCompanion' } });
+  if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
+  const r = await res.json();
+  const exe = (r.assets || []).find((a) => /-setup\.exe$/i.test(a.name));
+  return { version: String(r.tag_name || '').replace(/^v/, ''), page: r.html_url || RELEASES_URL, exe: exe ? { url: exe.browser_download_url, name: exe.name, size: exe.size, sha256: /^sha256:/.test(exe.digest || '') ? exe.digest.slice(7) : null } : null };
+}
+
+// Downloads the setup exe to the temp folder, the tray showing the progress; checks its SHA-256 when GitHub gives one.
+async function downloadInstaller(exe) {
+  const file = path.join(app.getPath('temp'), exe.name);
+  const res = await net.fetch(exe.url, { headers: { 'User-Agent': 'StarCompanion' } });
+  if (!res.ok || !res.body) throw new Error(`download answered ${res.status}`);
+  const hash = require('crypto').createHash('sha256');
+  const out = fs.createWriteStream(file);
+  let got = 0;
+  let shown = -1;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    hash.update(value);
+    if (!out.write(Buffer.from(value))) await new Promise((r) => out.once('drain', r));
+    got += value.length;
+    const pct = exe.size ? Math.floor((got / exe.size) * 100) : 0;
+    if (pct !== shown) { shown = pct; updateStatus = T('Downloading update… {pct}%', { pct }); buildTray(); }
   }
-  if (UPDATE_TEST) {
-    autoUpdater.forceDevUpdateConfig = true;
-    autoUpdater.setFeedURL({ provider: 'github', ...REPO });
-    // Must be a SemVer from electron-updater's own copy of semver, or its comparisons reject it.
-    const semver = require(require.resolve('semver', { paths: [path.dirname(require.resolve('electron-updater'))] }));
-    autoUpdater.currentVersion = semver.parse(UPDATE_TEST);
+  await new Promise((r, j) => out.end((err) => (err ? j(err) : r())));
+  if (exe.sha256 && hash.digest('hex') !== exe.sha256.toLowerCase()) {
+    try { fs.unlinkSync(file); } catch { /* gone already */ }
+    throw new Error('the downloaded file does not match the release');
   }
-  autoUpdater.on('update-available', (info) => {
-    updateLog('available', info.version);
-    if (UPDATE_TEST) return app.quit();
-    if (SNAPSHOT) return; // dev check: the log says enough, no dialog on the desktop
-    settleLaunchCheck();
-    if (holdUpdateDialog) pendingUpdate = info; // startup() offers it before the app shows
-    else askToUpdate(info);
-  });
-  autoUpdater.on('update-not-available', (info) => {
-    updateLog('up to date', info.version);
-    settleLaunchCheck();
-    if (UPDATE_TEST) return app.quit();
-    if (manualCheck) dialog.showMessageBox({ type: 'info', title: 'Star Companion', message: T('You have the latest version.'), detail: `Star Companion ${app.getVersion()}`, noLink: true });
-  });
-  autoUpdater.on('download-progress', (p) => {
-    updateStatus = T('Downloading update… {pct}%', { pct: Math.round(p.percent) });
-    buildTray();
-  });
-  autoUpdater.on('update-downloaded', () => {
-    updateStatus = '';
-    // The player already chose "Update now": install and relaunch.
-    setImmediate(() => autoUpdater.quitAndInstall(false, true));
-  });
-  autoUpdater.on('error', (err) => {
-    updateLog('error', err?.message || err);
-    settleLaunchCheck();
-    updateStatus = '';
-    buildTray();
-    if (UPDATE_TEST) return app.quit();
-    if (manualCheck) dialog.showMessageBox({ type: 'warning', title: 'Star Companion', message: T('Could not check for updates.'), detail: String(err?.message || err), noLink: true });
-  });
+  return file;
 }
 
 async function askToUpdate(info) {
   if (!manualCheck && info.version === config.skipVersion) return;
+  const canInstall = !PORTABLE && !!info.exe;
   const { response, checkboxChecked } = await dialog.showMessageBox({
     type: 'info',
     title: T('Star Companion update'),
     message: T('Star Companion {version} is available', { version: info.version }),
-    detail: PORTABLE
-      ? T("You have {current}. The portable version can't update itself: download the new one from GitHub.", { current: app.getVersion() })
-      : T('You have {current}. Update now? It downloads (about 100 MB), installs and restarts Star Companion.', { current: app.getVersion() }),
-    buttons: [PORTABLE ? T('Open download page') : T('Update now'), T('Later')],
+    detail: canInstall
+      ? T('You have {current}. Update now? It downloads (about 100 MB), installs and restarts Star Companion.', { current: app.getVersion() })
+      : T("You have {current}. The portable version can't update itself: download the new one from GitHub.", { current: app.getVersion() }),
+    buttons: [canInstall ? T('Update now') : T('Open download page'), T('Later')],
     defaultId: 0,
     cancelId: 1,
     checkboxLabel: manualCheck ? undefined : T("Don't remind me about this version"),
     noLink: true,
   });
   if (response === 0) {
-    if (PORTABLE) shell.openExternal(RELEASES_URL);
-    else {
-      updateStatus = T('Downloading update…');
+    if (!canInstall) return shell.openExternal(info.page);
+    updateStatus = T('Downloading update…');
+    buildTray();
+    try {
+      const file = await downloadInstaller(info.exe);
+      updateLog('downloaded', info.version, file);
+      // The installer's silent mode over the current install, then it starts the new version.
+      require('child_process').spawn(file, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
+      app.quit();
+    } catch (err) {
+      updateLog('download failed', err?.message || err);
+      updateStatus = '';
       buildTray();
-      autoUpdater.downloadUpdate().catch((err) => updateLog('download failed', err?.message || err));
+      dialog.showMessageBox({ type: 'warning', title: 'Star Companion', message: T('Could not download the update.'), detail: T('Download it from GitHub instead.'), buttons: [T('Open download page'), T('Close')], defaultId: 0, cancelId: 1, noLink: true })
+        .then(({ response: r }) => { if (r === 0) shell.openExternal(info.page); });
     }
   } else if (checkboxChecked) {
     config.skipVersion = info.version;
@@ -575,13 +577,36 @@ async function askToUpdate(info) {
   }
 }
 
-function checkForUpdates(manual) {
+async function checkForUpdates(manual) {
   manualCheck = manual;
   if (!app.isPackaged && !UPDATE_TEST) {
     if (manual) dialog.showMessageBox({ type: 'info', title: 'Star Companion', message: T('Updates are checked by the installed app.'), detail: T('You are running from source; use git pull.'), noLink: true });
     return;
   }
-  autoUpdater.checkForUpdates().catch((err) => updateLog('check failed', err?.message || err));
+  const current = UPDATE_TEST || app.getVersion();
+  try {
+    const info = await latestRelease();
+    if (versionNum(info.version) > versionNum(current)) {
+      updateLog('available', info.version);
+      if (UPDATE_TEST) return app.quit();
+      if (SNAPSHOT) return; // dev check: the log says enough, no dialog on the desktop
+      settleLaunchCheck();
+      if (holdUpdateDialog) pendingUpdate = info; // startup() offers it before the app shows
+      else askToUpdate(info);
+    } else {
+      updateLog('up to date', info.version);
+      settleLaunchCheck();
+      if (UPDATE_TEST) return app.quit();
+      if (manual) dialog.showMessageBox({ type: 'info', title: 'Star Companion', message: T('You have the latest version.'), detail: `Star Companion ${app.getVersion()}`, noLink: true });
+    }
+  } catch (err) {
+    updateLog('check failed', err?.message || err);
+    settleLaunchCheck();
+    if (UPDATE_TEST) return app.quit();
+    // A short reason, not the raw error: offline, or GitHub not answering.
+    if (manual) dialog.showMessageBox({ type: 'warning', title: 'Star Companion', message: T('Could not check for updates.'), detail: T('Check your connection and try again in a moment, or see the releases on GitHub.'), buttons: [T('Open download page'), T('Close')], defaultId: 1, cancelId: 1, noLink: true })
+      .then(({ response }) => { if (response === 0) shell.openExternal(RELEASES_URL); });
+  }
 }
 
 function setCheckUpdates(enabled) {

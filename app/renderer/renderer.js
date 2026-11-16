@@ -546,6 +546,67 @@ function menuGroups(slot, options) {
     .map(([name, list]) => ({ name, list: list.sort((a, z) => grade(a) - grade(z) || (figure(z) || 0) - (figure(a) || 0) || a.name.localeCompare(z.name)) }))
     .sort((a, z) => best(z.list) - best(a.list) || a.name.localeCompare(z.name));
 }
+// The button that opens a component's menu: a chevron in a small frame, big enough to be seen beside the name.
+function swapButton(title) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '14');
+  svg.setAttribute('height', '14');
+  svg.setAttribute('viewBox', '0 0 14 14');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M3 5 L7 9.5 L11 5');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('fill', 'none');
+  svg.append(path);
+  return h('button', { class: 'comp-edit', title: tr(title), 'aria-label': tr(title) }, svg);
+}
+// A menu that shows only while it is used: the button opens it in place of the link; picking, or leaving it,
+// turns it back into the link.
+function swapMenu(link, sel, btn, current, onPick) {
+  const close = () => { sel.hidden = true; link.hidden = false; btn.hidden = false; };
+  btn.addEventListener('click', () => {
+    sel.value = current();
+    sel.hidden = false;
+    link.hidden = true;
+    btn.hidden = true;
+    sel.focus();
+    try { sel.showPicker(); } catch { /* the menu is focused; the arrows open it */ }
+  });
+  sel.addEventListener('change', () => { onPick(sel.value); close(); });
+  sel.addEventListener('blur', close);
+  sel.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); close(); btn.focus(); } });
+}
+// Missile racks: Behring's generic racks (MSD-543: a size 5 rack, 4 missiles of size 3) fit any missile hardpoint
+// of their size, so one can be swapped for another of the same size (an S5 hardpoint: 1×S5, 2×S4, 4×S3 or 8×S2).
+let rackMap = null;
+let rackFrom = null;
+function missileRacks() {
+  if (rackFrom !== dbEntries) {
+    rackFrom = dbEntries;
+    rackMap = new Map();
+    for (const x of dbEntries) {
+      if (x.t !== 'item' || !/^Missile Launcher \/ Missile Rack$/.test(x.d.type || '')) continue;
+      const count = parseInt(x.d.attrs?.['Missile count'], 10);
+      const missileSize = parseInt(x.d.attrs?.['MISSILE SIZE'], 10);
+      rackMap.set(x.n.trim(), { name: x.n.trim(), size: x.d.size, count: count || null, missileSize: missileSize || null });
+    }
+  }
+  return rackMap;
+}
+// The ship missiles of a size (the ground vehicles' -G versions and torpedoes left out), by name.
+function missilesOfSize(size) {
+  return dbEntries.filter((x) => missileInfo(x)?.size === size && !/-G\s+(Missile|Torpedo)$/.test(x.n) && !/Torpedo$/.test(x.n)).map((x) => x.n).sort((a, z) => a.localeCompare(z));
+}
+// The same missile family in another size (Viper III → Viper V), else the first of that size.
+function missileLike(name, list) {
+  const stem = name.replace(/\s+[IVX]+(?:-[A-Z]+)?\s+(?:Missile|Torpedo)$/, '');
+  return list.find((n) => n.startsWith(`${stem} `)) || list[0] || null;
+}
+const rackLoad = (r) => tr('{n} × S{size}', { n: r.count, size: r.missileSize });
+
 // What each ship's page has picked this session: kept when the page is left for a component's and Esc comes back.
 const shipPicks = new Map(); // ship name → { picks: Map(row key → component), active: loadout name | null }
 
@@ -600,18 +661,89 @@ function shipLoadout(e) {
   };
 
   // ----- Components list: the same table as before; a changeable component is a link with a ▾ that opens a menu -----
-  const rows = groupLoadout(loadout);
+  // Among the missiles, the racks that can be changed first, the fixed ones last.
+  const canSwap = (l) => l.type === 'Missile' && l.mount && !l.mountFixed && /^MSD-\d{3}\b/.test(l.mount.trim());
+  const rows = groupLoadout(loadout).map((l, i) => [l, i]).sort((a, z) => (a[0].type === z[0].type && a[0].type === 'Missile' ? canSwap(z[0]) - canSwap(a[0]) : 0) || a[1] - z[1]).map(([l]) => l);
   const label = (t) => tr((LOADOUT_GROUPS.find(([g]) => g === t) || [t, t])[1]);
   const refreshers = [];
   const gradeCell = (c) => (c?.grade ? h('span', { class: `grade grade-${c.grade.toLowerCase()}` }, c.grade) : '');
-  const tableRows = rows.map((l, i) => {
+  const rackKey = (l) => `rack|${rowKey(l)}`;
+  // A missile row over a generic rack: the missile and the rack each with a menu; the rack sets how many missiles
+  // and of which size, and a missile of another size is swapped for the same family in the new size.
+  const missileRows = (l, stockRack, rackOptions, slotCell, tail, minSize, maxSize) => {
+    const racksN = Math.max(1, Math.round(l.count / stockRack.count));
+    const racks = missileRacks();
+    const rackOf = () => racks.get(picks.get(rackKey(l))) || stockRack;
+    const missileOf = () => pickOf(l);
+    const mLink = h('span', { class: 'link comp-link' });
+    mLink.addEventListener('click', () => goTo(missileOf(), 'item'));
+    const mSel = h('select', { class: 'comp-select', hidden: 'hidden', 'aria-label': `${label(l.type)}: ${l.item}` });
+    const mBtn = swapButton('Change this missile');
+    const count = h('span');
+    const size = h('span');
+    const rLink = h('span', { class: 'link comp-link' });
+    rLink.addEventListener('click', () => goTo(rackOf().name, 'item'));
+    const rSel = h('select', { class: 'comp-select', hidden: 'hidden', 'aria-label': `${tr('Rack')}: ${stockRack.name}` },
+      h('option', { disabled: 'disabled', class: 'menu-head' }, tr('Size {size} · {n} that fit', { size: minSize === maxSize ? minSize : `${minSize}–${maxSize}`, n: rackOptions.length })),
+      [stockRack, ...rackOptions.filter((r) => r !== stockRack)].map((r) => h('option', { value: r.name }, `${r.name} · ${rackLoad(r)}${r === stockRack ? ` · ${tr('Standard')}` : ''}`)));
+    const rBtn = swapButton('Change this rack');
+    const rInfo = h('span', { class: 'dim' });
+    const rackSize = h('span');
+    const show = () => {
+      const r = rackOf();
+      const m = missileOf();
+      const list = missilesOfSize(r.missileSize);
+      const ordered = list.includes(l.item) ? [l.item, ...list.filter((n) => n !== l.item)] : list;
+      mSel.replaceChildren(h('option', { disabled: 'disabled', class: 'menu-head' }, tr('Size {size} · {n} that fit', { size: r.missileSize, n: list.length })), ...ordered.map((n) => h('option', { value: n }, n === l.item ? `${n} · ${tr('Standard')}` : n)));
+      mLink.textContent = m;
+      mLink.classList.toggle('changed', m !== l.item);
+      mLink.title = m !== l.item ? tr('Stock: {name}', { name: l.item }) : '';
+      count.textContent = ` ×${racksN * r.count}`;
+      size.textContent = `S${r.missileSize}`;
+      rLink.textContent = r.name;
+      rackSize.textContent = r.size ? `S${r.size}` : '';
+      rLink.classList.toggle('changed', r.name !== stockRack.name);
+      rLink.title = r.name !== stockRack.name ? tr('Stock: {name}', { name: stockRack.name }) : '';
+      rInfo.textContent = ` · ${racksN > 1 ? tr('{racks} racks of {load}', { racks: racksN, load: rackLoad(r) }) : rackLoad(r)}`;
+    };
+    const setPick = (key, value, stock) => (value === stock ? picks.delete(key) : picks.set(key, value));
+    swapMenu(mLink, mSel, mBtn, missileOf, (v) => { setPick(rowKey(l), v, l.item); show(); markSaved(); });
+    swapMenu(rLink, rSel, rBtn, () => rackOf().name, (v) => {
+      setPick(rackKey(l), v, stockRack.name);
+      const list = missilesOfSize(rackOf().missileSize);
+      if (rackOf() === stockRack) picks.delete(rowKey(l));
+      else if (!list.includes(missileOf())) setPick(rowKey(l), missileLike(missileOf(), list) || l.item, l.item);
+      show();
+      markSaved();
+    });
+    refreshers.push(show);
+    show();
+    return [
+      // The rack beside "Missiles", the missiles it holds under it.
+      [slotCell, h('span', { class: 'comp-cell rack-cell' }, h('span', { class: 'rack-mark' }, tr('Rack')), rLink, rSel, rBtn, rInfo), rackSize, '', ''],
+      ['', h('span', { class: 'comp-cell missile-cell' }, mLink, mSel, mBtn, count), size, ...tail(['', ''])],
+    ];
+  };
+  const tableRows = rows.flatMap((l, i) => {
     const extra = [l.count > 1 ? ` ×${l.count}` : '', l.mount && h('span', { class: 'dim' }, ` · ${tr('on {mount}', { mount: l.mount })}`)];
     const tail = (cells) => (!l.grade && !l.class && CONTROLS[l.control]
       ? [{ span: 2, content: h('span', { class: `control control-${l.control}`, title: CONTROL_HINTS[l.control] ? tr(CONTROL_HINTS[l.control]) : null }, tr(CONTROLS[l.control])) }]
       : cells);
     const slotCell = i === 0 || rows[i - 1].type !== l.type ? label(l.type) : '';
     const size = l.size != null ? `S${l.size}` : '';
-    if (!calc(l)) return [slotCell, h('span', null, jump(l.item, l.item, 'item'), ...extra), size, ...tail([gradeCell(l), l.class ? tr(l.class) : ''])];
+    // Missiles on a generic rack: the rack is a row of its own under them, and both can be changed.
+    const stockRack = l.type === 'Missile' && l.mount ? missileRacks().get(l.mount.trim()) : null;
+    const [minSize, maxSize] = l.mountSizes || [stockRack?.size, stockRack?.size];
+    const rackOptions = !l.mountFixed && stockRack?.count && stockRack.missileSize ? [...missileRacks().values()].filter((r) => r.size >= minSize && r.size <= maxSize && r.count && r.missileSize && (r === stockRack || /^MSD-\d{3}\b/.test(r.name))).sort((a, z) => z.size - a.size || z.missileSize - a.missileSize) : [];
+    if (rackOptions.length > 1 && missilesOfSize(stockRack.missileSize).length) return missileRows(l, stockRack, rackOptions, slotCell, tail, minSize, maxSize);
+    if (l.type === 'Missile' && l.mount && /rack|launcher|mrck_/i.test(l.mount)) {
+      const own = missileRacks().get(l.mount.trim());
+      return [
+        [slotCell, h('span', { class: 'comp-cell rack-cell' }, h('span', { class: 'rack-mark' }, tr('Rack')), jump(l.mount, l.mount.trim(), 'item'), own?.count ? h('span', { class: 'dim' }, ` · ${rackLoad(own)}`) : null, h('span', { class: 'rack-fixed', title: tr('This rack is part of the ship: it cannot be changed') }, tr('Fixed'))), own?.size ? `S${own.size}` : '', '', ''],
+        ['', h('span', { class: 'comp-cell missile-cell' }, jump(l.item, l.item, 'item'), l.count > 1 ? ` ×${l.count}` : ''), size, ...tail(['', ''])],
+      ];
+    }
+    if (!calc(l)) return [[slotCell, h('span', null, jump(l.item, l.item, 'item'), ...extra), size, ...tail([gradeCell(l), l.class ? tr(l.class) : ''])]];
     const options = sortedBy(CompanionLoadout.choices(l.type, l.size, comps), (c) => c.name);
     const stockComp = byName.get(l.item);
     if (stockComp && !options.includes(stockComp)) options.unshift(stockComp);
@@ -623,7 +755,7 @@ function shipLoadout(e) {
       // Which size, and how many fit; then the groups.
       h('option', { disabled: 'disabled', class: 'menu-head' }, tr('Size {size} · {n} that fit', { size: l.size, n: options.length })),
       menuGroups(l.type, options).map((g) => h('optgroup', { label: tr(g.name) }, g.list.map((c) => h('option', { value: c.name }, [withClass(c), c.grade ? ` · ${c.grade}` : ''].join(''))))));
-    const edit = h('button', { class: 'comp-edit', title: tr('Change this component'), 'aria-label': tr('Change this component') }, '▾');
+    const edit = swapButton('Change this component');
     const grade = h('span');
     const cls = h('span');
     const show = () => {
@@ -657,11 +789,11 @@ function shipLoadout(e) {
     sel.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); closeMenu(); edit.focus(); } });
     refreshers.push(show);
     show();
-    return [slotCell, h('span', { class: 'comp-cell' }, link, sel, edit, ...extra), size, ...tail([grade, cls])];
+    return [[slotCell, h('span', { class: 'comp-cell' }, link, sel, edit, ...extra), size, ...tail([grade, cls])]];
   });
   const apply = (saved) => {
     picks.clear();
-    for (const [k, v] of Object.entries(saved || {})) if (rows.some((l) => rowKey(l) === k)) picks.set(k, v);
+    for (const [k, v] of Object.entries(saved || {})) if (rows.some((l) => rowKey(l) === k || rackKey(l) === k)) picks.set(k, v);
     refreshers.forEach((f) => f());
     paintStats();
   };
@@ -2158,10 +2290,38 @@ function missileMeta(e) {
   return [m.classification, a.DAMAGE && `${tr('lock')} ${a['LOCK TIME']}`, a.SPEED].filter(Boolean).join(' · ') || null;
 }
 
+// How many results each kind has for the query, all of them (the list itself stops at 80): the chips' counts.
+let kindCountsFor = null;
+let kindCounts = null;
+function countKinds() {
+  const q = qEl.value.trim();
+  if (kindCountsFor !== q) {
+    kindCountsFor = q;
+    kindCounts = new Map();
+    for (const e of CompanionSearch.search(index, q, { type: 'all', limit: Infinity, collapseVariants: true })) kindCounts.set(e.t, (kindCounts.get(e.t) || 0) + 1);
+  }
+  return kindCounts;
+}
+// The filter in sight: a chip for each kind the query found, with its count; the one in use lit. Click one, or press
+// Tab to step through them.
+function filterChips() {
+  const counts = countKinds();
+  const total = [...counts.values()].reduce((a, n) => a + n, 0);
+  const kinds = TYPES.filter(([t]) => t === 'all' || counts.get(t) || t === type);
+  if (kinds.length < 3 && type === 'all') return null; // one kind only: nothing to narrow
+  return h('div', { class: 'filter-chips in' },
+    h('span', { class: 'filter-lead' }, tr('Filter')),
+    kinds.map(([t, name]) => h('button', {
+      class: `filter-chip${t === type ? ' active' : ''}`,
+      onclick: (ev) => { ev.stopPropagation(); type = t; search(); qEl.focus(); },
+    }, tr(name), h('span', { class: 'filter-n' }, fmt(t === 'all' ? total : counts.get(t) || 0)))),
+    h('span', { class: 'filter-hint' }, h('kbd', null, 'TAB')));
+}
 function renderList() {
   return h(
     'div',
     { class: 'list' },
+    filterChips(),
     results.map((e, i) => {
       const d = Math.min(i, 12) * 45;
       const more = e.variantHits?.n > 1 ? tr(' · +{n} variants', { n: e.variantHits.n - 1 }) : '';

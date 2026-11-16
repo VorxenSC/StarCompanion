@@ -58,7 +58,10 @@ function controlOf(category, port) {
   return null;
 }
 
-function loadoutOf(ports, mount = null, out = [], control = undefined) {
+// The hardpoint a rack sits in: whether the player can change the rack, which rack sizes fit, and whether it
+// asks for a rack of that ship only (required tags).
+const hardpointOf = (p) => ({ fixed: p.editable === false || !!(p.required_tags && p.required_tags.length) || undefined, sizes: p.sizes ? [p.sizes.min, p.sizes.max] : undefined });
+function loadoutOf(ports, mount = null, out = [], control = undefined, hardpoint = null) {
   for (const p of ports || []) {
     const it = p.equipped_item;
     if (!it) continue;
@@ -76,9 +79,11 @@ function loadoutOf(ports, mount = null, out = [], control = undefined) {
         manufacturer: junkName(it.manufacturer?.name) || it.manufacturer?.name === 'Unknown' ? null : it.manufacturer.name,
         mount,
         control: /WeaponGun|Missile|Bomb|EMP/.test(it.type || '') ? by : undefined,
+        ...(hardpoint && /^(Missile|Bomb)$/.test(it.type || '') ? { mountFixed: hardpoint.fixed, mountSizes: hardpoint.sizes } : {}),
       });
     }
-    loadoutOf(p.ports || it.ports, named && MOUNTS.test(it.type || '') ? it.name : mount, out, by ?? undefined);
+    const isMount = named && MOUNTS.test(it.type || '');
+    loadoutOf(p.ports || it.ports, isMount ? it.name : mount, out, by ?? undefined, /^(MissileLauncher|BombLauncher)$/.test(it.type || '') ? hardpointOf(p) : hardpoint);
   }
   return out;
 }

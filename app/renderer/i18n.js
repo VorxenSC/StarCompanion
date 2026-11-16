@@ -117,6 +117,8 @@
     'Check now': 'Procurar agora', 'Startup notice': 'Aviso inicial', 'What the overlay needs to work': 'O que o overlay precisa para funcionar', Show: 'Mostrar',
     'Settings file': 'Arquivo de configurações', 'For advanced edits; opens its folder': 'Para edições avançadas; abre a pasta dele', 'Show in folder': 'Mostrar na pasta',
     'About Star Companion': 'Sobre o Star Companion',
+    'Change this missile': 'Trocar este míssil', Standard: 'Padrão', Fixed: 'Fixo', 'This rack is part of the ship: it cannot be changed': 'Este rack faz parte da nave: não pode ser trocado', 'Change this rack': 'Trocar este rack', Rack: 'Rack', Filter: 'Filtro',
+    '{n} × S{size}': '{n} × S{size}', '{racks} racks of {load}': '{racks} racks de {load}',
     'Reputation is what a mission adds to your standing with this faction when completed; the rank is the lowest that unlocks it.':
       'A reputação é o que a missão soma à sua posição com esta facção ao ser concluída; o nível é o mais baixo que a libera.',
     "Hi! I'm Vorxen, a 44-year-old construction worker, a passionate Star Citizen player and a proud dad to my daughter, Cathy.":

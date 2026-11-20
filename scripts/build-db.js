@@ -39,6 +39,9 @@ const scmdbByDebug = new Map(scmdbContracts.map((c) => [c.debugName, c]));
 const factionLogos = load('faction-logos.json')?.logos || {}; // hand-picked real logos (scripts/faction-logos.json)
 const wikiImages = load('images.json')?.images || {};
 const rsiPrices = load('rsi-prices.json');
+const rsiAddonsRaw = load('rsi-addons.json');
+const rsiAddons = rsiAddonsRaw?.addons || [];
+const rsiAddonsChecked = rsiAddonsRaw?.fetchedAt?.slice(0, 10);
 // Hand-written notes (where players find things, systems): scripts/curated/*.json, shipped with the app.
 const CURATED = path.join(__dirname, 'curated');
 const curated = (f) => (fs.existsSync(path.join(CURATED, f)) ? JSON.parse(fs.readFileSync(path.join(CURATED, f), 'utf8')) : null);
@@ -360,9 +363,48 @@ for (const ship of new Set(shipByName.values())) {
   const p = rsiByName.get(norm(ship.n));
   if (p) ship.d.rsi = { usd: p.usd, available: p.available, url: p.url, warbond: p.warbond, checked: rsiChecked };
 }
+// RSI store add-ons (modules, pods, bodykits, weapon kits): each listing goes to the ships it is for. Its name
+// starts with the ship's short name (the longest that fits: "Aurora Mk II Cargo Module" is the Mk II's), or its
+// description adds it "to your Alpha Wolf or S-65 Stingray".
+const addonName = (n) => String(n || '').replace(/\s*-\s*\d+ Year$/i, '').replace(/\s+-\s+/g, ' ').trim();
+const shipShorts = [...new Set(shipByName.values())].map((sh) => ({ sh, key: norm(sh.d.shortName || sh.n) })).filter((x) => x.key);
+let addonShips = 0;
+for (const a of rsiAddons) {
+  const name = norm(addonName(a.name));
+  const byName = shipShorts.filter((x) => name.startsWith(`${x.key} `)).sort((p, q) => q.key.length - p.key.length);
+  const longest = byName[0]?.key;
+  const targets = longest ? byName.filter((x) => x.key === longest) : [];
+  if (!targets.length) {
+    const your = (String(a.description || '').match(/\bto your ([^.,]+)/i) || [])[1];
+    if (your) for (const part of your.split(/\s+or\s+|\s+and\s+/)) {
+      const k = norm(part);
+      targets.push(...shipShorts.filter((x) => x.key === k || x.key.endsWith(` ${k}`)));
+    }
+  }
+  for (const { sh } of new Set(targets)) {
+    (sh.d.addons ||= []).push({ name: addonName(a.name), usd: a.usd, available: a.available, warbond: a.warbond, url: a.url, checked: rsiAddonsChecked });
+    addonShips++;
+  }
+}
+console.log(`rsi add-ons: ${rsiAddons.length} listings, ${addonShips} placed on ships`);
 
 for (const ship of new Set(shipByName.values())) {
-  ship.d.wikiImage = wikiImages[ship.d.shortName] || wikiImages[ship.n];
+  // The ship's own page picture, else its base model's (a Wikelo or PYAM Exec edition looks like the base ship).
+  const namesOf = (n) => {
+    const base = String(n || '').replace(/\s+(Wikelo\b.*|PYAM Exec|\d{4} (BIS|Best In Show)( Edition)?|Best In Show Edition|Alliance|Executive Edition)$/i, '').trim();
+    const out = [];
+    for (const x of [n, base]) {
+      if (!x) continue;
+      const noMaker = x.replace(/^(Aegis|Anvil|Aopoa|Argo|Banu|C\.O\.|Consolidated Outland|Crusader|Drake|Esperia|Gatac|Greycat|Kruger|Mirai|MISC|Origin|RSI|Tumbril|Vanduul)\s+/, '');
+      for (const y of [x, noMaker]) {
+        const noHm6 = y.replace(/^HM6\s+/, '');
+        const plain = noHm6.replace(/\s+(Limited|Pirate|Cool Metal Color|Orange Line|Snowland Color|Destroyer)$/i, '').replace(/^Hornet (F7\S*) /, '$1 Hornet ');
+        out.push(y, noHm6, plain, plain.replace(/(\S+)$/, (w) => w.toUpperCase()));
+      }
+    }
+    return [...new Set(out.filter(Boolean))];
+  };
+  ship.d.wikiImage = [...namesOf(ship.d.shortName), ...namesOf(ship.n)].map((k) => wikiImages[k]).find(Boolean);
   ship.d.buy.sort((a, z) => (a.price || 0) - (z.price || 0));
   ship.d.rent.sort((a, z) => (a.price || 0) - (z.price || 0));
   add(ship);
@@ -397,8 +439,11 @@ function uexFor(it) {
   return { uex: listed[0] || byUuid || candidates[0], all: candidates };
 }
 
+const addonByName = new Map(rsiAddons.map((a) => [norm(addonName(a.name)), a]));
 for (const it of items.values()) {
   if (shipByName.has(norm(it.n))) continue; // wiki lists ships as items too; the ship entry wins
+  const addon = /^Module\b/.test(it.d.type || '') && addonByName.get(norm(it.n));
+  if (addon) it.d.storeAddon = { usd: addon.usd, available: addon.available, warbond: addon.warbond, url: addon.url, checked: rsiAddonsChecked };
   // The wiki's cargo item for a commodity ("Laranite", Cargo / Cargo) is replaced by the commodity entry.
   if (commodityNames.has(norm(it.n)) && /cargo/i.test(it.d.type || '') && !it.d.shops?.length) continue;
   const { uex, all } = uexFor(it);

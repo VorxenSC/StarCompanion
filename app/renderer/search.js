@@ -12,7 +12,17 @@
   // Small ranking nudges so the most useful kind of entry wins a tie.
   const TYPE_BONUS = { activity: 6, mineral: 6, commodity: 5, ship: 5, blueprint: 3, item: 2, faction: 2, mission: 1, location: 0 };
   // Results come grouped by kind, in this order, within each match tier (see search()).
-  const GROUP_ORDER = ['activity', 'blueprint', 'commodity', 'mineral', 'item', 'ship', 'faction', 'mission', 'location'];
+  // With no filter, results come by kind in this order: the things to get (blueprints, components, items, missiles,
+  // ships, in alphabetical order), then missions, then the rest (alphabetical); the best match first inside each.
+  const GROUP_ORDER = ['activity', 'blueprint', 'component', 'item', 'missile', 'ship', 'mission', 'commodity', 'faction', 'location', 'mineral'];
+  // An item's kind: a missile or torpedo, a ship component (it has loadout figures), or any other item.
+  // What the query names exactly (tier 0 and -1) keeps this older order of kinds, on top of everything else.
+  const NAMED_ORDER = ['activity', 'blueprint', 'commodity', 'mineral', 'item', 'ship', 'faction', 'mission', 'location'];
+  const kindOf = (e) => {
+    if (!e || e.t !== 'item') return e && e.t;
+    if ((e.d && e.d.category === 'MISSILE') || (/\b[IVX]+(?:-[A-Z]+)?\s+(?:Missile|Torpedo)$/.test(e.n) && !/Launcher|Rack/i.test(e.n))) return 'missile';
+    return e.d && e.d.comp ? 'component' : 'item';
+  };
   // A quoted colour or edition marks a variant: Parallax "Sunstone" Energy Assault Rifle.
   const baseOf = (name) => String(name || '').replace(/\s*["“][^"”]+["”]\s*/, ' ').replace(/\s+/g, ' ').trim();
 
@@ -98,9 +108,17 @@
     // alphabetical by their short name, so variants line up (Cutlass Black, Cutlass Blue, Cutlass Red…).
     const shipLabel = (e) => norm((e.d && e.d.shortName) || e.n);
     let hits = [...best]
-      .sort((a, b) => a[1].tier - b[1].tier || (a[1].tier === -1
-        ? (a[0].t !== 'activity') - (b[0].t !== 'activity') || (b[1].score >= 1000) - (a[1].score >= 1000) || shipLabel(a[0]).localeCompare(shipLabel(b[0]))
-        : group(a[0].t) - group(b[0].t) || b[1].score - a[1].score))
+      .sort((a, b) => {
+        // Bands: named exactly (0), the query as whole words (1), loose matches (2).
+        const named = (h) => (h[1].tier <= 0 ? 0 : h[1].tier === 1 ? 1 : 2);
+        if (named(a) !== named(b)) return named(a) - named(b);
+        // Named: by tier, ships and activities first, then the older order of kinds.
+        if (named(a) === 0) return a[1].tier - b[1].tier || (a[1].tier === -1
+          ? (a[0].t !== 'activity') - (b[0].t !== 'activity') || (b[1].score >= 1000) - (a[1].score >= 1000) || shipLabel(a[0]).localeCompare(shipLabel(b[0]))
+          : NAMED_ORDER.indexOf(a[0].t) - NAMED_ORDER.indexOf(b[0].t) || b[1].score - a[1].score);
+        // Inside the other bands: by kind (GROUP_ORDER), then how well it matches.
+        return group(kindOf(a[0])) - group(kindOf(b[0])) || a[1].tier - b[1].tier || b[1].score - a[1].score;
+      })
       .map((h) => h[0]);
     if (collapseVariants) {
       const families = new Map();
@@ -190,7 +208,7 @@
     return entries;
   }
 
-  const api = { norm, buildIndex, search, baseOf, GROUP_ORDER, labelArmors };
+  const api = { norm, buildIndex, search, baseOf, GROUP_ORDER, labelArmors, kindOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CompanionSearch = api;
 })(typeof window !== 'undefined' ? window : globalThis);

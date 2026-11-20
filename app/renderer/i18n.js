@@ -119,7 +119,7 @@
     'About Star Companion': 'Sobre o Star Companion',
     "The ship loadout calculator that inspired our components and missile racks, and its changelog of every patch.":
       "A calculadora de loadouts de naves que inspirou nossos componentes e racks de mísseis, e o changelog de cada patch.",
-    'Change this missile': 'Trocar este míssil', Standard: 'Padrão', Fixed: 'Fixo', 'This rack is part of the ship: it cannot be changed': 'Este rack faz parte da nave: não pode ser trocado', 'Change this rack': 'Trocar este rack', Rack: 'Rack', Filter: 'Filtro',
+    'Change this missile': 'Trocar este míssil', Standard: 'Padrão', 'Add-ons (RSI store)': 'Add-ons (loja RSI)', 'Add-on': 'Add-on', 'Modules, pods and kits the RSI store sells for this ship, bought with real money.': 'Módulos, pods e kits que a loja RSI vende para esta nave, comprados com dinheiro real.', Missile: 'Míssil', Missiles: 'Mísseis', Component: 'Componente', NEW: 'NOVO', 'New in patch {v}': 'Nova no patch {v}', Fixed: 'Fixo', 'This rack is part of the ship: it cannot be changed': 'Este rack faz parte da nave: não pode ser trocado', 'Change this rack': 'Trocar este rack', Rack: 'Rack', Filter: 'Filtro',
     '{n} × S{size}': '{n} × S{size}', '{racks} racks of {load}': '{racks} racks de {load}',
     'Reputation is what a mission adds to your standing with this faction when completed; the rank is the lowest that unlocks it.':
       'A reputação é o que a missão soma à sua posição com esta facção ao ser concluída; o nível é o mais baixo que a libera.',

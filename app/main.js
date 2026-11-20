@@ -1005,9 +1005,9 @@ function setMining(on) {
 
 // ---------- Splash ----------
 // The splash (the Splash artboard of the design canvas) plays its whole timeline, however fast the
-// database loads: it fades at the design's own moment (85 % of its 5.2 s), or later if the database is
+// database loads: it fades at the design's own moment (85 % of its 2.6 s), or later if the database is
 // still loading then. Only after it has gone does the overlay (or the startup notice) appear.
-const SPLASH_MIN_MS = Math.round(5200 * 0.85);
+const SPLASH_MIN_MS = Math.round(2600 * 0.85);
 const SPLASH_TIMEOUT_MS = 10000; // never block start-up on a splash that went wrong
 let splash = null;
 let splashShownAt = 0;
@@ -1015,10 +1015,11 @@ let afterSplash = null;
 
 function createSplash() {
   const { workArea: a } = screen.getPrimaryDisplay();
-  // Eclipse's splash is a wider scene (a 960 × 540 panel); the standing one is 580 × 280. Room for the shadow around it.
+  // Eclipse's splash is a wider scene (a 960 × 540 panel); the standing one is 580 × 280; both drawn at half size
+  // (splash.css zooms them to 50 %). Room for the shadow around it.
   const eclipse = config.theme === 'eclipse';
-  const width = eclipse ? 1020 : 640;
-  const height = eclipse ? 600 : 340;
+  const width = eclipse ? 510 : 320;
+  const height = eclipse ? 300 : 170;
   splash = new BrowserWindow({
     width, height,
     x: Math.round(a.x + (a.width - width) / 2),

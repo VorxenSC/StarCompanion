@@ -10,7 +10,22 @@ const BATCH = 50;
 async function main() {
   const wiki = JSON.parse(fs.readFileSync(path.join(RAW_DIR, 'wiki.json'), 'utf8'));
   let ships = [];
-  try { ships = JSON.parse(fs.readFileSync(path.join(RAW_DIR, 'ships.json'), 'utf8')).ships.map((s) => s.shortName); } catch { /* no ships dump yet */ }
+  // A ship is asked by its short and full name, and by its base model's (a special edition shows the base ship).
+  const namesOf = (n) => {
+    const base = String(n || '').replace(/\s+(Wikelo\b.*|PYAM Exec|\d{4} (BIS|Best In Show)( Edition)?|Best In Show Edition|Alliance|Executive Edition)$/i, '').trim();
+    const out = [];
+    for (const x of [n, base]) {
+      if (!x) continue;
+      const noMaker = x.replace(/^(Aegis|Anvil|Aopoa|Argo|Banu|C\.O\.|Consolidated Outland|Crusader|Drake|Esperia|Gatac|Greycat|Kruger|Mirai|MISC|Origin|RSI|Tumbril|Vanduul)\s+/, '');
+      for (const y of [x, noMaker]) {
+        const noHm6 = y.replace(/^HM6\s+/, '');
+        const plain = noHm6.replace(/\s+(Limited|Pirate|Cool Metal Color|Orange Line|Snowland Color|Destroyer)$/i, '').replace(/^Hornet (F7\S*) /, '$1 Hornet ');
+        out.push(y, noHm6, plain, plain.replace(/(\S+)$/, (w) => w.toUpperCase()));
+      }
+    }
+    return [...new Set(out.filter(Boolean))];
+  };
+  try { ships = JSON.parse(fs.readFileSync(path.join(RAW_DIR, 'ships.json'), 'utf8')).ships.flatMap((s) => [...namesOf(s.shortName), ...namesOf(s.name)]); } catch { /* no ships dump yet */ }
   const titles = [...new Set([...wiki.items.map((i) => i.name), ...ships].filter((n) => n && !/PLACEHOLDER|^<=|^\[/.test(n)))];
   const batches = [];
   for (let i = 0; i < titles.length; i += BATCH) batches.push(titles.slice(i, i + BATCH));

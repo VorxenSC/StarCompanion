@@ -27,18 +27,18 @@ test('every token must match', () => {
   assert.deepStrictEqual(search(idx, 'omnisky helmet'), []);
 });
 
-test('whole-word match ranks above prefix match', () => {
+test('a ship the query names stays above an item it only starts', () => {
   assert.deepStrictEqual(search(idx, 'hawk').map((e) => e.id), ['e', 'f']);
 });
 
-test('results are grouped: blueprint, then commodity, then item', () => {
+test('results are grouped: blueprint, then item, then commodity', () => {
   const s = buildIndex([
     { id: 'i', t: 'item', n: 'Laser Rifle', s: '' },
     { id: 'c', t: 'commodity', n: 'Laser Rifle Parts', s: '' },
     { id: 'b', t: 'blueprint', n: 'Laser Rifle Mk2', s: '' },
   ]);
   assert.deepStrictEqual(search(s, 'laser rifle').map((e) => e.id), ['i', 'b', 'c'], 'the exact name still comes first');
-  assert.deepStrictEqual(search(s, 'laser').map((e) => e.id), ['b', 'c', 'i']);
+  assert.deepStrictEqual(search(s, 'laser').map((e) => e.id), ['b', 'i', 'c'], 'blueprints, items, then commodities');
 });
 
 test('a ship named by the query comes before every other kind', () => {
@@ -71,7 +71,7 @@ test('type filter', () => {
 
 test('subtitle matches (manufacturer) and fuzzy subsequence', () => {
   assert.strictEqual(search(idx, 'anvil')[0].id, 'e');
-  assert.strictEqual(search(idx, 'qntnm')[0].id, 'c');
+  assert.deepStrictEqual(search(idx, 'qntnm').map((e) => e.id).sort(), ['c', 'd']);
 });
 
 const DB = path.join(__dirname, '..', 'app', 'data', 'db.json');

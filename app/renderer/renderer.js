@@ -38,8 +38,8 @@ const TYPES = [
   ['faction', 'Factions'],
   ['location', 'Locations'],
 ];
-const TYPE_LABEL = { activity: 'Activity', item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', commodity: 'Commodity', faction: 'Faction', location: 'Location' };
-const GROUP_LABEL = { activity: 'Activities', item: 'Items', ship: 'Ships', blueprint: 'Blueprints', mission: 'Missions', mineral: 'Minerals', commodity: 'Commodities', faction: 'Factions', location: 'Locations' };
+const TYPE_LABEL = { activity: 'Activity', component: 'Component', missile: 'Missile', item: 'Item', ship: 'Ship', blueprint: 'Blueprint', mission: 'Mission', mineral: 'Mineral', commodity: 'Commodity', faction: 'Faction', location: 'Location' };
+const GROUP_LABEL = { activity: 'Activities', component: 'Components', missile: 'Missiles', item: 'Items', ship: 'Ships', blueprint: 'Blueprints', mission: 'Missions', mineral: 'Minerals', commodity: 'Commodities', faction: 'Factions', location: 'Locations' };
 const PANEL_GAP = 6; // .panel.open margin-top
 const SHRINK_DELAY = 440; // let the panel's height transition finish before the window shrinks
 
@@ -131,48 +131,60 @@ function links(pairs) {
   return present.length ? h('div', { class: 'links' }, present.map(([label, url]) => link(`${tr(label)} ↗`, url))) : null;
 }
 
-// Where to buy or rent, in alphabetical order of the place (cheapest first when two read the same).
-// The sources (cstone, UEX, the wiki) often list the same shop, spelled a little differently
-// ("Area 18 - Astro Armada" / "Area18 - Retail bridges - Astro Armada", "New Deal Lorville" /
-// "Teasa Spaceport - New Deal"). Same city, almost the same price, and one shop name inside the other (spaces
-// ignored): one shop, shown once, with the most recent price.
+// Where to buy or rent, one row per shop, in alphabetical order of the place. The sources (cstone, UEX, the wiki)
+// spell the same shop differently ("Stanton - ArcCorp - Area18 - Retail bridges - Dumper's Depot" / "Stanton -
+// ArcCorp - Area 18 - Dumper's Area 18"). Each place is said simply: system, body, city or station, shop; the
+// sub-areas go (Galleria, Retail bridges, Hangar Transit…) and a shop name stops repeating its place ("Ship Weapons
+// CRU-L5" → "Ship Weapons"). The same shop at the same place is one row, with the newest price; cstone's wording
+// wins, being the plainest.
 const flat = (s) => CompanionSearch.norm(s).replace(/ /g, '');
-function shopParts(s) {
-  const parts = String(s.where || '').split(' - ');
-  // system, body and city must all agree: the same shop name at another station is another shop
-  // (a station at a Lagrange point has no city: the point is the place)
-  const at = /-Ld/i.test(parts[1] || '') ? 2 : 3;
+const SHOP_SUBAREA = /^(retail bridges|galleria|plaza|shops|marketplace|io-north tower|hangar transit|sublevel \d+|cargo|service|teasa spaceport|cloudview center|the commons|refinery|mining support center|equipment rentals|admin|ship dealer|habs?|spaceport)$/i;
+const LPOINT = /\b[A-Z]{3}\d?-L\d\b/i;
+function shopPlace(s) {
+  const parts = String(s.where || '').split(' - ').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return { label: s.where || '', system: '', place: flat(s.where), shop: flat(s.where), brand: '' };
   const last = parts[parts.length - 1];
-  return { city: flat(parts.slice(0, at).join(' ')), shop: flat(last), brand: flat(CompanionSearch.norm(last).split(' ')[0]) };
+  const middle = parts.slice(1, -1).filter((p) => !SHOP_SUBAREA.test(p));
+  // The shop's own name, without the place it repeats, as long as two words remain.
+  const words = last.split(/\s+/);
+  let shop = last;
+  for (let n = 2; n < words.length; n++) {
+    const tail = words.slice(n).join(' ');
+    if (tail.length >= 3 && !/^\d+$/.test(tail) && middle.some((m) => new RegExp(`(^|\\s)${tail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`, 'i').test(m))) { shop = words.slice(0, n).join(' '); break; }
+  }
+  // The place: a Lagrange station by its point (CRU-L5), else the city or station under the planet.
+  const lp = parts.map((p) => (p.match(LPOINT) || [])[0]).find(Boolean);
+  const below = parts.length >= 4 ? middle.slice(1) : middle;
+  return {
+    label: [parts[0], ...middle, shop].join(' - '),
+    system: flat(parts[0]),
+    place: lp ? flat(lp) : flat(below[0] || middle[0] || ''),
+    shop: flat(shop),
+    brand: flat(CompanionSearch.norm(shop).split(' ')[0]),
+  };
 }
-const sameShop = (a, z) => {
-  // the sources round and update prices at different times: within 1 % is the same price
-  if (Math.abs((a.price || 0) - (z.price || 0)) > 0.01 * Math.max(a.price || 0, z.price || 0)) return false;
-  const x = shopParts(a);
-  const y = shopParts(z);
-  return x.city === y.city && x.shop && y.shop && (x.shop.includes(y.shop) || y.shop.includes(x.shop) || (x.brand.length >= 4 && x.brand === y.brand));
-};
+const sameShop = (x, y) => x.system === y.system && x.place === y.place && x.shop && y.shop
+  && (x.shop.includes(y.shop) || y.shop.includes(x.shop) || (x.brand.length >= 4 && x.brand === y.brand));
 function dedupeShops(shops) {
   const kept = [];
   for (const s of shops) {
-    const i = kept.findIndex((k) => sameShop(k, s));
-    if (i === -1) kept.push(s);
-    else if (String(s.verified || '') > String(kept[i].verified || '')) kept[i] = s;
+    const p = shopPlace(s);
+    const k = kept.find((x) => sameShop(x.p, p));
+    if (!k) { kept.push({ p, cstone: s.src === 'cstone', s: { ...s, where: p.label } }); continue; }
+    const label = s.src === 'cstone' && !k.cstone ? p.label : k.s.where;
+    if (s.src === 'cstone') k.cstone = true;
+    const sell = k.s.sell ?? s.sell;
+    if (String(s.verified || '') > String(k.s.verified || '')) k.s = { ...s };
+    k.s.where = label;
+    if (k.s.sell == null && sell != null) k.s.sell = sell;
   }
-  return kept;
+  return kept.map((k) => k.s);
 }
-// Wikelo's recipe for a ship: what to bring to his emporium and what comes back, one block per contract.
-function wikeloSection(d) {
-  const line = (o) => `${o.qty}${o.unit === 'SCU' ? ' SCU' : '×'} ${o.name}`;
-  return section('Wikelo exchange', d.wikelo.map((c) => h('div', { class: 'wikelo' },
-    h('div', { class: 'wikelo-head' }, h('span', { class: 'wikelo-name' }, c.name), c.reputation && h('span', { class: 'wikelo-rep' }, tr(c.reputation))),
-    table([['Bring', ''], ['Qty', 'num']], c.orders.map((o) => [o.name, `${fmt(o.qty)}${o.unit === 'SCU' ? ' SCU' : ''}`])),
-    h('p', { class: 'note' }, `${tr('You get')}: ${c.rewards.map(line).join(', ')}`),
-  )));
-}
-function shopsTable(shops) {
-  const sorted = dedupeShops(shops).sort((a, z) => alpha((s) => s.where)(a, z) || (a.price || Infinity) - (z.price || Infinity));
-  const sells = sorted.some((s) => s.sell);
+// noSell: leave out what the shop pays back (a missile has no use for it).
+function shopsTable(shops, { noSell = false } = {}) {
+  // The cheapest first; the place breaks a tie.
+  const sorted = dedupeShops(shops).sort((a, z) => (a.price || Infinity) - (z.price || Infinity) || alpha((s) => s.where)(a, z));
+  const sells = !noSell && sorted.some((s) => s.sell);
   return table(
     [['Where', ''], ['Price', 'num'], ...(sells ? [['Sells for', 'num']] : [])],
     sorted.map((s) => [s.where, auec(s.price), ...(sells ? [s.sell ? auec(s.sell) : ''] : [])]),
@@ -200,7 +212,7 @@ function viewItem(e) {
       if (label === 'Size' || String(v) === String(d.manufacturer)) return []; // a second size, or the maker again (gadgets)
       return label === 'Type' ? [[/^Missile/.test(d.type || '') ? 'Tracking signal' : 'Subtype', camelWords(v)]] : [[label, v]];
     });
-  const cheapest = d.shops?.filter((s) => s.price > 0).sort((a, z) => a.price - z.price)[0];
+  const cheapest = d.shops && dedupeShops(d.shops).filter((s) => s.price > 0).sort((a, z) => a.price - z.price)[0];
   const m = d.market;
   const uexUrl = d.uexId && `https://uexcorp.space/marketplace/?id_item=${d.uexId}`;
   const w = d.weapon;
@@ -218,7 +230,8 @@ function viewItem(e) {
       ['Size', d.size],
       ['Grade', d.grade],
       ['Class', d.class],
-      ['Lowest price', cheapest && auec(cheapest.price)],
+      ['Lowest price', cheapest && h('span', null, auec(cheapest.price), h('span', { class: 'headline-where' }, shortWhere(cheapest.where)))],
+      ['Store price', d.storeAddon && h('span', null, usd(d.storeAddon.usd), d.storeAddon.warbond && [' ', h('span', { class: 'badge-warbond' }, 'WARBOND')])],
       ['UEX market price', m && h('span', null, h('span', { class: 'price' }, `~${fmt(m.approx)} aUEC`))],
       ['Craftable', d.craftable],
       ['Loot', d.lootable ? tr('Can be found as loot') : null],
@@ -237,7 +250,7 @@ function viewItem(e) {
       d.blueprint && section('Blueprint', jump(`View the ${e.n} blueprint →`, e.n, 'blueprint')),
       section(
         'Where to buy',
-        d.shops?.length ? shopsTable(d.shops) : note(d.lootable ? 'Not sold in any known shop — found as loot.' : 'No known shop in the sources.'),
+        d.shops?.length ? shopsTable(d.shops, { noSell: !!missileInfo(e) }) : note(d.lootable ? 'Not sold in any known shop — found as loot.' : 'No known shop in the sources.'),
       ),
       (m || uexUrl) &&
         section(
@@ -333,7 +346,7 @@ function shipSpecCards(sp) {
     card('Signatures', [['Infrared', sg.ir && fmt(sg.ir)], ['EM idle', sg.emIdle && fmt(sg.emIdle)], ['EM maximum', sg.emMax && fmt(sg.emMax)], ['Cross section', sg.cross && fmt(sg.cross)]]),
     card('Crew and storage', [
       ['Crew', c.max && (c.min === c.max ? String(c.max) : `${c.min}–${c.max}`)], ['Gunners', c.weapon], ['Operators', c.operation],
-      ['Ejection seats', st.ejection], ['Escape pods', st.pods], ['Jump seats', st.jump], ['Beds', st.beds], ['Medical beds', st.medBeds], ['Medical tier', sp.medTier],
+      ['Ejection seats', st.ejection], ['Escape pods', st.pods], ['Jump seats', st.jump], ['Beds', st.beds], ['Medical beds', st.medBeds && (typeof st.medBeds === 'object' ? Object.entries(st.medBeds).sort((a, z) => z[0].localeCompare(a[0])).map(([t, n]) => `${n} × ${t}`).join(', ') : st.medBeds)], ['Medical tier', sp.medTier],
       ['Personal storage', sp.storage && `${fmt(sp.storage)} SCU`], ['Ore capacity', sp.ore && `${fmt(sp.ore)} SCU`],
     ]),
     card('Insurance', [['Claim time', ins.claim && mins(ins.claim)], ['Expedited claim', ins.expedite && mins(ins.expedite)], ['Expedite fee', ins.fee && `${fmt(ins.fee)} aUEC`]]),
@@ -375,12 +388,17 @@ function viewShip(e) {
   // The ship's price in the RSI store, one line: read from its store page when that worked (d.rsi),
   // else the wiki's most recent standalone listing (never a package), else the RSI MSRP.
   const listings = (d.store || []).filter((s) => s.standalone && !s.pack).sort((a, z) => (z.checked || '').localeCompare(a.checked || ''));
-  const wikiListing = listings.find((s) => s.available) || listings[0];
+  const wikiListing = listings.find((s) => s.available && !s.warbond) || listings.find((s) => s.available) || listings[0];
+  // The cheapest warbond on sale of the same listing ("Galaxy - 10 Year"), not a bundle with modules.
+  const wikiWarbond = wikiListing && !wikiListing.warbond
+    ? listings.filter((s) => s.warbond && s.available && s.title === wikiListing.title).sort((a, z) => a.usd - z.usd)[0]
+    : null;
   const fromRsi = d.rsi && (d.rsi.usd != null
     ? { usd: d.rsi.usd, available: d.rsi.available, url: d.rsi.url, checked: d.rsi.checked }
     : d.rsi.warbond && { usd: d.rsi.warbond.usd, available: d.rsi.warbond.available, warbond: true, url: d.rsi.warbond.url, checked: d.rsi.checked });
   // A warbond on sale now is a current store price too: shown beside the standalone one.
-  const warbondNow = d.rsi?.usd != null && d.rsi.warbond?.available ? { usd: d.rsi.warbond.usd, available: true, warbond: true, url: d.rsi.warbond.url, checked: d.rsi.checked } : null;
+  const warbondNow = d.rsi?.usd != null && d.rsi.warbond?.available ? { usd: d.rsi.warbond.usd, available: true, warbond: true, url: d.rsi.warbond.url, checked: d.rsi.checked }
+    : wikiWarbond && !(fromRsi && fromRsi.warbond) ? { usd: wikiWarbond.usd, available: true, warbond: true, url: wikiWarbond.url, checked: wikiWarbond.checked } : null;
   const price = fromRsi
     || (wikiListing
       ? { usd: wikiListing.discountedUsd || wikiListing.usd, available: wikiListing.available, warbond: wikiListing.warbond, url: wikiListing.url, checked: wikiListing.checked }
@@ -396,6 +414,7 @@ function viewShip(e) {
       ['Shield', d.shieldHp && fmt(Math.round(d.shieldHp))],
       ['Pilot DPS', d.pilotDps && fmt(Math.round(d.pilotDps))],
       ['Store price', price && h('span', null, usd(price.usd), price.warbond && [' ', warbondBadge.cloneNode(true)])],
+      ['Warbond', warbondNow && usd(warbondNow.usd)],
       ['In-game price', d.buy?.[0]?.price && auec(d.buy[0].price)],
       ['Status', d.status],
     ],
@@ -433,6 +452,12 @@ function viewShip(e) {
                 (price.warbond || warbondNow) && note('Warbond: a discounted offer that must be paid with new money (not store credit).'),
               ],
       ),
+      d.addons?.length > 0 && section('Add-ons (RSI store)',
+        table([['Add-on', ''], ['USD', 'num']], sortedBy(d.addons, (a) => a.name).map((a) => [
+          h('span', null, link(a.name, a.url), ' ', a.warbond && [h('span', { class: 'badge-warbond' }, 'WARBOND'), ' '], h('span', { class: 'dim' }, `· ${tr(a.available ? 'on sale' : 'off sale')}`)),
+          usd(a.usd),
+        ]), 't-price'),
+        note('Modules, pods and kits the RSI store sells for this ship, bought with real money.')),
       section('Buy in game (aUEC)', d.buy?.length ? shopsTable(d.buy) : note('Not sold in any in-game shop.')),
       d.rent?.length > 0 && section('Rent in game', shopsTable(d.rent)),
       d.wikelo?.length > 0 && wikeloSection(d),
@@ -1378,7 +1403,8 @@ function viewCommodity(e) {
         sells.length
           ? table(
               [['Location', ''], ['Pays / SCU', 'num'], ['Demand', '']],
-              sortedBy(sells, (l) => l.where).map((l) => [placeCell(l), auec(l.sell), demandMeter(l.inventory)]),
+              // From the best price down: where to sell first.
+              sells.map((l) => [placeCell(l), auec(l.sell), demandMeter(l.inventory)]),
             )
           : note('No terminal buys it.'),
       ),
@@ -1931,12 +1957,14 @@ const VIEWS = { item: viewItem, ship: viewShip, blueprint: viewBlueprint, missio
 // Pictures chosen by hand where the others are poor, shipped with the app (ship-photos/, about 640 px wide, WebP):
 // the entry's exact name → the file. They come before every other source.
 const SHIP_PHOTOS = {
-  'Drake Ironclad': 'drake-ironclad.webp',
+  // The wiki's only Hyun picture is the IAE 2956 poster: the ship, cut from it.
+  'Gatac Hyun': 'gatac-hyun.webp',
 };
 function imageFor(e) {
   const id = e.d.cstoneUrl?.split('/').pop();
   const own = SHIP_PHOTOS[e.n] && `ship-photos/${SHIP_PHOTOS[e.n]}`;
-  const urls = [own, id && `https://cstone.space/uifimages/${id}.png`, e.d.image, e.d.wikiImage].filter(Boolean);
+  // A ship shows the starcitizen.tools picture first; the others only when the wiki has none.
+  const urls = (e.t === 'ship' ? [own, e.d.wikiImage, id && `https://cstone.space/uifimages/${id}.png`, e.d.image] : [own, id && `https://cstone.space/uifimages/${id}.png`, e.d.image, e.d.wikiImage]).filter(Boolean);
   if (!urls.length) return null;
   const img = h('img', { class: 'detail-img', alt: '' });
   const state = urls.map(() => null); // null = pending, true = loaded, false = failed
@@ -1974,7 +2002,7 @@ function logoFor(e) {
 
 // The one or two facts worth reading first; they sit beside the name, the rest go in the grid below.
 const HEADLINE = {
-  item: ['Lowest price', 'UEX market price', 'DPS'],
+  item: ['Lowest price', 'Store price', 'UEX market price', 'DPS'],
   ship: ['Store price', 'Warbond', 'In-game price'],
   blueprint: ['Craft time'],
   mission: ['Reward', 'Cooldown'],
@@ -2071,6 +2099,7 @@ function paintCompare() {
     cmp.content.replaceChildren(h('div', { class: 'list' }, cmp.results.map((e, i) => h('button', { class: `row${i === cmp.idx ? ' active' : ''}`, onclick: () => pickCompare(i), onmousemove: () => { cmp.idx = i; markCompare(); } },
       h('span', { class: 'row-type' }, tr(TYPE_LABEL[e.t])),
       missileTags(e, 0),
+      newTag(e, 0),
       h('span', { class: 'row-name' }, e.n),
       h('span', { class: 'row-meta' }, missileMeta(e) || armorMeta(e) || e.s || ''),
       rowArrow(),
@@ -2220,7 +2249,7 @@ function renderDetail(e, opts = {}) {
         h(
           'div',
           { class: 'detail-top' },
-          h('span', { class: 'detail-type in' }, tr(TYPE_LABEL[e.t])),
+          h('span', { class: 'detail-type in' }, tr(TYPE_LABEL[e.t]), newTag(e, 0)),
           h('button', { class: 'back', onclick: opts.back || back }, 'Back ', h('kbd', null, 'ESC')),
         ),
         h('div', { class: 'detail-name in', delay: 40 }, e.n),
@@ -2270,6 +2299,11 @@ function missileInfo(e) {
   const size = parseInt(a.SIZE, 10) || (named ? romanValue(named[1]) : NaN);
   const bySuffix = { IR: 'Infrared', EM: 'Electromagnetic', CS: 'CrossSection' }[named?.[2]];
   return { size, seeker: MISSILE_SEEKER[a.TYPE] || MISSILE_SEEKER[bySuffix], attrs: a, classification: e.d?.classification };
+}
+// A mission the latest patch added: a green NEW tag, its tooltip naming the patch.
+function newTag(e, delay) {
+  if (e.t !== 'mission' || !e.d?.scm?.isNew) return null;
+  return h('span', { class: 'mtags in', delay }, h('span', { class: 'mtag mnew', title: tr('New in patch {v}', { v: e.d.scm.firstSeen }) }, tr('NEW')));
 }
 function missileTags(e, delay) {
   const m = missileInfo(e);
@@ -2326,13 +2360,15 @@ function renderList() {
       const d = Math.min(i, 12) * 45;
       const more = e.variantHits?.n > 1 ? tr(' · +{n} variants', { n: e.variantHits.n - 1 }) : '';
       // A header where a new kind starts (only in "all": a filter shows one kind anyway).
-      const header = type === 'all' && (i === 0 || results[i - 1].t !== e.t) && h('div', { class: 'group-head' }, tr(GROUP_LABEL[e.t]));
+      const kind = CompanionSearch.kindOf(e);
+      const header = type === 'all' && (i === 0 || CompanionSearch.kindOf(results[i - 1]) !== kind) && h('div', { class: 'group-head' }, tr(GROUP_LABEL[kind]));
       return [header, h(
         'button',
         { class: `row${i === idx ? ' active' : ''}`, onclick: () => open(i), onmousemove: () => setIdx(i, false) },
         h('div', { class: 'scan', delay: d }),
-        h('span', { class: 'row-type in', delay: d }, tr(TYPE_LABEL[e.t])),
+        h('span', { class: 'row-type in', delay: d }, tr(TYPE_LABEL[kind])),
         missileTags(e, d),
+        newTag(e, d),
         h('span', { class: 'row-name in', delay: d }, e.n),
         h('span', { class: 'row-meta in', delay: d }, `${missileMeta(e) || armorMeta(e) || e.s || ''}${more}`),
         rowArrow(),

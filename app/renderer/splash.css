@@ -14,7 +14,7 @@
 @font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url('fonts/barlow-condensed-latin-700-normal.woff2') format('woff2'); }
 :root {
   --accent: #5fd4e8;
-  --t: 5.2s;
+  --t: 2.6s; /* the whole timeline: twice the design's pace */
   --display: 'Chakra Petch', sans-serif;
   --mono: 'IBM Plex Mono', monospace;
   --accent-rgb: 95, 212, 232;
@@ -42,6 +42,7 @@
 .sp-lo circle { stroke: var(--mark-o); }
 .sp-l7 path { stroke: var(--accent); }
 html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: var(--mono); }
+html { zoom: 0.5; } /* the splash at half its designed size */
 body { display: flex; align-items: center; justify-content: center; }
 
 .sp-panel {

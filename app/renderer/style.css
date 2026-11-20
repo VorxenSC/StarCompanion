@@ -689,6 +689,8 @@ td.grade-col, th.grade-col { text-align: left; white-space: nowrap; }
 .wikelo-name { font: 600 14px var(--display); color: var(--accent); }
 .wikelo-rep { font: 600 10px/15px var(--mono); padding: 0 5px; border: 1px solid #ffd166; color: #ffd166; border-radius: 2px; text-transform: uppercase; }
 .mtags { flex: none; display: inline-flex; gap: 4px; margin-right: 10px; }
+.mnew { color: #8fe3a4; background: rgba(143, 227, 164, 0.14); }
+.detail-type .mtags { margin: 0 0 0 10px; vertical-align: 1px; }
 .mtag { display: inline-block; min-width: 30px; padding: 0 6px; text-align: center; border: 1px solid currentColor; border-radius: 2px; font: 700 11px/18px var(--mono); letter-spacing: 0.04em; }
 .msize { color: #7fdcff; background: rgba(127, 220, 255, 0.1); }
 .msize-3, .msize-4 { color: #8ff0b0; background: rgba(143, 240, 176, 0.1); }

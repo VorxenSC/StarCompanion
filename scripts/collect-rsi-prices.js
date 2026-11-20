@@ -67,6 +67,18 @@ async function main() {
     process.stdout.write(`\rRSI store pages: ship ${i + 1}/${ships.length}, ${prices.length} prices   `);
   }
   process.stdout.write('\n');
+  // A page that failed this run (RSI refusing for a while, a moved link) keeps the last run's price, with its day.
+  let kept = 0;
+  try {
+    const last = JSON.parse(fs.readFileSync(path.join(RAW_DIR, 'rsi-prices.json'), 'utf8'));
+    const have = new Set(prices.map((x) => x.name));
+    for (const old of last.prices || []) {
+      if (have.has(old.name)) continue;
+      prices.push({ ...old, checked: old.checked || (last.fetchedAt || '').slice(0, 10) });
+      kept++;
+    }
+  } catch { /* first run */ }
+  if (kept) console.log(`kept ${kept} prices from the last run`);
   writeRaw('rsi-prices.json', { source: 'https://robertsspaceindustries.com/en/store/pledge', fetchedAt: new Date().toISOString(), prices });
 }
 

@@ -138,13 +138,28 @@ function links(pairs) {
 // CRU-L5" → "Ship Weapons"). The same shop at the same place is one row, with the newest price; cstone's wording
 // wins, being the plainest.
 const flat = (s) => CompanionSearch.norm(s).replace(/ /g, '');
-const SHOP_SUBAREA = /^(retail bridges|galleria|plaza|shops|marketplace|io-north tower|hangar transit|sublevel \d+|cargo|service|teasa spaceport|cloudview center|the commons|refinery|mining support center|equipment rentals|admin|ship dealer|habs?|spaceport)$/i;
+const SHOP_SUBAREA = /^(retail bridges|retail plaza|galleria|plaza|shops|marketplace|io-north tower|hangar transit|sublevel \d+|cargo|cargo center|cargo services|service|supplies|equipment|teasa spaceport|cloudview center|the commons|refinery|mining support center|equipment rentals|admin|ship dealer|habs?|hangars&habs|spaceport|food court|main concourse|workers district|stratus|medical unit|medical clinic|clinic)$/i;
 const LPOINT = /\b[A-Z]{3}\d?-L\d\b/i;
+// Planets, moons and stars: a shop's body, never its place (Area18 and Baijini Point are both on ArcCorp).
+let bodyNames = null;
+let bodyFrom = null;
+function bodies() {
+  if (bodyFrom !== dbEntries) {
+    bodyFrom = dbEntries;
+    bodyNames = new Set(dbEntries.filter((x) => x.t === 'location' && /^(Planet|Moon|Star)$/.test(x.d?.type || '')).map((x) => flat(x.n)));
+  }
+  return bodyNames;
+}
+const GENERIC_SHOP = /^(ship shop|ship rentals?|shop_terminal|shop terminal|store)$/i;
 function shopPlace(s) {
-  const parts = String(s.where || '').split(' - ').map((p) => p.trim()).filter(Boolean);
-  if (parts.length < 2) return { label: s.where || '', system: '', place: flat(s.where), shop: flat(s.where), brand: '' };
-  const last = parts[parts.length - 1];
-  const middle = parts.slice(1, -1).filter((p) => !SHOP_SUBAREA.test(p));
+  const parts = String(s.where || '').split(' - ').map((x) => x.trim()).filter(Boolean);
+  // cstone's gateways: "Stanton > Pyro Jump Point" is in Stanton.
+  if (parts[0]) parts[0] = parts[0].replace(/\s*>.*$/, '');
+  if (parts.length < 2) return { label: s.where || '', system: '', keys: [flat(s.where)], shop: flat(s.where), brand: '' };
+  let last = parts[parts.length - 1].replace(/^shop[_ ]terminal$/i, 'Shop');
+  const middle = parts.slice(1, -1).filter((x) => !SHOP_SUBAREA.test(x));
+  // "Teach's ship shop - Ship Shop": the generic name gives way to the brand before it.
+  if (GENERIC_SHOP.test(last) && middle.length > 1 && /'s\b|shop|store/i.test(middle[middle.length - 1])) last = middle.pop();
   // The shop's own name, without the place it repeats, as long as two words remain.
   const words = last.split(/\s+/);
   let shop = last;
@@ -152,19 +167,23 @@ function shopPlace(s) {
     const tail = words.slice(n).join(' ');
     if (tail.length >= 3 && !/^\d+$/.test(tail) && middle.some((m) => new RegExp(`(^|\\s)${tail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`, 'i').test(m))) { shop = words.slice(0, n).join(' '); break; }
   }
-  // The place: a Lagrange station by its point (CRU-L5), else the city or station under the planet.
-  const lp = parts.map((p) => (p.match(LPOINT) || [])[0]).find(Boolean);
-  const below = parts.length >= 4 ? middle.slice(1) : middle;
+  // The place: every part that is not a planet, moon or star; a Lagrange station by its point (CRU-L5).
+  const lp = parts.map((x) => (x.match(LPOINT) || [])[0]).find(Boolean);
+  const own = middle.map((m) => flat(m.replace(/\s*\([^)]*\)$/, ''))).filter((k) => k && !bodies().has(k));
+  const keys = [...new Set([...(lp ? [flat(lp)] : []), ...own])];
   return {
     label: [parts[0], ...middle, shop].join(' - '),
     system: flat(parts[0]),
-    place: lp ? flat(lp) : flat(below[0] || middle[0] || ''),
+    lp: lp ? flat(lp) : null,
+    keys: keys.length ? keys : middle.map(flat),
     shop: flat(shop),
-    brand: flat(CompanionSearch.norm(shop).split(' ')[0]),
+    brand: flat(shop.replace(/_/g, ' ').split(/\s+/)[0]),
   };
 }
-const sameShop = (x, y) => x.system === y.system && x.place === y.place && x.shop && y.shop
-  && (x.shop.includes(y.shop) || y.shop.includes(x.shop) || (x.brand.length >= 4 && x.brand === y.brand));
+const samePlace = (x, y) => (x.lp && y.lp ? x.lp === y.lp : true) && x.keys.some((a) => y.keys.some((b) => a === b || (Math.min(a.length, b.length) >= 5 && (a.startsWith(b) || b.startsWith(a)))));
+const sharedStart = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i; };
+const sameShop = (x, y) => x.system === y.system && samePlace(x, y) && x.shop && y.shop
+  && (x.shop.includes(y.shop) || y.shop.includes(x.shop) || (x.brand.length >= 4 && x.brand === y.brand) || sharedStart(x.shop, y.shop) >= 6);
 function dedupeShops(shops) {
   const kept = [];
   for (const s of shops) {
@@ -345,7 +364,7 @@ function shipSpecCards(sp) {
     ]),
     card('Signatures', [['Infrared', sg.ir && fmt(sg.ir)], ['EM idle', sg.emIdle && fmt(sg.emIdle)], ['EM maximum', sg.emMax && fmt(sg.emMax)], ['Cross section', sg.cross && fmt(sg.cross)]]),
     card('Crew and storage', [
-      ['Crew', c.max && (c.min === c.max ? String(c.max) : `${c.min}–${c.max}`)], ['Gunners', c.weapon], ['Operators', c.operation],
+      ['Crew', c.max && (c.min === c.max ? String(c.max) : `${Math.min(c.min, c.max)}–${Math.max(c.min, c.max)}`)], ['Gunners', c.weapon], ['Operators', c.operation],
       ['Ejection seats', st.ejection], ['Escape pods', st.pods], ['Jump seats', st.jump], ['Beds', st.beds], ['Medical beds', st.medBeds && (typeof st.medBeds === 'object' ? Object.entries(st.medBeds).sort((a, z) => z[0].localeCompare(a[0])).map(([t, n]) => `${n} × ${t}`).join(', ') : st.medBeds)], ['Medical tier', sp.medTier],
       ['Personal storage', sp.storage && `${fmt(sp.storage)} SCU`], ['Ore capacity', sp.ore && `${fmt(sp.ore)} SCU`],
     ]),
@@ -407,7 +426,7 @@ function viewShip(e) {
   return {
     facts: [
       ['Size', [d.size, d.sizeClass && `class ${d.sizeClass}`].filter(Boolean).join(' · ')],
-      ['Crew', d.crew && (d.crew.min === d.crew.max ? d.crew.min : `${d.crew.min}–${d.crew.max}`)],
+      ['Crew', d.crew && (d.crew.min === d.crew.max ? d.crew.min : `${Math.min(d.crew.min, d.crew.max)}–${Math.max(d.crew.min, d.crew.max)}`)],
       ['Cargo', d.cargo != null && `${fmt(d.cargo)} SCU`],
       ['Speed', d.speed && `SCM ${fmt(d.speed.scm)} · max ${fmt(d.speed.max)}`],
       ['Hull', d.health && fmt(Math.round(d.health))],
@@ -940,9 +959,17 @@ const rankCell = (r) => (r ? h('span', { title: r.min != null ? tr('{n} reputati
 function viewBlueprint(e) {
   const d = e.d;
   const mins = Math.round((d.craftTime || 0) / 60);
+  // Each mission once: the source can list the same contract twice.
+  const seenMission = new Set();
+  const missions = (d.missions || []).filter((m) => {
+    const k = JSON.stringify([m.name, m.factions, m.kinds, m.systems, m.chance, m.internal]);
+    if (seenMission.has(k)) return false;
+    seenMission.add(k);
+    return true;
+  });
   // Real missions first; the game's reward tables (no mission a player sees) come after, without a link.
-  const real = d.missions.filter((m) => !m.internal);
-  const tables = d.missions.filter((m) => m.internal);
+  const real = missions.filter((m) => !m.internal);
+  const tables = missions.filter((m) => m.internal);
   const best = real[0];
   const kinds = (m) => (m.kinds || []).map((k) => tr(k)).join(', ');
   return {
